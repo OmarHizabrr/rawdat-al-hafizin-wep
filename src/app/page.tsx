@@ -203,7 +203,7 @@ function GuestView() {
         <motion.div variants={item} className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/login"
-            className="px-8 py-4 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/25 hover:scale-105 transition-transform flex items-center gap-2"
+            className="px-8 py-4 rounded-xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/25 hover:scale-105 transition-transform flex items-center gap-2"
           >
             <LogIn className="w-5 h-5" />
             <span>تسجيل الدخول</span>

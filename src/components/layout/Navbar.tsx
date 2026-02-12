@@ -122,7 +122,7 @@ export function Navbar() {
                     ) : (
                         <Link
                             href="/login"
-                            className="px-5 py-2 rounded-full bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
+                            className="px-5 py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
                         >
                             تسجيل الدخول
                         </Link>
