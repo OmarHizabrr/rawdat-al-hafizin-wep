@@ -39,8 +39,26 @@ export function Navbar() {
         // { name: "السجلات", href: "/records", icon: FileText },
     ];
 
-    if (userData?.role === 'admin') {
+    if (userData?.role === 'admin' || userData?.role === 'committee') {
         navItems.push({ name: "الإدارة", href: "/admin", icon: ShieldCheck });
+    } else if (userData?.role === 'teacher') {
+        navItems.push({ name: "لوحة المعلم", href: "/teachers", icon: GraduationCap });
+    } else if (userData?.role === 'pending') {
+        // Redirect to access code if pending and trying to access other pages
+        // This logic might be better in a protected route wrapper, but for navbar we can show a specific item
+        return (
+            <nav className="fixed left-4 right-4 top-4 z-50 mx-auto max-w-7xl rounded-2xl border border-white/20 bg-white/70 px-6 py-3 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-black/60 transition-all">
+                <div className="flex items-center justify-between">
+                    <Link href="/" className="flex items-center gap-2">
+                        <BookOpen className="h-6 w-6 text-primary" />
+                        <span className="text-xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent hidden sm:block">
+                            روضة الحافظين
+                        </span>
+                    </Link>
+                    <button onClick={() => signOut()}>تسجيل الخروج</button>
+                </div>
+            </nav>
+        );
     }
 
     return (

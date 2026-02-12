@@ -12,6 +12,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 // });
 
 import { AuthProvider } from "@/lib/auth-context";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "بوابتك لتعليم وتحفيظ القرآن والسنة",
@@ -29,20 +30,27 @@ export default function RootLayout({
         className={`${inter.variable} font-sans min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary`}
       >
         <AuthProvider>
-          <div className="relative flex min-h-screen flex-col">
-            {/* Background Gradients */}
-            <div className="fixed inset-0 -z-10 h-full w-full bg-background">
-              <div className="absolute left-[20%] top-[-10%] h-[500px] w-[500px] rounded-full bg-primary/20 blur-[120px]" />
-              <div className="absolute right-[20%] bottom-[-10%] h-[500px] w-[500px] rounded-full bg-purple-500/20 blur-[120px]" />
-            </div>
-
-            <Navbar />
-            <main className="flex-1 pt-24 pb-12 px-6">
-              <div className="mx-auto max-w-7xl">
-                {children}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <div className="relative flex min-h-screen flex-col">
+              {/* Background Gradients */}
+              <div className="fixed inset-0 -z-10 h-full w-full bg-background transition-colors duration-300">
+                <div className="absolute left-[20%] top-[-10%] h-[500px] w-[500px] rounded-full bg-primary/20 blur-[120px]" />
+                <div className="absolute right-[20%] bottom-[-10%] h-[500px] w-[500px] rounded-full bg-purple-500/20 blur-[120px]" />
               </div>
-            </main>
-          </div>
+
+              <Navbar />
+              <main className="flex-1 pt-24 pb-12 px-6">
+                <div className="mx-auto max-w-7xl">
+                  {children}
+                </div>
+              </main>
+            </div>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

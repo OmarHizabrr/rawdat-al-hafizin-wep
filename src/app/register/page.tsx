@@ -7,7 +7,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { motion } from "framer-motion";
 import { User, Phone, FileText, Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function RegisterPage() {
@@ -19,9 +19,9 @@ export default function RegisterPage() {
     const [formData, setFormData] = useState({
         displayName: "",
         phoneNumber: "",
-        role: "student", // default role
+        role: "pending", // Default to pending until access code verification
         bio: "",
-        password: "", // Add password field for phone auth registration
+        password: "",
         confirmPassword: ""
     });
 
@@ -45,19 +45,6 @@ export default function RegisterPage() {
             setIsLoading(true);
             setError("");
 
-            // Note: In a real app we would create the user in Firebase Auth here.
-            // Since we are simulating the "Phone+Password" flow from the Flutter app which uses Firestore directly (apparently),
-            // we will create the document in the 'users' collection.
-
-            // Generate a random ID for the new user (since we aren't using Firebase Auth for creation)
-            // OR better, we should use Firebase Auth if possible.
-            // But the Context implies we might be using mixed mode.
-            // Let's assume for now we are creating a "Request" or just a direct user entry for simplicity, 
-            // mirroring the logic of "completing profile" if user exists in Auth but not Firestore?
-            // Actually, if this is a NEW registration, we should establish a pattern.
-            // The Flutter App seems to use Google Sign In primarily, or Phone+Password where password is stored in Firestore.
-
-            // Let's create a new document ID
             const newUserId = doc(collection(db, "users")).id;
 
             await setDoc(doc(db, "users", newUserId), {
@@ -67,16 +54,17 @@ export default function RegisterPage() {
                 phoneNumberNormalized: formData.phoneNumber.replace(/[^\d+]/g, ""),
                 role: formData.role,
                 bio: formData.bio,
-                password: formData.password, // WARNING: Storing plaintext password to match Flutter's apparent logic (based on reading). Verify this!
+                password: formData.password, // Note: Encryption recommended in production
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 isActive: true,
-                email: "", // Optional for phone auth
-                photoURL: ""
+                email: "",
+                photoURL: "",
+                accessCodeVerifiedAt: null
             });
 
-            // Redirect to login
-            router.push("/login");
+            // Redirect to access code page
+            router.push("/access-code");
 
         } catch (err: any) {
             console.error(err);
@@ -85,9 +73,6 @@ export default function RegisterPage() {
             setIsLoading(false);
         }
     };
-
-    // Need to import collection for the above to work
-    // Wait, I can't import `collection` inside the component. I need to update imports.
 
     return (
         <div className="flex min-h-[80vh] items-center justify-center p-4">
@@ -140,19 +125,6 @@ export default function RegisterPage() {
                                     required
                                 />
                             </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">الدور</label>
-                            <select
-                                name="role"
-                                value={formData.role}
-                                onChange={handleChange}
-                                className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                            >
-                                <option value="student" className="bg-gray-800">طالب</option>
-                                <option value="teacher" className="bg-gray-800">معلم</option>
-                            </select>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -218,6 +190,3 @@ export default function RegisterPage() {
         </div>
     );
 }
-
-// Helper to fix the collection import issue in the compiled file (will need to correct imports at top)
-import { collection } from "firebase/firestore";
