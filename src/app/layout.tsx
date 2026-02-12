@@ -15,8 +15,29 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
-  title: "بوابتك لتعليم وتحفيظ القرآن والسنة",
-  description: "نظام إدارة حلقات تحفيظ القرآن الكريم والسنة النبوية",
+  title: "روضة الحافظين | Rawdat Al-Hafizin",
+  description: "منصة متكاملة لإدارة حلقات تحفيظ القرآن الكريم والسنة النبوية.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
+  openGraph: {
+    title: "روضة الحافظين | Rawdat Al-Hafizin",
+    description: "منصة متكاملة لإدارة حلقات تحفيظ القرآن الكريم والسنة النبوية.",
+    url: "https://qursunnah-wep.vercel.app",
+    siteName: "Rawdat Al-Hafizin",
+    images: [
+      {
+        url: "/logo.png",
+        width: 800,
+        height: 600,
+        alt: "Rawdat Al-Hafizin Logo",
+      },
+    ],
+    locale: "ar_SA",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
