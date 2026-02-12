@@ -14,8 +14,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
-  title: "روضة الحافظين",
-  description: "نظام إدارة حلقات تحفيظ القرآن الكريم",
+  title: "بوابتك لتعليم وتحفيظ القرآن والسنة",
+  description: "نظام إدارة حلقات تحفيظ القرآن الكريم والسنة النبوية",
 };
 
 export default function RootLayout({

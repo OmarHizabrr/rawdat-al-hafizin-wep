@@ -53,9 +53,9 @@ export default function Home() {
       <section className="text-center py-12">
         <motion.h1
           variants={item}
-          className="text-4xl md:text-6xl font-extrabold bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent mb-4"
+          className="text-4xl font-bold tracking-tight sm:text-6xl bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent"
         >
-          نظام روضة الحافظين
+          بوابتك لتعليم وتحفيظ القرآن والسنة
         </motion.h1>
         <motion.p variants={item} className="text-xl text-muted-foreground max-w-2xl mx-auto">
           منصة متكاملة لإدارة حلقات تحفيظ القرآن الكريم، تهدف إلى تسهيل المتابعة وتحسين الأداء.

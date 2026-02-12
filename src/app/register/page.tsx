@@ -98,8 +98,8 @@ export default function RegisterPage() {
                 className="w-full max-w-lg"
             >
                 <div className="mb-6 text-center">
-                    <h1 className="text-3xl font-bold">إنشاء حساب جديد</h1>
-                    <p className="mt-2 text-muted-foreground">انضم إلى روضة الحافظين</p>
+                    <h1 className="text-3xl font-bold">بوابتك لتعليم وتحفيظ القرآن والسنة</h1>
+                    <p className="mt-2 text-muted-foreground">انضم إلينا الآن</p>
                 </div>
 
                 <GlassCard className="p-8">
