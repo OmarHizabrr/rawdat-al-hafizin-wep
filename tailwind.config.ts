@@ -16,7 +16,7 @@ const config: Config = {
         },
         extend: {
             fontFamily: {
-                sans: ["var(--font-noto-kufi)", "var(--font-inter)", "sans-serif"],
+                sans: ["var(--font-cairo)", "var(--font-inter)", "sans-serif"],
             },
             colors: {
                 border: "hsl(var(--border))",

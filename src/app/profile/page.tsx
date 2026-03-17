@@ -14,7 +14,8 @@ import {
     Camera,
     Save,
     Loader2,
-    ArrowRight
+    ArrowRight,
+    Lock
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -28,6 +29,7 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState({
         displayName: "",
         phoneNumber: "",
+        password: "",
         bio: "",
         photoURL: ""
     });
@@ -37,6 +39,7 @@ export default function ProfilePage() {
             setFormData({
                 displayName: user.displayName || userData.displayName || "",
                 phoneNumber: userData.phoneNumber || "",
+                password: userData.password || "",
                 bio: userData.bio || "",
                 photoURL: user.photoURL || userData.photoURL || ""
             });
@@ -89,6 +92,7 @@ export default function ProfilePage() {
             await updateDoc(doc(db, "users", user.uid), {
                 displayName: formData.displayName,
                 phoneNumber: formData.phoneNumber,
+                password: formData.password,
                 bio: formData.bio,
                 photoURL: formData.photoURL
             });
@@ -175,6 +179,23 @@ export default function ProfilePage() {
                             className="w-full p-3 rounded-xl border bg-gray-50 dark:bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all dir-ltr text-right"
                             placeholder="+963..."
                         />
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                            <Lock className="w-4 h-4 text-primary" />
+                            كلمة المرور (للدخول برقم الهاتف)
+                        </label>
+                        <input
+                            type="password"
+                            value={formData.password}
+                            onChange={(e) => handleChange('password', e.target.value)}
+                            className="w-full p-3 rounded-xl border bg-gray-50 dark:bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                            placeholder="••••••"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1 text-right">
+                            * اختياري: إذا أردت الدخول لاحقاً برقم الهاتف فقط، يجب تعيين كلمة مرور.
+                        </p>
                     </div>
 
                     <div className="space-y-1">

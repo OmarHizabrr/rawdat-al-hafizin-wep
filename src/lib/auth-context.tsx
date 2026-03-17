@@ -6,7 +6,9 @@ import {
     GoogleAuthProvider,
     signInWithPopup,
     signOut as firebaseSignOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    signInWithEmailAndPassword as firebaseSignInWithEmail,
+    createUserWithEmailAndPassword
 } from "firebase/auth";
 import {
     collection,
@@ -25,6 +27,8 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithEmail: (email: string, password: string) => Promise<void>;
+    registerWithEmail: (email: string, password: string, displayName: string, phone: string) => Promise<void>;
     signInWithPhonePassword: (phone: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
     userData: any | null;
@@ -87,6 +91,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (error) {
             console.error("Google Sign In Error:", error);
+            throw error;
+        }
+    };
+
+    const signInWithEmail = async (email: string, password: string) => {
+        try {
+            await firebaseSignInWithEmail(auth, email, password);
+            // userData and user will be handled by onAuthStateChanged
+        } catch (error) {
+            console.error("Email Sign In Error:", error);
+            throw error;
+        }
+    };
+
+    const registerWithEmail = async (email: string, password: string, displayName: string, phoneNumber: string) => {
+        try {
+            const result = await createUserWithEmailAndPassword(auth, email, password);
+            const user = result.user;
+
+            const userRef = doc(db, "users", user.uid);
+            await setDoc(userRef, {
+                uid: user.uid,
+                email: user.email,
+                displayName: displayName,
+                photoURL: "",
+                phoneNumber: phoneNumber || "",
+                password: password, // Storing password for phone login fallback as requested
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                isActive: true,
+                role: "pending", 
+                authProvider: "email"
+            });
+        } catch (error) {
+            console.error("Email Registration Error:", error);
             throw error;
         }
     };
@@ -207,7 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [loading]);
 
     return (
-        <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithPhonePassword, signOut, userData }}>
+        <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithEmail, registerWithEmail, signInWithPhonePassword, signOut, userData }}>
             {children}
         </AuthContext.Provider>
     );

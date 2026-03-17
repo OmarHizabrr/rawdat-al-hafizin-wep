@@ -12,12 +12,13 @@ import { db } from "@/lib/firebase";
 
 export default function RegisterPage() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, registerWithEmail } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
 
     const [formData, setFormData] = useState({
         displayName: "",
+        email: "",
         phoneNumber: "",
         role: "pending", // Default to pending until access code verification
         bio: "",
@@ -31,8 +32,8 @@ export default function RegisterPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.displayName || !formData.phoneNumber || !formData.password) {
-            setError("Please fill in all required fields");
+        if (!formData.displayName || !formData.email || !formData.phoneNumber || !formData.password) {
+            setError("Please fill in all required fields (Name, Email, Phone, Password)");
             return;
         }
 
@@ -45,23 +46,7 @@ export default function RegisterPage() {
             setIsLoading(true);
             setError("");
 
-            const newUserId = doc(collection(db, "users")).id;
-
-            await setDoc(doc(db, "users", newUserId), {
-                uid: newUserId,
-                displayName: formData.displayName,
-                phoneNumber: formData.phoneNumber,
-                phoneNumberNormalized: formData.phoneNumber.replace(/[^\d+]/g, ""),
-                role: formData.role,
-                bio: formData.bio,
-                password: formData.password, // Note: Encryption recommended in production
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                isActive: true,
-                email: "",
-                photoURL: "",
-                accessCodeVerifiedAt: null
-            });
+            await registerWithEmail(formData.email, formData.password, formData.displayName, formData.phoneNumber);
 
             // Redirect to access code page
             router.push("/access-code");
@@ -105,6 +90,23 @@ export default function RegisterPage() {
                                     onChange={handleChange}
                                     className="w-full rounded-xl border border-white/10 bg-black/20 p-3 pr-10 text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                                     placeholder="الاسم الثلاثي"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">البريد الإلكتروني</label>
+                            <div className="relative">
+                                <FileText className="absolute right-3 top-3 h-5 w-5 text-muted-foreground" />
+                                <input
+                                    name="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    className="w-full rounded-xl border border-white/10 bg-black/20 p-3 pr-10 text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                    placeholder="example@example.com"
+                                    dir="ltr"
                                     required
                                 />
                             </div>

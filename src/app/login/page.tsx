@@ -11,9 +11,12 @@ import { clsx } from "clsx";
 
 export default function LoginPage() {
     const router = useRouter();
-    const { signInWithGoogle, signInWithPhonePassword, user } = useAuth();
+    const { signInWithGoogle, signInWithPhonePassword, signInWithEmail, user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
-    const [method, setMethod] = useState<"options" | "phone">("options");
+    const [method, setMethod] = useState<"options" | "phone" | "email">("options");
+
+    // Email Login State
+    const [email, setEmail] = useState("");
 
     // Phone Login State
     const [phone, setPhone] = useState("");
@@ -49,6 +52,26 @@ export default function LoginPage() {
         } catch (err: any) {
             console.error(err);
             setError(err.message || "فشل تسجيل الدخول");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleEmailLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email || !password) {
+            setError("يرجى إدخال البريد الإلكتروني وكلمة المرور");
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            setError("");
+            await signInWithEmail(email, password);
+            router.push("/");
+        } catch (err: any) {
+            console.error(err);
+            setError(err.message || "فشل تسجيل الدخول بالبريد الإلكتروني");
         } finally {
             setIsLoading(false);
         }
@@ -114,6 +137,14 @@ export default function LoginPage() {
                                     </span>
                                 </div>
                             </div>
+                            
+                            <button
+                                onClick={() => setMethod("email")}
+                                className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/20 bg-white/5 p-4 font-medium text-white transition-colors hover:bg-white/10 active:bg-white/5"
+                            >
+                                <Lock className="h-5 w-5" />
+                                الدخول بالبريد الإلكتروني
+                            </button>
 
                             <button
                                 onClick={() => setMethod("phone")}
@@ -123,6 +154,67 @@ export default function LoginPage() {
                                 الدخول برقم الهاتف
                             </button>
                         </div>
+                    ) : method === "email" ? (
+                        <form onSubmit={handleEmailLogin} className="space-y-4">
+                            <div className="flex items-center gap-2 mb-6">
+                                <button
+                                    type="button"
+                                    onClick={() => { setMethod("options"); setError(""); }}
+                                    className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </button>
+                                <h2 className="text-xl font-bold">الدخول بالبريد الإلكتروني</h2>
+                            </div>
+
+                            {error && (
+                                <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-500 text-center">
+                                    {error}
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-muted-foreground">البريد الإلكتروني</label>
+                                <div className="relative">
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-white placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        placeholder="example@example.com"
+                                        dir="ltr"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-muted-foreground">كلمة المرور</label>
+                                <div className="relative">
+                                    <Lock className="absolute right-3 top-3 h-5 w-5 text-muted-foreground" />
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full rounded-xl border border-white/10 bg-black/20 p-3 pr-10 text-white placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        placeholder="••••••"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full rounded-xl bg-gradient-to-r from-primary to-purple-600 p-4 font-bold text-white shadow-lg shadow-primary/25 transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70"
+                            >
+                                {isLoading ? (
+                                    <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                                ) : (
+                                    "تسجيل الدخول"
+                                )}
+                            </button>
+                        </form>
                     ) : (
                         <form onSubmit={handlePhoneLogin} className="space-y-4">
                             <div className="flex items-center gap-2 mb-6">
