@@ -9,6 +9,7 @@ import {
     onSnapshot,
     doc,
     setDoc,
+    updateDoc,
     deleteDoc,
     getDoc,
     getDocs,
@@ -30,10 +31,14 @@ import {
     Briefcase,
     User,
     CheckSquare,
-    Square
+    Square,
+    ChevronDown,
+    ShieldAlert,
+    UserCog
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { EliteDialog } from "@/components/ui/EliteDialog";
 
 interface MemberModel {
     id: string; // userId
@@ -72,6 +77,21 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
     // Multi-selection state
     const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
+    // Dialog state
+    const [dialogConfig, setDialogConfig] = useState<{
+        isOpen: boolean;
+        type: 'danger' | 'warning' | 'info' | 'success';
+        title: string;
+        description: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        type: 'info',
+        title: '',
+        description: '',
+        onConfirm: () => {}
+    });
+
     // 1. Fetch Group Info & Current Members
     useEffect(() => {
         if (!groupId) return;
@@ -104,7 +124,6 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         const fetchAvailable = async () => {
             setLoadingAvailable(true);
             try {
-                // Fetch up to 100 users for the chosen role
                 const q = query(
                     collection(db, "users"),
                     where("role", "==", searchRole),
@@ -120,10 +139,10 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
             }
         };
         fetchAvailable();
-        setSelectedUserIds(new Set()); // Reset selection when role changes
+        setSelectedUserIds(new Set());
     }, [searchRole]);
 
-    // 3. Filter users who are NOT yet members and match search term
+    // 3. Candidates Filter
     const candidates = useMemo(() => {
         const memberIds = new Set(members.map(m => m.id));
         return availableUsers.filter(u => {
@@ -162,7 +181,7 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                     displayName: user.displayName,
                     email: user.email,
                     photoURL: user.photoURL || "",
-                    role: user.role,
+                    role: user.role, // Initial role set from their global role
                     addedAt: serverTimestamp()
                 });
             });
@@ -178,16 +197,49 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         }
     };
 
-    const removeMember = async (userId: string) => {
-        if (!confirm("هل أنت متأكد من إزالة هذا العضو من المجموعة؟")) return;
+    const updateMemberRole = async (userId: string, newRole: string) => {
         setActionLoading(userId);
         try {
-            await deleteDoc(doc(db, "members", groupId, "members", userId));
+            await updateDoc(doc(db, "members", groupId, "members", userId), {
+                role: newRole
+            });
+            setDialogConfig({ ...dialogConfig, isOpen: false });
         } catch (error) {
-            console.error("Remove member error:", error);
+            console.error("Error updating role:", error);
         } finally {
             setActionLoading(null);
         }
+    };
+
+    const confirmRemoveMember = (member: MemberModel) => {
+        setDialogConfig({
+            isOpen: true,
+            type: 'danger',
+            title: "إزالة عضو",
+            description: `هل أنت متأكد من إزالة ${member.displayName} من هذه المجموعة؟ لن تظهر بياناته هنا مجدداً.`,
+            onConfirm: async () => {
+                setActionLoading(member.id);
+                try {
+                    await deleteDoc(doc(db, "members", groupId, "members", member.id));
+                    setDialogConfig(prev => ({ ...prev, isOpen: false }));
+                } catch (error) {
+                    console.error("Delete error:", error);
+                } finally {
+                    setActionLoading(null);
+                }
+            }
+        });
+    };
+
+    const confirmChangeRole = (member: MemberModel, newRole: string) => {
+        const labels: any = { admin: 'مشرف مجموعة', teacher: 'معلم مجموعة', student: 'طالب' };
+        setDialogConfig({
+            isOpen: true,
+            type: 'warning',
+            title: "تغيير صلاحية",
+            description: `هل تريد تغيير دور ${member.displayName} داخل هذه المجموعة إلى "${labels[newRole]}"؟ لن يتأثر حسابه العام بهذا الإجراء.`,
+            onConfirm: () => updateMemberRole(member.id, newRole)
+        });
     };
 
     const staffMembers = members.filter(m => m.role === 'teacher' || m.role === 'admin');
@@ -225,7 +277,7 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
             </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
-                {/* Left: Candidates Section (Multi-Selection) */}
+                {/* Left: Candidates Section */}
                 <div className="lg:col-span-1 space-y-6">
                     <GlassCard className="p-6 relative">
                         <div className="flex items-center justify-between mb-4">
@@ -266,17 +318,10 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                             />
                         </div>
 
-                        {/* Candidate list with Multi-Select */}
                         <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1 mb-6">
                             <div className="flex items-center justify-between px-3 py-2 text-xs border-b border-gray-100 dark:border-white/5 mb-2 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
-                                <button 
-                                    onClick={toggleSelectAll}
-                                    className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
-                                >
-                                    {selectedUserIds.size === candidates.length && candidates.length > 0
-                                        ? <CheckSquare className="w-4 h-4 text-primary" />
-                                        : <Square className="w-4 h-4" />
-                                    }
+                                <button onClick={toggleSelectAll} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+                                    {selectedUserIds.size === candidates.length && candidates.length > 0 ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
                                     <span>تحديد الكل</span>
                                 </button>
                                 <span>{selectedUserIds.size} مختار</span>
@@ -289,22 +334,14 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                     key={user.id}
                                     onClick={() => toggleSelect(user.id)}
                                     className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all group ${
-                                        selectedUserIds.has(user.id)
-                                            ? 'bg-primary/5 border-primary ring-1 ring-primary/20'
-                                            : 'bg-gray-50 dark:bg-white/5 border-transparent hover:border-primary/20'
+                                        selectedUserIds.has(user.id) ? 'bg-primary/5 border-primary ring-1 ring-primary/20' : 'bg-gray-50 dark:bg-white/5 border-transparent hover:border-primary/20'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
                                             selectedUserIds.has(user.id) ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
                                         }`}>
-                                            {selectedUserIds.has(user.id) ? (
-                                                <CheckSquare className="w-5 h-5" />
-                                            ) : user.photoURL ? (
-                                                <img src={user.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
-                                            ) : (
-                                                (user.displayName?.[0] || "?").toUpperCase()
-                                            )}
+                                            {selectedUserIds.has(user.id) ? <CheckSquare className="w-5 h-5" /> : (user.photoURL ? <img src={user.photoURL} alt="" className="w-full h-full rounded-full object-cover" /> : (user.displayName?.[0] || "?").toUpperCase())}
                                         </div>
                                         <div className="text-right min-w-0">
                                             <p className="text-sm font-bold truncate">{user.displayName}</p>
@@ -314,21 +351,13 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                     {!selectedUserIds.has(user.id) && <Square className="w-4 h-4 text-gray-300 dark:text-white/10" />}
                                 </button>
                             ))}
-
-                            {!loadingAvailable && candidates.length === 0 && (
-                                <div className="text-center py-20 text-muted-foreground space-y-2">
-                                    <Users className="w-12 h-12 mx-auto opacity-10" />
-                                    <p className="text-sm">لا يوجد {getRoleLabel(searchRole)} متاحون للإضافة حالياً</p>
-                                </div>
-                            )}
                         </div>
 
-                        {/* Bulk Action Button */}
                         <div className="sticky bottom-0 bg-background pt-4 border-t">
                             <button
                                 onClick={addSelectedMembers}
                                 disabled={selectedUserIds.size === 0 || bulkLoading}
-                                className="w-full py-4 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0"
+                                className="w-full py-4 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40"
                             >
                                 {bulkLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
                                 <span>إضافة {selectedUserIds.size > 0 ? `(${selectedUserIds.size}) أعضاء` : "المحددين"}</span>
@@ -352,7 +381,8 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                 <MemberCard 
                                     key={member.id} 
                                     member={member} 
-                                    onRemove={removeMember} 
+                                    onRemove={() => confirmRemoveMember(member)} 
+                                    onChangeRole={(r) => confirmChangeRole(member, r)}
                                     loading={actionLoading === member.id}
                                     icon={getRoleIcon(member.role)}
                                     label={getRoleLabel(member.role)}
@@ -379,7 +409,8 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                 <MemberCard 
                                     key={member.id} 
                                     member={member} 
-                                    onRemove={removeMember} 
+                                    onRemove={() => confirmRemoveMember(member)} 
+                                    onChangeRole={(r) => confirmChangeRole(member, r)}
                                     loading={actionLoading === member.id}
                                     label="طالب"
                                 />
@@ -393,52 +424,86 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                     </div>
                 </div>
             </div>
+
+            {/* Elite Dialog */}
+            <EliteDialog 
+                isOpen={dialogConfig.isOpen}
+                onClose={() => setDialogConfig({ ...dialogConfig, isOpen: false })}
+                onConfirm={dialogConfig.onConfirm}
+                title={dialogConfig.title}
+                description={dialogConfig.description}
+                type={dialogConfig.type}
+                loading={actionLoading !== null}
+            />
         </div>
     );
 }
 
-function MemberCard({ member, onRemove, loading, icon, label }: { 
+function MemberCard({ member, onRemove, onChangeRole, loading, icon, label }: { 
     member: MemberModel, 
-    onRemove: (id: string) => void, 
+    onRemove: () => void, 
+    onChangeRole: (role: string) => void,
     loading: boolean,
     icon?: React.ReactNode,
     label: string 
 }) {
+    const [showActions, setShowActions] = useState(false);
+
     return (
-        <GlassCard className="p-4 flex items-center gap-4 group">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg relative">
-                {member.photoURL ? (
-                    <img src={member.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
-                ) : (
-                    (member.displayName?.[0] || "?").toUpperCase()
-                )}
-                {icon && (
-                    <div className="absolute -top-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm border border-gray-100 dark:border-white/10">
-                        {icon}
-                    </div>
-                )}
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                    <h3 className="font-bold truncate">{member.displayName}</h3>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-muted-foreground border border-gray-200 dark:border-white/10">
-                        {label}
-                    </span>
+        <GlassCard className="p-4 flex flex-col gap-4 group">
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg relative">
+                    {member.photoURL ? <img src={member.photoURL} alt="" className="w-full h-full rounded-full object-cover" /> : (member.displayName?.[0] || "?").toUpperCase()}
+                    {icon && <div className="absolute -top-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm border border-gray-100 dark:border-white/10">{icon}</div>}
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-bold truncate">{member.displayName}</h3>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-muted-foreground border border-gray-200 dark:border-white/10">{label}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                </div>
+                
+                {/* Independent Role Management Menu */}
+                <div className="relative">
+                    <button 
+                        onClick={() => setShowActions(!showActions)}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-muted-foreground transition-all"
+                    >
+                        <UserCog className="w-4 h-4" />
+                    </button>
+                    
+                    <AnimatePresence>
+                        {showActions && (
+                            <>
+                                <div className="fixed inset-0 z-20" onClick={() => setShowActions(false)} />
+                                <motion.div 
+                                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                    className="absolute left-0 top-full mt-2 w-48 bg-background border rounded-2xl shadow-xl z-30 overflow-hidden"
+                                >
+                                    <p className="px-4 py-2 text-[10px] font-bold text-muted-foreground bg-gray-50 dark:bg-white/5 border-b uppercase tracking-wider">تغيير الصلاحية داخل المجموعة</p>
+                                    <button onClick={() => { onChangeRole('admin'); setShowActions(false); }} className="w-full text-right px-4 py-2.5 text-xs hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors">
+                                        <Shield className="w-3 h-3 text-red-500" /> جعل مشرف مجموعة
+                                    </button>
+                                    <button onClick={() => { onChangeRole('teacher'); setShowActions(false); }} className="w-full text-right px-4 py-2.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center gap-2 transition-colors">
+                                        <GraduationCap className="w-3 h-3 text-blue-500" /> جعل معلم للمجموعة
+                                    </button>
+                                    <button onClick={() => { onChangeRole('student'); setShowActions(false); }} className="w-full text-right px-4 py-2.5 text-xs hover:bg-green-50 dark:hover:bg-green-500/10 flex items-center gap-2 transition-colors">
+                                        <User className="w-3 h-3 text-green-500" /> جعل طالب (عضو عادي)
+                                    </button>
+                                    <div className="border-t mt-1" />
+                                    <button onClick={() => { onRemove(); setShowActions(false); }} className="w-full text-right px-4 py-3 text-xs text-red-500 hover:bg-red-500/5 flex items-center gap-2 font-bold transition-colors">
+                                        <UserX className="w-3 h-3" /> إزالة من المجموعة
+                                    </button>
+                                </motion.div>
+                            </>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
-            <button
-                onClick={() => onRemove(member.id)}
-                disabled={loading}
-                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
-                title="إزالة من المجموعة"
-            >
-                {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                    <UserX className="w-4 h-4" />
-                )}
-            </button>
         </GlassCard>
     );
 }
+
