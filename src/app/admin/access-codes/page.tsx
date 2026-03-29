@@ -57,7 +57,13 @@ export default function AccessCodesManagement() {
                 const docRef = doc(db, "system_config", "access_codes");
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
-                    setCodes(snap.data() as AccessCodes);
+                    const data = snap.data();
+                    setCodes({
+                        admin: data.admin || "",
+                        teacher: data.teacher || "",
+                        student: data.student || "",
+                        committee: data.committee || "",
+                    });
                 } else {
                     // Set defaults if not exists
                     setCodes({
@@ -88,9 +94,18 @@ export default function AccessCodesManagement() {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validation: 6 digits
-        const roles: Record<string, string> = { admin: 'المدير', teacher: 'المعلم', student: 'الطالب', committee: 'اللجنة' };
-        for (const [key, value] of Object.entries(codes)) {
+        // Validation: 6 digits only for specific keys
+        const roles: Record<string, string> = { 
+            admin: 'المدير', 
+            teacher: 'المعلم', 
+            student: 'الطالب', 
+            committee: 'اللجنة' 
+        };
+
+        const essentialKeys: (keyof AccessCodes)[] = ['admin', 'teacher', 'student', 'committee'];
+
+        for (const key of essentialKeys) {
+            const value = codes[key];
             if (!/^\d{6}$/.test(value)) {
                 showDialog('warning', 'بيانات غير مكتملة', `رمز ${roles[key]} يجب أن يتكون من 6 أرقام بالضبط.`);
                 return;
