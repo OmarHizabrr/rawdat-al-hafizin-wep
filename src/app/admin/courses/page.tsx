@@ -229,6 +229,13 @@ export default function CoursesDashboard() {
                                         >
                                             <Eye className="w-4 h-4" />
                                         </Link>
+                                        <Link
+                                            href={`/admin/courses/${course.id}/plan`}
+                                            className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-amber-500"
+                                            title="الخطة الدراسية"
+                                        >
+                                            <Calendar className="w-4 h-4" />
+                                        </Link>
                                         <button
                                             onClick={() => handleEdit(course)}
                                             className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-blue-500"
