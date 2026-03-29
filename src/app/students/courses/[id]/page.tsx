@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
     Calendar,
@@ -18,8 +18,17 @@ import {
     ExternalLink,
     ChevronDown,
     Loader2,
-    CheckCircle
+    CheckCircle,
+    ArrowRight,
+    PlayCircle,
+    DownloadCloud,
+    Layout,
+    Layers,
+    Info,
+    ArrowUpRight
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface Course {
     id: string;
@@ -50,7 +59,7 @@ interface Level {
 
 export default function CourseDetails() {
     const { id } = useParams<{ id: string }>();
-    // const { user } = useAuth(); // Not used for now, public view? Or protected? Flutter implies protected.
+    const router = useRouter();
     const [course, setCourse] = useState<Course | null>(null);
     const [levels, setLevels] = useState<Level[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,9 +74,7 @@ export default function CourseDetails() {
                 if (snap.exists()) {
                     setCourse({ id: snap.id, ...snap.data() } as Course);
 
-                    // Load Levels
                     const levelsRef = collection(db, "courses", id, "levels");
-                    // Assuming 'order' field or just simplistic fetch
                     const levelsQ = query(levelsRef);
                     const levelsSnap = await getDocs(levelsQ);
                     const levelsData = levelsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Level[];
@@ -83,12 +90,12 @@ export default function CourseDetails() {
     }, [id]);
 
     const formatDate = (ts: Timestamp | null) => {
-        if (!ts) return "غير محدد";
-        return ts.toDate().toLocaleDateString("ar-SA");
+        if (!ts) return "قريباً";
+        return ts.toDate().toLocaleDateString("ar-SA", { day: 'numeric', month: 'long', year: 'numeric' });
     };
 
     const getDuration = (start: Timestamp | null, end: Timestamp | null) => {
-        if (!start || !end) return "";
+        if (!start || !end) return "غير محدد";
         const diff = end.toDate().getTime() - start.toDate().getTime();
         const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
         return `${days} يوم`;
@@ -101,28 +108,23 @@ export default function CourseDetails() {
         return Math.min(100, Math.max(0, (elapsed / total) * 100));
     };
 
-    const getIconForType = (type: string) => {
-        switch (type) {
-            case 'pdf': return <FileText className="w-5 h-5 text-red-500" />;
-            case 'video': return <Video className="w-5 h-5 text-blue-500" />;
-            case 'audio': return <Music className="w-5 h-5 text-orange-500" />;
-            default: return <LinkIcon className="w-5 h-5 text-gray-500" />;
-        }
-    };
-
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="text-center space-y-4">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto opacity-20" />
+                    <p className="font-bold text-xs tracking-widest text-muted-foreground uppercase">تحميل المنهج العلمي...</p>
+                </div>
             </div>
         );
     }
 
     if (!course) {
         return (
-            <div className="p-8 text-center">
-                <GlassCard>
-                    <p className="text-muted-foreground">الدورة غير موجودة.</p>
+            <div className="max-w-2xl mx-auto p-12 text-center">
+                <GlassCard className="p-16 border-dashed border-2">
+                    <p className="text-muted-foreground">عذراً، لم نتمكن من العثور على الدورة المطلوبة.</p>
+                    <button onClick={() => router.back()} className="mt-6 text-primary font-bold">العودة للرئيسية</button>
                 </GlassCard>
             </div>
         );
@@ -132,136 +134,251 @@ export default function CourseDetails() {
     const isStarted = course.startDate && new Date() > course.startDate.toDate();
 
     return (
-        <div className="space-y-8 pb-20">
-            <div className="flex items-center gap-4">
-                <BookOpen className="w-8 h-8 text-primary" />
-                <h1 className="text-2xl font-bold">{course.title}</h1>
+        <div className="max-w-7xl mx-auto space-y-12 pb-24 px-4">
+            {/* Simple Top Nav */}
+            <div className="flex items-center justify-between">
+                <button 
+                    onClick={() => router.back()} 
+                    className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group"
+                >
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    <span className="font-bold text-sm">العودة</span>
+                </button>
+                <div className="flex items-center gap-2">
+                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">محتوى محدث</span>
+                </div>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 space-y-6">
-                    {/* Info Card */}
-                    <GlassCard className="space-y-6 p-6">
-                        <p className="leading-relaxed text-muted-foreground">{course.description}</p>
-
-                        <div className="h-px bg-gray-100 dark:bg-gray-800" />
-
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Calendar className="w-4 h-4" />
-                                    <span className="text-sm">البداية</span>
+            <div className="grid lg:grid-cols-12 gap-10">
+                {/* Main Content Area */}
+                <div className="lg:col-span-8 space-y-12">
+                    {/* Hero Info */}
+                    <div className="space-y-6">
+                        <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="space-y-3"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-lg border border-primary/20">
+                                    البرنامج التعليمي
                                 </div>
-                                <span className="font-bold">{formatDate(course.startDate)}</span>
+                                {isStarted && <span className="text-xs font-bold text-green-500 bg-green-500/10 px-3 py-1 rounded-lg">قيد التنفيذ</span>}
                             </div>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Calendar className="w-4 h-4" />
-                                    <span className="text-sm">النهاية</span>
-                                </div>
-                                <span className="font-bold">{formatDate(course.endDate)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Clock className="w-4 h-4" />
-                                    <span className="text-sm">المدة الزمنية</span>
-                                </div>
-                                <span className="font-bold text-primary">{getDuration(course.startDate, course.endDate)}</span>
-                            </div>
-                        </div>
+                            <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-tight">{course.title}</h1>
+                            <p className="text-lg text-muted-foreground/80 leading-relaxed font-medium">{course.description}</p>
+                        </motion.div>
 
                         {isStarted && (
-                            <div className="space-y-2 pt-4">
-                                <div className="flex justify-between text-xs font-bold">
-                                    <span>تقدم الدورة</span>
+                            <GlassCard className="p-8 space-y-4 bg-white/[0.02] border-white/5 shadow-2xl">
+                                <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest">
+                                    <span className="text-muted-foreground">إنجاز الدورة الكلي</span>
                                     <span className="text-primary">{Math.round(progress)}%</span>
                                 </div>
-                                <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+                                <div className="h-3 bg-white/5 rounded-full overflow-hidden shadow-inner">
+                                    <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${progress}%` }}
+                                        transition={{ duration: 2, ease: "easeOut" }}
+                                        className="h-full bg-gradient-to-r from-primary to-purple-600 rounded-full" 
+                                    />
                                 </div>
-                            </div>
+                            </GlassCard>
                         )}
-                    </GlassCard>
+                    </div>
 
-                    {/* Course Content */}
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold">محتوى الدورة</h2>
+                    {/* Content Syllabus */}
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/10 backdrop-blur-md">
+                                <Layers className="w-5 h-5 text-primary" />
+                            </div>
+                            <h2 className="text-2xl font-bold tracking-tight">منهجية المستويات</h2>
+                        </div>
 
                         {levels.length === 0 ? (
-                            <GlassCard className="p-8 text-center text-muted-foreground">
-                                لا يوجد محتوى مضاف بعد.
+                            <GlassCard className="p-16 text-center space-y-6 bg-white/[0.01] border-white/5 border-dashed border-2">
+                                <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center mx-auto opacity-20">
+                                    <BookOpen className="w-8 h-8" />
+                                </div>
+                                <p className="text-muted-foreground font-medium">سيتم رفع المنهج الدراسي قريباً، ترقبوا التحديثات.</p>
                             </GlassCard>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="grid gap-4">
                                 {levels.map((level, index) => (
-                                    <GlassCard key={level.id} className="p-0 overflow-hidden">
-                                        <details className="group">
-                                            <summary className="flex items-center gap-4 p-4 cursor-pointer list-none hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                                                <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-sm">
-                                                    {index + 1}
+                                    <EliteAccordion 
+                                        key={level.id} 
+                                        index={index + 1} 
+                                        title={level.name} 
+                                        subtitle={`${formatDate(level.startDate)} - ${formatDate(level.endDate)}`}
+                                    >
+                                        <div className="p-6 pt-0 space-y-4">
+                                            {(!level.resources || level.resources.length === 0) ? (
+                                                <div className="p-8 text-center bg-black/10 rounded-2xl border border-white/5">
+                                                    <p className="text-xs text-muted-foreground opacity-40 font-bold uppercase tracking-widest">لا توجد موارد تعليمية متاحة لهذا المستوى</p>
                                                 </div>
-                                                <div className="flex-1">
-                                                    <p className="font-bold">{level.name}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {formatDate(level.startDate)} - {formatDate(level.endDate)}
-                                                    </p>
+                                            ) : (
+                                                <div className="grid gap-3">
+                                                    {level.resources.map((res, i) => (
+                                                        <ResourceItem key={i} resource={res} />
+                                                    ))}
                                                 </div>
-                                                <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform group-open:rotate-180" />
-                                            </summary>
-
-                                            <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/5">
-                                                {(!level.resources || level.resources.length === 0) ? (
-                                                    <p className="p-4 text-sm text-muted-foreground text-center">لا توجد موارد مضافة لهذا المستوى.</p>
-                                                ) : (
-                                                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                                                        {level.resources.map((res, i) => (
-                                                            <a
-                                                                href={res.url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                key={i}
-                                                                className="flex items-center gap-3 p-4 hover:bg-gray-100/50 dark:hover:bg-white/10 transition-colors"
-                                                            >
-                                                                {getIconForType(res.type)}
-                                                                <div className="flex-1">
-                                                                    <p className="text-sm font-medium">{res.title}</p>
-                                                                    <p className="text-[10px] text-muted-foreground uppercase">{res.type}</p>
-                                                                </div>
-                                                                <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </details>
-                                    </GlassCard>
+                                            )}
+                                        </div>
+                                    </EliteAccordion>
                                 ))}
                             </div>
                         )}
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    {/* Side Info */}
-                    <GlassCard className="p-6 space-y-4 sticky top-24">
-                        <h3 className="font-bold">آلية البرنامج</h3>
-                        <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 text-sm leading-relaxed">
-                            {course.mechanism}
-                        </div>
+                {/* Sidebar Info Grid */}
+                <div className="lg:col-span-4 space-y-8">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="sticky top-24 space-y-8"
+                    >
+                        {/* Course Stats Card */}
+                        <GlassCard className="p-8 space-y-8 bg-white/[0.02] border-white/5 shadow-3xl">
+                            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-muted-foreground opacity-50 px-1">تفاصيل البرنامج</h3>
+                            
+                            <div className="space-y-6">
+                                <SidebarStat icon={Calendar} label="تاريخ الانطلاق" value={formatDate(course.startDate)} />
+                                <SidebarStat icon={Clock} label="المدة الإجمالية" value={getDuration(course.startDate, course.endDate)} color="primary" />
+                                <SidebarStat icon={Hourglass} label="نهاية البرنامج" value={formatDate(course.endDate)} />
+                                <SidebarStat icon={BookOpen} label="الآلية" value={course.mechanism || "حلقات تفاعلية"} />
+                            </div>
 
-                        <div className="h-px bg-gray-100 dark:bg-gray-800" />
+                            <div className="h-px bg-white/5" />
 
-                        <h3 className="font-bold">المميزات</h3>
-                        <div className="space-y-3">
-                            {course.features.map((feature, i) => (
-                                <div key={i} className="flex items-start gap-2 text-sm">
-                                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                                    <span>{feature}</span>
+                            <div className="space-y-4">
+                                <h4 className="font-bold text-sm block px-1">مميزات هذا البرنامج</h4>
+                                <div className="grid gap-3">
+                                    {course.features.map((f, i) => (
+                                        <div key={i} className="flex items-start gap-3 bg-white/5 p-3 rounded-2xl border border-white/5 group hover:border-green-500/20 transition-all">
+                                            <div className="w-5 h-5 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                                                <CheckCircle className="w-3 h-3 text-green-500" />
+                                            </div>
+                                            <span className="text-xs font-medium opacity-80">{f}</span>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    </GlassCard>
+                            </div>
+                        </GlassCard>
+
+                        {/* Support Card */}
+                        <GlassCard className="p-6 bg-primary/5 border-primary/10 flex items-center justify-between group cursor-pointer hover:bg-primary/10 transition-all">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <Info className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-sm">هل تواجه صعوبة؟</h4>
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">تواصل مع المشرف</p>
+                                </div>
+                            </div>
+                            <ArrowUpRight className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-1 group-hover:-translate-y-1" />
+                        </GlassCard>
+                    </motion.div>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// Internal Content Components
+function EliteAccordion({ index, title, subtitle, children }: any) {
+    const [isOpen, setIsOpen] = useState(index === 1); // Open first one by default
+
+    return (
+        <GlassCard className="p-0 overflow-hidden border-white/5 shadow-xl transition-all hover:border-white/10 group">
+            <div 
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center justify-between p-6 cursor-pointer hover:bg-white/[0.02] transition-all"
+            >
+                <div className="flex items-center gap-6">
+                    <div className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg transition-all shadow-inner border",
+                        isOpen ? "bg-primary text-white border-primary shadow-primary/20" : "bg-white/5 text-muted-foreground border-white/10"
+                    )}>
+                        {index.toString().padStart(2, '0')}
+                    </div>
+                    <div>
+                        <h4 className={cn("text-lg font-black tracking-tight transition-colors", isOpen ? "text-primary" : "text-foreground opacity-90")}>{title}</h4>
+                        <p className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground opacity-50 mt-1">{subtitle}</p>
+                    </div>
+                </div>
+                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 transition-transform duration-500", isOpen ? "rotate-180 bg-primary/10 border-primary/20" : "")}>
+                    <ChevronDown className={cn("w-5 h-5", isOpen ? "text-primary" : "text-muted-foreground")} />
+                </div>
+            </div>
+            
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.4, ease: "circOut" }}
+                        className="overflow-hidden"
+                    >
+                        {children}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </GlassCard>
+    );
+}
+
+function ResourceItem({ resource }: { resource: Resource }) {
+    const getResourceMeta = (type: string) => {
+        switch (type) {
+            case 'pdf': return { icon: FileText, color: "text-red-500", bg: "bg-red-500/10", label: "مستند PDF" };
+            case 'video': return { icon: PlayCircle, color: "text-blue-500", bg: "bg-blue-500/10", label: "مقطع فيديو" };
+            case 'audio': return { icon: Music, color: "text-orange-500", bg: "bg-orange-500/10", label: "ملف صوتي" };
+            default: return { icon: LinkIcon, color: "text-primary", bg: "bg-primary/10", label: "رابط خارجي" };
+        }
+    };
+
+    const meta = getResourceMeta(resource.type);
+
+    return (
+        <a 
+            href={resource.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center justify-between p-5 bg-white/5 border border-white/5 rounded-3xl hover:bg-white/10 hover:border-primary/20 transition-all group"
+        >
+            <div className="flex items-center gap-5">
+                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner", meta.bg, meta.color)}>
+                    <meta.icon className="w-6 h-6" />
+                </div>
+                <div>
+                    <h5 className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{resource.title}</h5>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-40 mt-1">{meta.label}</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all group-hover:scale-110">
+                    <DownloadCloud className="w-4 h-4 text-primary" />
+                 </div>
+                 <ExternalLink className="w-4 h-4 text-muted-foreground opacity-20 group-hover:opacity-100 transition-opacity" />
+            </div>
+        </a>
+    );
+}
+
+function SidebarStat({ icon: Icon, label, value, color }: any) {
+    return (
+        <div className="flex items-start gap-4 group">
+            <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 flex-shrink-0 group-hover:scale-110 transition-transform">
+                <Icon className={cn("w-5 h-5", color === 'primary' ? 'text-primary' : 'text-muted-foreground opacity-50')} />
+            </div>
+            <div className="text-right">
+                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-40 m-0 leading-none mb-1.5">{label}</p>
+                <p className="text-sm font-black leading-tight">{value}</p>
             </div>
         </div>
     );
