@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { motion } from "framer-motion";
-import { Phone, Lock, Chrome, Loader2, ArrowLeft } from "lucide-react";
+import { Phone, Lock, Chrome, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
 
@@ -21,6 +21,7 @@ export default function LoginPage() {
     // Phone Login State
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
 
     const handleGoogleSignIn = async () => {
@@ -193,13 +194,20 @@ export default function LoginPage() {
                                 <div className="relative">
                                     <Lock className="absolute right-3 top-3 h-5 w-5 text-muted-foreground" />
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full rounded-xl border border-white/10 bg-black/20 p-3 pr-10 text-white placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        className="w-full rounded-xl border border-white/10 bg-black/20 p-3 pr-10 pl-12 text-white placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                                         placeholder="••••••"
                                         required
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute left-3 top-3 text-muted-foreground hover:text-white transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                    </button>
                                 </div>
                             </div>
 
@@ -255,7 +263,7 @@ export default function LoginPage() {
                                 <div className="relative">
                                     <Lock className="absolute right-3 top-3 h-5 w-5 text-muted-foreground" />
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className="w-full rounded-xl border border-white/10 bg-black/20 p-3 pr-10 text-white placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"

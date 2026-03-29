@@ -15,7 +15,9 @@ import {
     Save,
     Loader2,
     ArrowRight,
-    Lock
+    Lock,
+    Eye,
+    EyeOff
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -23,6 +25,7 @@ export default function ProfilePage() {
     const { user, userData } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -186,13 +189,22 @@ export default function ProfilePage() {
                             <Lock className="w-4 h-4 text-primary" />
                             كلمة المرور (للدخول برقم الهاتف)
                         </label>
-                        <input
-                            type="password"
-                            value={formData.password}
-                            onChange={(e) => handleChange('password', e.target.value)}
-                            className="w-full p-3 rounded-xl border bg-gray-50 dark:bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                            placeholder="••••••"
-                        />
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={formData.password}
+                                onChange={(e) => handleChange('password', e.target.value)}
+                                className="w-full p-3 pl-12 rounded-xl border bg-gray-50 dark:bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                                placeholder="••••••"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute left-3 top-3 text-muted-foreground hover:text-white transition-colors"
+                            >
+                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1 text-right">
                             * اختياري: إذا أردت الدخول لاحقاً برقم الهاتف فقط، يجب تعيين كلمة مرور.
                         </p>

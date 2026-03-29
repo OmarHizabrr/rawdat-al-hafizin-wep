@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { motion } from "framer-motion";
-import { User, Phone, FileText, Loader2, ArrowLeft } from "lucide-react";
+import { User, Phone, FileText, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -16,6 +16,8 @@ export default function RegisterPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
 
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [formData, setFormData] = useState({
         displayName: "",
         email: "",
@@ -132,25 +134,43 @@ export default function RegisterPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">كلمة المرور</label>
-                                <input
-                                    name="password"
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                                    required
-                                />
+                                <div className="relative">
+                                    <input
+                                        name="password"
+                                        type={showPassword ? "text" : "password"}
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        className="w-full rounded-xl border border-white/10 bg-black/20 p-3 pl-10 text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute left-3 top-3 text-muted-foreground hover:text-white transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                    </button>
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">تأكيد كلمة المرور</label>
-                                <input
-                                    name="confirmPassword"
-                                    type="password"
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                                    required
-                                />
+                                <div className="relative">
+                                    <input
+                                        name="confirmPassword"
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                        className="w-full rounded-xl border border-white/10 bg-black/20 p-3 pl-10 text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute left-3 top-3 text-muted-foreground hover:text-white transition-colors"
+                                    >
+                                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
