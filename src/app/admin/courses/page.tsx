@@ -10,7 +10,10 @@ import {
     updateDoc,
     deleteDoc,
     serverTimestamp,
-    Timestamp
+    Timestamp,
+    writeBatch,
+    getDocs,
+    query
 } from "firebase/firestore";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -154,11 +157,30 @@ export default function CoursesDashboard() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm("هل أنت متأكد من حذف هذه الدورة؟ سيتم حذف جميع المستويات والموارد التابعة لها.")) {
+        if (confirm("🚨 هل أنت متأكد تماماً من حذف هذه الدورة؟\nسيتم حذف جميع المستويات، الموارد، التسجيلات، وقائمة الأعضاء المرتبطة بها نهائياً ولا يمكن التراجع عن ذلك.")) {
             try {
-                await deleteDoc(doc(db, "courses", id));
+                const batch = writeBatch(db);
+
+                // 1. Fetch and delete levels: levels/{id}/levels
+                const levelsSnap = await getDocs(collection(db, "levels", id, "levels"));
+                levelsSnap.forEach((doc) => batch.delete(doc.ref));
+
+                // 2. Fetch and delete enrollments: enrollments/{id}/enrollments
+                const enrollmentsSnap = await getDocs(collection(db, "enrollments", id, "enrollments"));
+                enrollmentsSnap.forEach((doc) => batch.delete(doc.ref));
+
+                // 3. Fetch and delete members: members/{id}/members
+                const membersSnap = await getDocs(collection(db, "members", id, "members"));
+                membersSnap.forEach((doc) => batch.delete(doc.ref));
+
+                // 4. Delete the main course document
+                batch.delete(doc(db, "courses", id));
+
+                await batch.commit();
+                alert("تم حذف الدورة وكافة ارتباطاتها بنجاح.");
             } catch (error) {
-                console.error("Error deleting course:", error);
+                console.error("Error deleting course and its associations:", error);
+                alert("حدث خطأ أثناء محاولة الحذف الكامل.");
             }
         }
     };

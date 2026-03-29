@@ -9,7 +9,9 @@ import {
     setDoc,
     updateDoc,
     deleteDoc,
-    serverTimestamp
+    serverTimestamp,
+    writeBatch,
+    getDocs
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
@@ -153,12 +155,26 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
     };
 
     const handleDelete = async (id: string, name: string) => {
-        showDialog('danger', 'حذف الحلقة', `هل أنت متأكد من حذف حلقة "${name}"؟ سيتم فقدان جميع بيانات الحلقات المرتبطة بها.`, async () => {
+        showDialog('danger', 'حذف الحلقة نهائياً', `🚨 هل أنت متأكد تماماً من حذف حلقة "${name}"؟\nسيتم حذف جميع الأعضاء والتقييمات والسجلات المرتبطة بها نهائياً ولا يمكن التراجع عن ذلك.`, async () => {
             try {
-                await deleteDoc(doc(db, "groups", id));
+                const batch = writeBatch(db);
+
+                // 1. Fetch and delete members: members/{groupId}/members
+                const membersSnap = await getDocs(collection(db, "members", id, "members"));
+                membersSnap.forEach((doc) => batch.delete(doc.ref));
+
+                // 2. Fetch and delete evaluations: evaluations/{groupId}/evaluations
+                const evaluationsSnap = await getDocs(collection(db, "evaluations", id, "evaluations"));
+                evaluationsSnap.forEach((doc) => batch.delete(doc.ref));
+
+                // 3. Delete the main group document
+                batch.delete(doc(db, "groups", id));
+
+                await batch.commit();
+                showDialog('success', 'تم الحذف الكامل', `تم حذف حلقة "${name}" وكافة ارتباطاتها بنجاح.`);
             } catch (error) {
-                console.error("Error deleting group:", error);
-                showDialog('danger', 'فشل الحذف', 'تعذر حذف الحلقة، يرجى مراجعة الصلاحيات.');
+                console.error("Error deleting group and its associations:", error);
+                showDialog('danger', 'فشل الحذف الكامل', 'حدث خطأ أثناء محاولة مسح كافة البيانات المرتبطة.');
             }
         });
     };
