@@ -18,9 +18,13 @@ import {
     Link as LinkIcon,
     MessageSquare,
     Phone,
-    AlertTriangle
+    AlertTriangle,
+    ShieldCheck,
+    ArrowUpCircle,
+    Download
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { EliteDialog } from "@/components/ui/EliteDialog";
 
 interface UpdateConfig {
     version: string;
@@ -42,6 +46,20 @@ export default function AppUpdatesDashboard() {
     const [config, setConfig] = useState<UpdateConfig>(defaultConfig);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    
+    // Dialog state
+    const [dialogConfig, setDialogConfig] = useState<{
+        isOpen: boolean;
+        type: 'success' | 'danger' | 'warning';
+        title: string;
+        description: string;
+        onConfirm?: () => void;
+    }>({
+        isOpen: false,
+        type: 'success',
+        title: '',
+        description: ''
+    });
 
     useEffect(() => {
         const fetchConfig = async () => {
@@ -60,133 +78,180 @@ export default function AppUpdatesDashboard() {
         fetchConfig();
     }, []);
 
+    const showDialog = (type: 'success' | 'danger' | 'warning', title: string, description: string, onConfirm?: () => void) => {
+        setDialogConfig({ isOpen: true, type, title, description, onConfirm });
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!confirm("تنبيه: حفظ هذه الإعدادات سيجعل التحديث إجبارياً لجميع المستخدمين الذين يملكون نسخة أقدم!")) {
-            return;
-        }
-
-        setSaving(true);
-        try {
-            const docRef = doc(db, "app_config", "update_config");
-            await setDoc(docRef, {
-                ...config,
-                updatedAt: serverTimestamp()
-            });
-            alert("تم حفظ الإعدادات بنجاح");
-        } catch (error) {
-            console.error("Error saving config:", error);
-            alert("حدث خطأ أثناء الحفظ");
-        } finally {
-            setSaving(false);
-        }
+        showDialog('warning', 'تحديث إجباري', 'حفظ هذه الإعدادات سيفعل نظام التحديث الإجباري لجميع المستخدمين الذين يملكون نسخة أقدم. هل تود المتابعة؟', async () => {
+            setSaving(true);
+            try {
+                const docRef = doc(db, "app_config", "update_config");
+                await setDoc(docRef, {
+                    ...config,
+                    updatedAt: serverTimestamp()
+                });
+                showDialog('success', 'تم النشر بنجاح', 'تم تحديث إعدادات الإصدار الجديد ونشرها لجميع تطبيقات الجوال في النظام.');
+            } catch (error) {
+                console.error("Error saving config:", error);
+                showDialog('danger', 'فشل الحفظ', 'حدث خطأ أثناء محاولة حفظ الإعدادات. يرجى التأكد من صلاحياتك.');
+            } finally {
+                setSaving(false);
+            }
+        });
     };
 
-    if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin" /></div>;
+    if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /></div>;
 
     return (
-        <div className="space-y-6 pb-20 max-w-4xl mx-auto">
-            <div>
-                <h1 className="text-2xl font-bold">إدارة التحديثات</h1>
-                <p className="text-muted-foreground">التحكم في إصدارات تطبيق الجوال وتحديثاته الإجبارية</p>
-            </div>
-
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-start gap-3 text-red-600 dark:text-red-400">
-                <AlertTriangle className="w-6 h-6 shrink-0" />
-                <div>
-                    <p className="font-bold">تنبيه هام</p>
-                    <p className="text-sm">أي مستخدم يستخدم تطبيقاً برقم إصدار (Version Code) أقل من الرقم المسجل هنا سيتم منعه من استخدام التطبيق وسيطالب بالتحديث فوراً.</p>
+        <div className="space-y-10 pb-20 max-w-4xl mx-auto px-4">
+            {/* Header Section */}
+            <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center md:text-right space-y-4 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-md shadow-2xl relative overflow-hidden"
+            >
+                <div className="absolute -top-10 -left-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
+                <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
+                    <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-inner">
+                        <Smartphone className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">إدارة التحديثات الذكية</h1>
+                        <p className="text-muted-foreground mt-1 max-w-xl">تحكم في التحديثات الإجبارية وإصدارات تطبيق الاندرويد والايفون.</p>
+                    </div>
                 </div>
-            </div>
+            </motion.div>
 
-            <form onSubmit={handleSave} className="space-y-6">
-                <GlassCard className="p-6 space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                                <Tag className="w-4 h-4 text-primary" />
-                                رقم النسخة المرئي (Version Name)
+            {/* Critical Warning */}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 }}
+            >
+                <GlassCard className="bg-red-500/5 border-red-500/20 p-6 flex gap-5 items-center">
+                    <div className="w-14 h-14 rounded-22xl bg-red-500/10 flex items-center justify-center flex-shrink-0 animate-pulse">
+                        <AlertTriangle className="w-7 h-7 text-red-600" />
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-red-600 dark:text-red-400 mb-1">تحذير الرادع (Version Code Constraint)</h4>
+                        <p className="text-xs text-red-900/70 dark:text-red-100/70 leading-relaxed font-medium">
+                            أي مستخدم يملك (Version Code) أقل من الرقم الذي ستضعه هنا، سيتوقف تطبيقه فوراً وسيظهر له زر التحديث. يرجى مراجعة الرقم جيداً قبل الحفظ.
+                        </p>
+                    </div>
+                </GlassCard>
+            </motion.div>
+
+            {/* Form Zone */}
+            <form onSubmit={handleSave} className="space-y-8">
+                <GlassCard className="p-10 space-y-8 bg-white/5 border-white/10 rounded-[2.5rem] shadow-2xl backdrop-blur-sm">
+                    <div className="grid md:grid-cols-2 gap-8">
+                        <div className="space-y-2 group">
+                            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                                <Tag className="w-3 h-3" />
+                                رقم النسخة المرئي (Example: v1.02)
                             </label>
                             <input
                                 required
                                 type="text"
                                 value={config.version}
                                 onChange={e => setConfig({ ...config, version: e.target.value })}
-                                className="w-full p-3 rounded-xl border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20"
-                                placeholder="مثلاً 1.0.0"
+                                className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono"
+                                placeholder="v1.0.0"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                                <Hash className="w-4 h-4 text-primary" />
-                                رقم الإصدار الداخلي (Version Code)
+                        <div className="space-y-2 group">
+                            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                                <Hash className="w-3 h-3" />
+                                رقم الإصدار البرمجي (Numeric Code)
                             </label>
                             <input
                                 required
                                 type="number"
                                 value={config.versionCode}
                                 onChange={e => setConfig({ ...config, versionCode: parseInt(e.target.value) || 0 })}
-                                className="w-full p-3 rounded-xl border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20"
-                                placeholder="مثلاً 21"
+                                className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono font-bold text-lg"
+                                placeholder="21"
                             />
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium flex items-center gap-2">
-                            <LinkIcon className="w-4 h-4 text-primary" />
-                            رابط التحديث المباشر (Direct URL)
+                    <div className="space-y-2 group">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                            <Download className="w-3 h-3" />
+                            رابط تحميل النسخة الجديدة (Update URL)
                         </label>
                         <input
                             required
                             type="url"
                             value={config.updateUrl}
                             onChange={e => setConfig({ ...config, updateUrl: e.target.value })}
-                            className="w-full p-3 rounded-xl border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20 dir-ltr"
-                            placeholder="https://..."
+                            className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all dir-ltr"
+                            placeholder="https://rawdat.com/download/app.apk"
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4 text-primary" />
-                            رسالة التحديث (اختياري)
+                    <div className="space-y-2 group">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                            <MessageSquare className="w-3 h-3" />
+                            محتوى رسالة التحديث للمستخدمين
                         </label>
                         <textarea
                             value={config.customMessage || ""}
                             onChange={e => setConfig({ ...config, customMessage: e.target.value })}
-                            className="w-full h-24 p-3 rounded-xl border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-                            placeholder="رسالة تظهر للمستخدم عند طلب التحديث..."
+                            className="w-full h-32 p-5 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all resize-none leading-relaxed"
+                            placeholder="عزيزي المستخدم، نرجو منك تحديث التطبيق للحصول على آخر المميزات والأمان..."
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-primary" />
-                            رقم الدعم الفني (WhatsApp)
+                    <div className="space-y-2 group">
+                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                            <Phone className="w-3 h-3" />
+                            رقم واتس لدعم الإصدار (Support ID)
                         </label>
                         <input
                             type="text"
                             value={config.supportPhone || ""}
                             onChange={e => setConfig({ ...config, supportPhone: e.target.value })}
-                            className="w-full p-3 rounded-xl border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20"
-                            placeholder="967..."
+                            className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono"
+                            placeholder="967777xxx..."
                         />
                     </div>
 
-                    <div className="pt-4 flex justify-end">
+                    <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="text-[10px] text-muted-foreground/50 opacity-40 italic">
+                            سيتم منع تسجيل الدخول فور تفعيل هذا التحديث لجميع النسخ القديمة.
+                        </div>
                         <button
                             type="submit"
                             disabled={saving}
-                            className="px-8 py-3 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2 font-bold shadow-lg shadow-primary/20"
+                            className={`px-10 py-5 bg-primary text-white rounded-2xl font-bold shadow-2xl transition-all flex items-center justify-center gap-3 w-full md:w-auto hover:-translate-y-1 active:translate-y-0 ${saving ? 'opacity-70 pointer-events-none' : 'hover:shadow-primary/40'}`}
                         >
-                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                            <span>حفظ ونشر التحديث</span>
+                            {saving ? (
+                                <Loader2 className="w-6 h-6 animate-spin" />
+                            ) : (
+                                <ArrowUpCircle className="w-6 h-6" />
+                            )}
+                            <span className="text-lg">نشر التحديث الإجباري الآن</span>
                         </button>
                     </div>
                 </GlassCard>
             </form>
+
+            <EliteDialog
+                isOpen={dialogConfig.isOpen}
+                onClose={() => setDialogConfig({ ...dialogConfig, isOpen: false })}
+                onConfirm={() => {
+                    if (dialogConfig.onConfirm) dialogConfig.onConfirm();
+                    setDialogConfig({ ...dialogConfig, isOpen: false });
+                }}
+                title={dialogConfig.title}
+                description={dialogConfig.description}
+                type={dialogConfig.type as any}
+                confirmText={dialogConfig.onConfirm ? "نعم، انشر التحديث" : "حسناً"}
+            />
         </div>
     );
 }

@@ -14,17 +14,21 @@ import {
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
     Search,
-    Filter,
-    MoreVertical,
     Edit,
     Trash2,
     Ban,
     CheckCircle,
     Shield,
     User,
-    GraduationCap
+    GraduationCap,
+    Loader2,
+    X,
+    UserCheck,
+    ShieldCheck,
+    Lock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { EliteDialog } from "@/components/ui/EliteDialog";
 
 interface UserProfile {
     id: string;
@@ -39,11 +43,25 @@ interface UserProfile {
 export default function UserManagement() {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [roleFilter, setRoleFilter] = useState("الكل");
     const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    
+    // Dialog state
+    const [dialogConfig, setDialogConfig] = useState<{
+        isOpen: boolean;
+        type: 'success' | 'danger' | 'warning';
+        title: string;
+        description: string;
+        onConfirm?: () => void;
+    }>({
+        isOpen: false,
+        type: 'success',
+        title: '',
+        description: ''
+    });
 
     // Edit Form State
     const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
@@ -62,31 +80,26 @@ export default function UserManagement() {
         return () => unsubscribe();
     }, []);
 
+    const showDialog = (type: 'success' | 'danger' | 'warning', title: string, description: string, onConfirm?: () => void) => {
+        setDialogConfig({ isOpen: true, type, title, description, onConfirm });
+    };
+
     const filteredUsers = users.filter((user) => {
         const matchesSearch =
             (user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-            (user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+            (user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+            (user.phoneNumber?.includes(searchTerm) ?? false);
         const matchesRole = roleFilter === "الكل" || user.role === roleFilter;
         return matchesSearch && matchesRole;
     });
 
-    const getRoleColor = (role: string) => {
+    const getRoleInfo = (role: string) => {
         switch (role) {
-            case 'admin': return 'text-red-500 bg-red-500/10 border-red-500/20';
-            case 'teacher': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-            case 'student': return 'text-green-500 bg-green-500/10 border-green-500/20';
-            case 'committee': return 'text-orange-500 bg-orange-500/10 border-orange-500/20';
-            default: return 'text-gray-500 bg-gray-500/10 border-gray-500/20';
-        }
-    };
-
-    const getRoleLabel = (role: string) => {
-        switch (role) {
-            case 'admin': return 'مسؤول';
-            case 'teacher': return 'معلم';
-            case 'student': return 'طالب';
-            case 'committee': return 'لجنة';
-            default: return role;
+            case 'admin': return { label: 'مسؤول', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/20', icon: ShieldCheck };
+            case 'teacher': return { label: 'معلم', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: GraduationCap };
+            case 'student': return { label: 'طالب', color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20', icon: UserCheck };
+            case 'committee': return { label: 'لجنة', color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/20', icon: Lock };
+            default: return { label: role, color: 'text-gray-500', bg: 'bg-gray-500/10', border: 'border-gray-500/20', icon: User };
         }
     };
 
@@ -98,6 +111,7 @@ export default function UserManagement() {
 
     const handleSaveUser = async () => {
         if (!selectedUser || !editForm) return;
+        setSaving(true);
         try {
             await updateDoc(doc(db, "users", selectedUser.id), {
                 displayName: editForm.displayName,
@@ -107,129 +121,164 @@ export default function UserManagement() {
                 isActive: editForm.isActive
             });
             setIsEditOpen(false);
+            showDialog('success', 'تم التحديث', `تم تحديث بيانات ${editForm.displayName} بنجاح.`);
         } catch (error) {
             console.error("Error updating user:", error);
-            alert("حدث خطأ أثناء التحديث");
+            showDialog('danger', 'فشل التحديث', 'حدث خطأ أثناء محاولة حفظ التغييرات.');
+        } finally {
+            setSaving(false);
         }
     };
 
     const toggleStatus = async (user: UserProfile) => {
-        try {
-            await updateDoc(doc(db, "users", user.id), {
-                isActive: !user.isActive
-            });
-        } catch (error) {
-            console.error("Error toggling status:", error);
-        }
+        const action = user.isActive === false ? 'تفعيل' : 'حظر';
+        showDialog('warning', `تأكيد ${action}`, `هل أنت متأكد من ${action} حساب ${user.displayName}؟`, async () => {
+            try {
+                await updateDoc(doc(db, "users", user.id), {
+                    isActive: !user.isActive
+                });
+            } catch (error) {
+                console.error("Error toggling status:", error);
+            }
+        });
     };
 
-    const handleDelete = async () => {
-        if (!selectedUser) return;
-        try {
-            await deleteDoc(doc(db, "users", selectedUser.id));
-            setIsDeleteOpen(false);
-        } catch (error) {
-            console.error("Error deleting user:", error);
-            alert("حدث خطأ أثناء الحذف");
-        }
+    const confirmDelete = (user: UserProfile) => {
+        setSelectedUser(user);
+        showDialog('danger', 'حذف المستخدم', `هل أنت متأكد من حذف ${user.displayName}؟ هذا الإجراء نهائي ولا يمكن التراجع عنه.`, async () => {
+            try {
+                await deleteDoc(doc(db, "users", user.id));
+            } catch (error) {
+                console.error("Error deleting user:", error);
+                showDialog('danger', 'فشل الحذف', 'حدث خطأ أثناء محاولة حذف المستخدم.');
+            }
+        });
     };
+
+    if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /></div>;
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-8 pb-20">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/5 p-6 rounded-2xl border border-white/10 shadow-xl backdrop-blur-md">
                 <div>
-                    <h1 className="text-2xl font-bold">إدارة المستخدمين</h1>
-                    <p className="text-muted-foreground">إدارة حسابات وصلاحيات المسجلين في النظام</p>
+                    <h1 className="text-3xl font-bold tracking-tight">إدارة المستخدمين</h1>
+                    <p className="text-muted-foreground mt-1">التحكم الكامل في حسابات وصلاحيات المسجلين</p>
                 </div>
 
-                {/* Search & Filter */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative">
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative group">
+                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <input
                             type="text"
-                            placeholder="بحث..."
+                            placeholder="بحث بالاسم، الإيميل، أو الهاتف..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-4 pr-10 py-2 rounded-xl border bg-background focus:ring-2 focus:ring-primary/20 outline-none w-full sm:w-64"
+                            className="pl-4 pr-10 py-3 rounded-xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none w-full sm:w-72 transition-all"
                         />
                     </div>
                     <select
                         value={roleFilter}
                         onChange={(e) => setRoleFilter(e.target.value)}
-                        className="px-4 py-2 rounded-xl border bg-background outline-none focus:ring-2 focus:ring-primary/20"
+                        className="px-4 py-3 rounded-xl border bg-background/50 outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
                     >
-                        <option value="الكل">الكل</option>
-                        <option value="admin">مشرف</option>
-                        <option value="teacher">معلم</option>
-                        <option value="student">طالب</option>
-                        <option value="committee">لجنة</option>
+                        <option value="الكل">جميع الرتب</option>
+                        <option value="admin">مسؤول نظام</option>
+                        <option value="teacher">هيئة تعليمية</option>
+                        <option value="student">طلاب</option>
+                        <option value="committee">لجنة علمية</option>
                     </select>
                 </div>
             </div>
 
+            {/* Users Grid */}
             <div className="grid gap-4">
-                {filteredUsers.map((user) => (
-                    <GlassCard key={user.id} className="p-4 flex flex-col md:flex-row items-center gap-4">
-                        {/* Avatar */}
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                            {user.photoURL ? (
-                                <img src={user.photoURL} alt={user.displayName} className="w-full h-full rounded-full object-cover" />
-                            ) : (
-                                (user.displayName?.[0] || "?").toUpperCase()
-                            )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex-1 text-center md:text-right space-y-1">
-                            <h3 className="font-bold">{user.displayName || "مستخدم بدون اسم"}</h3>
-                            <p className="text-xs text-muted-foreground">{user.email}</p>
-                            <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
-                                <span className={`px-2 py-0.5 rounded-full text-xs border ${getRoleColor(user.role)}`}>
-                                    {getRoleLabel(user.role)}
-                                </span>
-                                {user.isActive === false && (
-                                    <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-600 border border-red-200">
-                                        محظور
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => handleEdit(user)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-blue-500 transition-colors"
-                                title="تعديل"
+                <AnimatePresence mode="popLayout">
+                    {filteredUsers.map((user, index) => {
+                        const roleInfo = getRoleInfo(user.role);
+                        return (
+                            <motion.div
+                                key={user.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ delay: index * 0.05 }}
                             >
-                                <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => toggleStatus(user)}
-                                className={`p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors ${user.isActive === false ? 'text-green-500' : 'text-orange-500'}`}
-                                title={user.isActive === false ? "تفعيل" : "حظر"}
-                            >
-                                {user.isActive === false ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                            </button>
-                            <button
-                                onClick={() => { setSelectedUser(user); setIsDeleteOpen(true); }}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-red-500 transition-colors"
-                                title="حذف"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </GlassCard>
-                ))}
+                                <GlassCard className="p-0 overflow-hidden group hover:border-primary/30 transition-all">
+                                    <div className="p-5 flex flex-col md:flex-row items-center gap-6">
+                                        {/* Avatar with Status Ring */}
+                                        <div className={`relative p-1 rounded-full border-2 ${user.isActive === false ? 'border-red-500/30' : 'border-primary/20'}`}>
+                                            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl overflow-hidden shadow-inner">
+                                                {user.photoURL ? (
+                                                    <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    (user.displayName?.[0] || "?").toUpperCase()
+                                                )}
+                                            </div>
+                                            <div className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-background ${user.isActive === false ? 'bg-red-500' : 'bg-green-500'}`} />
+                                        </div>
 
-                {loading && <p className="text-center py-8 text-muted-foreground">جاري التحميل...</p>}
-                {!loading && filteredUsers.length === 0 && (
-                    <p className="text-center py-8 text-muted-foreground">لا توجد نتائج.</p>
+                                        {/* User Main Info */}
+                                        <div className="flex-1 text-center md:text-right space-y-1">
+                                            <div className="flex flex-col md:flex-row items-center gap-2">
+                                                <h3 className="font-bold text-lg">{user.displayName || "مستخدم جديد"}</h3>
+                                                <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${roleInfo.bg} ${roleInfo.color} ${roleInfo.border} uppercase tracking-wider`}>
+                                                    <roleInfo.icon className="w-3 h-3" />
+                                                    {roleInfo.label}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap justify-center md:justify-start gap-x-4 gap-y-1 text-xs text-muted-foreground/70">
+                                                <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> {user.email}</span>
+                                                {user.phoneNumber && <span className="flex items-center gap-1 dir-ltr"><User className="w-3 h-3" /> {user.phoneNumber}</span>}
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center gap-3 bg-white/5 p-2 rounded-2xl border border-white/5">
+                                            <button
+                                                onClick={() => handleEdit(user)}
+                                                className="w-10 h-10 flex items-center justify-center hover:bg-blue-500/10 rounded-xl text-blue-500 transition-all hover:scale-110"
+                                                title="تعديل المستخدم"
+                                            >
+                                                <Edit className="w-5 h-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => toggleStatus(user)}
+                                                className={`w-10 h-10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-all hover:scale-110 ${user.isActive === false ? 'text-green-500' : 'text-orange-500'}`}
+                                                title={user.isActive === false ? "تفعيل الحساب" : "حظر الحساب"}
+                                            >
+                                                {user.isActive === false ? <CheckCircle className="w-5 h-5" /> : <Ban className="w-5 h-5" />}
+                                            </button>
+                                            <div className="w-[1px] h-6 bg-white/10 mx-1" />
+                                            <button
+                                                onClick={() => confirmDelete(user)}
+                                                className="w-10 h-10 flex items-center justify-center hover:bg-red-500/10 rounded-xl text-red-500 transition-all hover:scale-110"
+                                                title="حذف نهائي"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </GlassCard>
+                            </motion.div>
+                        );
+                    })}
+                </AnimatePresence>
+
+                {filteredUsers.length === 0 && !loading && (
+                    <motion.div 
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10"
+                    >
+                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Search className="w-8 h-8 text-muted-foreground/30" />
+                        </div>
+                        <p className="text-muted-foreground">لم يتم العثور على أي مستخدمين يطابقون بحثك.</p>
+                    </motion.div>
                 )}
             </div>
 
-            {/* Edit Dialog */}
+            {/* Edit Profile Modal */}
             <AnimatePresence>
                 {isEditOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -238,110 +287,130 @@ export default function UserManagement() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setIsEditOpen(false)}
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                            className="absolute inset-0 bg-black/60 backdrop-blur-md"
                         />
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-background rounded-2xl shadow-xl w-full max-w-md relative z-10 overflow-hidden"
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="bg-background border border-white/10 rounded-[2.5rem] shadow-2xl w-full max-w-lg relative z-10 overflow-hidden"
                         >
-                            <div className="p-6 border-b">
-                                <h2 className="text-lg font-bold">تعديل بيانات المستخدم</h2>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium">الاسم الكامل</label>
-                                    <input
-                                        type="text"
-                                        value={editForm.displayName || ""}
-                                        onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
-                                        className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5"
-                                    />
+                            <div className="p-8 border-b border-white/5 flex items-center justify-between bg-primary/5">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+                                        <Edit className="w-6 h-6 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold">تعديل بيانات المستخدم</h2>
+                                        <p className="text-xs text-muted-foreground">تعديل المعلومات الأساسية والصلاحيات</p>
+                                    </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium">البريد الإلكتروني</label>
+                                <button 
+                                    onClick={() => setIsEditOpen(false)}
+                                    className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                                >
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={(e) => { e.preventDefault(); handleSaveUser(); }} className="p-8 space-y-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">الاسم الكامل</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            value={editForm.displayName || ""}
+                                            onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                                            className="w-full p-3 rounded-2xl border bg-gray-50 dark:bg-black/20 focus:ring-4 focus:ring-primary/10 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">الرتبة / الصلاحية</label>
+                                        <select
+                                            value={editForm.role}
+                                            onChange={(e) => setEditForm({ ...editForm, role: e.target.value as any })}
+                                            className="w-full p-3 rounded-2xl border bg-gray-50 dark:bg-black/20 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold"
+                                        >
+                                            <option value="student">طالب</option>
+                                            <option value="teacher">معلم / هيئة تعليمية</option>
+                                            <option value="committee">لجنة علمية</option>
+                                            <option value="admin">مسؤول نظام (أدمن)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">البريد الإلكتروني</label>
                                     <input
+                                        required
                                         type="email"
                                         value={editForm.email || ""}
                                         onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                        className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5"
+                                        className="w-full p-3 rounded-2xl border bg-gray-50 dark:bg-black/20 focus:ring-4 focus:ring-primary/10 outline-none transition-all"
                                     />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium">رقم الهاتف</label>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">رقم الهاتف</label>
                                     <input
                                         type="tel"
                                         value={editForm.phoneNumber || ""}
                                         onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
-                                        className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5 dir-ltr text-right"
+                                        className="w-full p-3 rounded-2xl border bg-gray-50 dark:bg-black/20 focus:ring-4 focus:ring-primary/10 outline-none transition-all dir-ltr text-right"
+                                        placeholder="+967..."
                                     />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium">الصلاحية</label>
-                                    <select
-                                        value={editForm.role}
-                                        onChange={(e) => setEditForm({ ...editForm, role: e.target.value as any })}
-                                        className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5"
+
+                                <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                                    <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-white/10">
+                                        <input
+                                            type="checkbox"
+                                            id="isActive-modal"
+                                            checked={editForm.isActive !== false}
+                                            onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+                                            className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                                        />
+                                        <span className={`h-4 w-4 transform rounded-full bg-white transition-all duration-200 ${editForm.isActive !== false ? 'translate-x-6 bg-primary' : 'translate-x-1'}`} />
+                                    </div>
+                                    <label htmlFor="isActive-modal" className="text-sm font-bold">حالة الحساب: {editForm.isActive !== false ? 'نشط' : 'محظور'}</label>
+                                </div>
+
+                                <div className="pt-4 flex gap-3">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsEditOpen(false)} 
+                                        className="flex-1 py-4 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl font-bold transition-all"
                                     >
-                                        <option value="admin">مسؤول</option>
-                                        <option value="teacher">معلم</option>
-                                        <option value="student">طالب</option>
-                                        <option value="committee">لجنة</option>
-                                    </select>
+                                        إلغاء
+                                    </button>
+                                    <button 
+                                        type="submit"
+                                        disabled={saving}
+                                        className="flex-[2] py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+                                        تطبيق كافة التعديلات
+                                    </button>
                                 </div>
-                                <div className="flex items-center gap-3 pt-2">
-                                    <input
-                                        type="checkbox"
-                                        id="isActive"
-                                        checked={editForm.isActive !== false}
-                                        onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
-                                        className="w-4 h-4"
-                                    />
-                                    <label htmlFor="isActive" className="text-sm">حساب نشط</label>
-                                </div>
-                            </div>
-                            <div className="p-6 bg-gray-50 dark:bg-white/5 flex justify-end gap-3">
-                                <button onClick={() => setIsEditOpen(false)} className="px-4 py-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg">إلغاء</button>
-                                <button onClick={handleSaveUser} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90">حفظ التعديلات</button>
-                            </div>
+                            </form>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
 
-            {/* Delete Confirmation */}
-            <AnimatePresence>
-                {isDeleteOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsDeleteOpen(false)}
-                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                        />
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-background rounded-2xl shadow-xl w-full max-w-sm relative z-10 overflow-hidden"
-                        >
-                            <div className="p-6 text-center space-y-4">
-                                <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-                                    <Trash2 className="w-8 h-8" />
-                                </div>
-                                <h2 className="text-xl font-bold">تأكيد الحذف</h2>
-                                <p className="text-muted-foreground">هل أنت متأكد من رغبتك في حذف هذا المستخدم نهائياً؟ لا يمكن التراجع عن هذا الإجراء.</p>
-                            </div>
-                            <div className="p-6 bg-gray-50 dark:bg-white/5 flex gap-3">
-                                <button onClick={() => setIsDeleteOpen(false)} className="flex-1 px-4 py-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg">إلغاء</button>
-                                <button onClick={handleDelete} className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">حذف</button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            <EliteDialog
+                isOpen={dialogConfig.isOpen}
+                onClose={() => setDialogConfig({ ...dialogConfig, isOpen: false })}
+                onConfirm={() => {
+                    if (dialogConfig.onConfirm) dialogConfig.onConfirm();
+                    setDialogConfig({ ...dialogConfig, isOpen: false });
+                }}
+                title={dialogConfig.title}
+                description={dialogConfig.description}
+                type={dialogConfig.type as any}
+                confirmText={dialogConfig.onConfirm ? "نعم، متأكد" : "حسناً"}
+            />
         </div>
     );
 }
