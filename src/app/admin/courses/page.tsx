@@ -26,7 +26,8 @@ import {
     X,
     Loader2,
     ChevronRight,
-    Layers
+    Layers,
+    Eye
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -185,9 +186,17 @@ export default function CoursesDashboard() {
                                 <div className="flex items-start justify-between">
                                     <h3 className="text-xl font-bold">{course.title}</h3>
                                     <div className="flex gap-2">
+                                        <Link
+                                            href={`/admin/courses/${course.id}/members`}
+                                            className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-primary"
+                                            title="عرض وإدارة الأعضاء"
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                        </Link>
                                         <button
                                             onClick={() => handleEdit(course)}
                                             className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-blue-500"
+                                            title="تعديل"
                                         >
                                             <Edit className="w-4 h-4" />
                                         </button>

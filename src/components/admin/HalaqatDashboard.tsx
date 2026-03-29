@@ -21,9 +21,11 @@ import {
     Clock,
     UserCircle,
     X,
-    Loader2
+    Loader2,
+    Eye
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
 interface GroupModel {
     id: string;
@@ -215,15 +217,24 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
 
                             {!readonly && (
                                 <div className="pt-4 flex justify-end gap-2 border-t border-gray-100 dark:border-white/5">
+                                    <Link
+                                        href={`/admin/halaqat/${group.id}/members`}
+                                        className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-primary"
+                                        title="عرض وإدارة الأعضاء"
+                                    >
+                                        <Eye className="w-4 h-4" />
+                                    </Link>
                                     <button
                                         onClick={() => handleEdit(group)}
                                         className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-blue-500"
+                                        title="تعديل"
                                     >
                                         <Edit className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(group.id)}
                                         className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg text-red-500"
+                                        title="حذف"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
