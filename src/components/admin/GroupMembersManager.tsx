@@ -39,6 +39,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { EliteDialog } from "@/components/ui/EliteDialog";
+import { cn } from "@/lib/utils";
 
 interface MemberModel {
     id: string; // userId
@@ -450,7 +451,10 @@ function MemberCard({ member, onRemove, onChangeRole, loading, icon, label }: {
     const [showActions, setShowActions] = useState(false);
 
     return (
-        <GlassCard className="p-4 flex flex-col gap-4 group">
+        <GlassCard className={cn(
+            "p-4 flex flex-col gap-4 group !overflow-visible relative transition-all duration-300",
+            showActions ? "z-50" : "z-0"
+        )}>
             <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg relative">
                     {member.photoURL ? <img src={member.photoURL} alt="" className="w-full h-full rounded-full object-cover" /> : (member.displayName?.[0] || "?").toUpperCase()}
@@ -481,7 +485,7 @@ function MemberCard({ member, onRemove, onChangeRole, loading, icon, label }: {
                                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                    className="absolute left-0 top-full mt-2 w-48 bg-background border rounded-2xl shadow-xl z-30 overflow-hidden"
+                                    className="absolute left-0 bottom-full mb-2 w-48 bg-background border rounded-2xl shadow-xl z-50 overflow-hidden"
                                 >
                                     <p className="px-4 py-2 text-[10px] font-bold text-muted-foreground bg-gray-50 dark:bg-white/5 border-b uppercase tracking-wider">تغيير الصلاحية داخل المجموعة</p>
                                     <button onClick={() => { onChangeRole('admin'); setShowActions(false); }} className="w-full text-right px-4 py-2.5 text-xs hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors">
