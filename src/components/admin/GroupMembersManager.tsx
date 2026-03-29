@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import {
     collection,
@@ -13,7 +13,8 @@ import {
     getDoc,
     getDocs,
     limit,
-    serverTimestamp
+    serverTimestamp,
+    writeBatch
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
@@ -27,7 +28,9 @@ import {
     GraduationCap,
     CheckCircle2,
     Briefcase,
-    User
+    User,
+    CheckSquare,
+    Square
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -58,20 +61,23 @@ interface GroupMembersManagerProps {
 export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMembersManagerProps) {
     const [groupName, setGroupName] = useState("");
     const [members, setMembers] = useState<MemberModel[]>([]);
-    const [searchResults, setSearchResults] = useState<UserSummary[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searching, setSearching] = useState(false);
+    const [availableUsers, setAvailableUsers] = useState<UserSummary[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(true);
+    const [loadingAvailable, setLoadingAvailable] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchRole, setSearchRole] = useState<'student' | 'teacher' | 'admin'>('student');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [bulkLoading, setBulkLoading] = useState(false);
+    
+    // Multi-selection state
+    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
-    // Fetch Group Info & Members
+    // 1. Fetch Group Info & Current Members
     useEffect(() => {
         if (!groupId) return;
 
         const collectionName = groupType === 'course' ? 'courses' : 'groups';
         
-        // 1. Fetch Group Info
         const fetchGroup = async () => {
             const snap = await getDoc(doc(db, collectionName, groupId));
             if (snap.exists()) {
@@ -81,82 +87,99 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         };
         fetchGroup();
 
-        // 2. Realtime Members from members/groupId/members/
         const unsubscribe = onSnapshot(collection(db, "members", groupId, "members"), (snapshot) => {
             const membersData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             })) as MemberModel[];
             setMembers(membersData);
-            setLoading(false);
+            setLoadingMembers(false);
         });
 
         return () => unsubscribe();
     }, [groupId, groupType]);
 
-    // Search Users to Add
+    // 2. Fetch Available Users based on role (Auto-fetch)
     useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            if (searchTerm.trim().length >= 2) {
-                handleSearch();
-            } else {
-                setSearchResults([]);
+        const fetchAvailable = async () => {
+            setLoadingAvailable(true);
+            try {
+                // Fetch up to 100 users for the chosen role
+                const q = query(
+                    collection(db, "users"),
+                    where("role", "==", searchRole),
+                    limit(100)
+                );
+                const snap = await getDocs(q);
+                const users = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserSummary));
+                setAvailableUsers(users);
+            } catch (error) {
+                console.error("Error fetching available users:", error);
+            } finally {
+                setLoadingAvailable(false);
             }
-        }, 500);
+        };
+        fetchAvailable();
+        setSelectedUserIds(new Set()); // Reset selection when role changes
+    }, [searchRole]);
 
-        return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm, searchRole]);
+    // 3. Filter users who are NOT yet members and match search term
+    const candidates = useMemo(() => {
+        const memberIds = new Set(members.map(m => m.id));
+        return availableUsers.filter(u => {
+            const isNotMember = !memberIds.has(u.id);
+            const matchesSearch = u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+            return isNotMember && matchesSearch;
+        });
+    }, [availableUsers, members, searchTerm]);
 
-    const handleSearch = async () => {
-        setSearching(true);
-        try {
-            const q = query(
-                collection(db, "users"),
-                where("role", "==", searchRole),
-                limit(20)
-            );
-            
-            const snap = await getDocs(q);
-            const allUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as UserSummary[];
-            
-            const filtered = allUsers.filter(u => 
-                u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            
-            setSearchResults(filtered);
-        } catch (error) {
-            console.error("Search error:", error);
-        } finally {
-            setSearching(false);
+    const toggleSelect = (userId: string) => {
+        const next = new Set(selectedUserIds);
+        if (next.has(userId)) next.delete(userId);
+        else next.add(userId);
+        setSelectedUserIds(next);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedUserIds.size === candidates.length) {
+            setSelectedUserIds(new Set());
+        } else {
+            setSelectedUserIds(new Set(candidates.map(u => u.id)));
         }
     };
 
-    const addMember = async (user: UserSummary) => {
-        if (members.some(m => m.id === user.id)) return;
-        
-        setActionLoading(user.id);
+    const addSelectedMembers = async () => {
+        if (selectedUserIds.size === 0) return;
+        setBulkLoading(true);
         try {
-            await setDoc(doc(db, "members", groupId, "members", user.id), {
-                displayName: user.displayName,
-                email: user.email,
-                photoURL: user.photoURL || "",
-                role: user.role,
-                addedAt: serverTimestamp()
+            const batch = writeBatch(db);
+            const usersToAdd = candidates.filter(u => selectedUserIds.has(u.id));
+            
+            usersToAdd.forEach(user => {
+                const memberRef = doc(db, "members", groupId, "members", user.id);
+                batch.set(memberRef, {
+                    displayName: user.displayName,
+                    email: user.email,
+                    photoURL: user.photoURL || "",
+                    role: user.role,
+                    addedAt: serverTimestamp()
+                });
             });
+            
+            await batch.commit();
+            setSelectedUserIds(new Set());
             setSearchTerm("");
-            setSearchResults([]);
         } catch (error) {
-            console.error("Add member error:", error);
-            alert("حدث خطأ أثناء إضافة العضو");
+            console.error("Bulk add error:", error);
+            alert("حدث خطأ أثناء الإضافة الجماعية");
         } finally {
-            setActionLoading(null);
+            setBulkLoading(false);
         }
     };
 
     const removeMember = async (userId: string) => {
         if (!confirm("هل أنت متأكد من إزالة هذا العضو من المجموعة؟")) return;
-        
         setActionLoading(userId);
         try {
             await deleteDoc(doc(db, "members", groupId, "members", userId));
@@ -202,13 +225,18 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
             </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
-                {/* Left: Search & Add Section */}
+                {/* Left: Candidates Section (Multi-Selection) */}
                 <div className="lg:col-span-1 space-y-6">
-                    <GlassCard className="p-6">
-                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                            <UserPlus className="w-5 h-5 text-primary" />
-                            إضافة عضو جديد
-                        </h2>
+                    <GlassCard className="p-6 relative">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-bold flex items-center gap-2">
+                                <UserPlus className="w-5 h-5 text-primary" />
+                                إضافة أعضاء
+                            </h2>
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-lg">
+                                {candidates.length} متاح
+                            </span>
+                        </div>
 
                         {/* Role Tabs */}
                         <div className="flex p-1 bg-gray-100 dark:bg-white/5 rounded-xl mb-4">
@@ -231,66 +259,80 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <input
                                 type="text"
-                                placeholder={`ابحث عن ${getRoleLabel(searchRole)}...`}
+                                placeholder={`فلترة القائمة...`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-4 pr-10 py-3 rounded-xl border bg-background focus:ring-2 focus:ring-primary/20 outline-none shadow-sm"
                             />
                         </div>
 
-                        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                            {searching && (
-                                <div className="flex justify-center py-4">
-                                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                                </div>
-                            )}
-                            
-                            {searchResults.map(user => (
-                                <div key={user.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-transparent hover:border-primary/20 transition-all group">
+                        {/* Candidate list with Multi-Select */}
+                        <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1 mb-6">
+                            <div className="flex items-center justify-between px-3 py-2 text-xs border-b border-gray-100 dark:border-white/5 mb-2 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
+                                <button 
+                                    onClick={toggleSelectAll}
+                                    className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                    {selectedUserIds.size === candidates.length && candidates.length > 0
+                                        ? <CheckSquare className="w-4 h-4 text-primary" />
+                                        : <Square className="w-4 h-4" />
+                                    }
+                                    <span>تحديد الكل</span>
+                                </button>
+                                <span>{selectedUserIds.size} مختار</span>
+                            </div>
+
+                            {loadingAvailable ? (
+                                <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin opacity-20" /></div>
+                            ) : candidates.map(user => (
+                                <button
+                                    key={user.id}
+                                    onClick={() => toggleSelect(user.id)}
+                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all group ${
+                                        selectedUserIds.has(user.id)
+                                            ? 'bg-primary/5 border-primary ring-1 ring-primary/20'
+                                            : 'bg-gray-50 dark:bg-white/5 border-transparent hover:border-primary/20'
+                                    }`}
+                                >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                            {user.photoURL ? (
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
+                                            selectedUserIds.has(user.id) ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
+                                        }`}>
+                                            {selectedUserIds.has(user.id) ? (
+                                                <CheckSquare className="w-5 h-5" />
+                                            ) : user.photoURL ? (
                                                 <img src={user.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
                                             ) : (
                                                 (user.displayName?.[0] || "?").toUpperCase()
                                             )}
                                         </div>
-                                        <div className="min-w-0">
+                                        <div className="text-right min-w-0">
                                             <p className="text-sm font-bold truncate">{user.displayName}</p>
-                                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                                            <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                                         </div>
                                     </div>
-                                    
-                                    <button
-                                        onClick={() => addMember(user)}
-                                        disabled={actionLoading === user.id || members.some(m => m.id === user.id)}
-                                        className={`p-2 rounded-lg transition-colors ${
-                                            members.some(m => m.id === user.id)
-                                                ? 'text-green-500 bg-green-500/10'
-                                                : 'text-primary hover:bg-primary/10'
-                                        }`}
-                                    >
-                                        {actionLoading === user.id ? (
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : members.some(m => m.id === user.id) ? (
-                                            <CheckCircle2 className="w-4 h-4" />
-                                        ) : (
-                                            <UserPlus className="w-4 h-4" />
-                                        )}
-                                    </button>
-                                </div>
+                                    {!selectedUserIds.has(user.id) && <Square className="w-4 h-4 text-gray-300 dark:text-white/10" />}
+                                </button>
                             ))}
 
-                            {!searching && searchTerm.length >= 2 && searchResults.length === 0 && (
-                                <p className="text-center py-4 text-sm text-muted-foreground">لا توجد نتائج للبحث.</p>
-                            )}
-                            
-                            {searchTerm.length < 2 && !searching && (
-                                <div className="text-center py-8 text-muted-foreground space-y-2">
-                                    <Search className="w-8 h-8 mx-auto opacity-20" />
-                                    <p className="text-xs">اكتب حرفين على الأقل للبحث</p>
+                            {!loadingAvailable && candidates.length === 0 && (
+                                <div className="text-center py-20 text-muted-foreground space-y-2">
+                                    <Users className="w-12 h-12 mx-auto opacity-10" />
+                                    <p className="text-sm">لا يوجد {getRoleLabel(searchRole)} متاحون للإضافة حالياً</p>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Bulk Action Button */}
+                        <div className="sticky bottom-0 bg-background pt-4 border-t">
+                            <button
+                                onClick={addSelectedMembers}
+                                disabled={selectedUserIds.size === 0 || bulkLoading}
+                                className="w-full py-4 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale transition-all shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0"
+                            >
+                                {bulkLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
+                                <span>إضافة {selectedUserIds.size > 0 ? `(${selectedUserIds.size}) أعضاء` : "المحددين"}</span>
+                            </button>
                         </div>
                     </GlassCard>
                 </div>
@@ -316,7 +358,7 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                     label={getRoleLabel(member.role)}
                                 />
                             ))}
-                            {!loading && staffMembers.length === 0 && (
+                            {!loadingMembers && staffMembers.length === 0 && (
                                 <p className="col-span-full py-6 text-center text-sm text-muted-foreground border border-dashed rounded-2xl">
                                     لا يوجد معلمون أو مشرفون مضافون بعد.
                                 </p>
@@ -342,7 +384,7 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                     label="طالب"
                                 />
                             ))}
-                            {!loading && studentMembers.length === 0 && (
+                            {!loadingMembers && studentMembers.length === 0 && (
                                 <p className="col-span-full py-6 text-center text-sm text-muted-foreground border border-dashed rounded-2xl">
                                     لا يوجد طلاب مضافون بعد.
                                 </p>
