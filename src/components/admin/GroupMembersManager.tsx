@@ -25,7 +25,9 @@ import {
     Loader2,
     Shield,
     GraduationCap,
-    CheckCircle2
+    CheckCircle2,
+    Briefcase,
+    User
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -35,6 +37,7 @@ interface MemberModel {
     displayName: string;
     email: string;
     photoURL?: string;
+    role: string;
     addedAt: any;
 }
 
@@ -59,6 +62,7 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
     const [loading, setLoading] = useState(true);
     const [searching, setSearching] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [searchRole, setSearchRole] = useState<'student' | 'teacher' | 'admin'>('student');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Fetch Group Info & Members
@@ -93,7 +97,7 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
     // Search Users to Add
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
-            if (searchTerm.trim().length >= 3) {
+            if (searchTerm.trim().length >= 2) {
                 handleSearch();
             } else {
                 setSearchResults([]);
@@ -101,23 +105,20 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         }, 500);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm]);
+    }, [searchTerm, searchRole]);
 
     const handleSearch = async () => {
         setSearching(true);
         try {
-            // Find users where role is student (or any role the admin wants to add)
-            // For now, let's allow adding anyone but focus on students
             const q = query(
                 collection(db, "users"),
-                where("role", "==", "student"),
-                limit(10)
+                where("role", "==", searchRole),
+                limit(20)
             );
             
             const snap = await getDocs(q);
             const allUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as UserSummary[];
             
-            // Filter local search for better UX if needed, or just use Firestore results
             const filtered = allUsers.filter(u => 
                 u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                 u.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -136,11 +137,11 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         
         setActionLoading(user.id);
         try {
-            // Path: members/groupId/members/userId
             await setDoc(doc(db, "members", groupId, "members", user.id), {
                 displayName: user.displayName,
                 email: user.email,
                 photoURL: user.photoURL || "",
+                role: user.role,
                 addedAt: serverTimestamp()
             });
             setSearchTerm("");
@@ -166,6 +167,27 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         }
     };
 
+    const staffMembers = members.filter(m => m.role === 'teacher' || m.role === 'admin');
+    const studentMembers = members.filter(m => m.role === 'student');
+
+    const getRoleIcon = (role: string) => {
+        switch (role) {
+            case 'admin': return <Shield className="w-4 h-4 text-red-500" />;
+            case 'teacher': return <GraduationCap className="w-4 h-4 text-blue-500" />;
+            case 'student': return <User className="w-4 h-4 text-green-500" />;
+            default: return <User className="w-4 h-4" />;
+        }
+    };
+
+    const getRoleLabel = (role: string) => {
+        switch (role) {
+            case 'admin': return 'مشرف';
+            case 'teacher': return 'معلم';
+            case 'student': return 'طالب';
+            default: return role;
+        }
+    };
+
     return (
         <div className="space-y-6 pb-20">
             {/* Header */}
@@ -187,12 +209,29 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                             <UserPlus className="w-5 h-5 text-primary" />
                             إضافة عضو جديد
                         </h2>
+
+                        {/* Role Tabs */}
+                        <div className="flex p-1 bg-gray-100 dark:bg-white/5 rounded-xl mb-4">
+                            {(['student', 'teacher', 'admin'] as const).map((role) => (
+                                <button
+                                    key={role}
+                                    onClick={() => setSearchRole(role)}
+                                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                                        searchRole === role 
+                                            ? 'bg-white dark:bg-primary text-primary dark:text-white shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {getRoleLabel(role)}
+                                </button>
+                            ))}
+                        </div>
                         
                         <div className="relative mb-4">
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <input
                                 type="text"
-                                placeholder="ابحث عن اسم الطالب أو البريد..."
+                                placeholder={`ابحث عن ${getRoleLabel(searchRole)}...`}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-4 pr-10 py-3 rounded-xl border bg-background focus:ring-2 focus:ring-primary/20 outline-none shadow-sm"
@@ -216,9 +255,9 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                                 (user.displayName?.[0] || "?").toUpperCase()
                                             )}
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-bold">{user.displayName}</p>
-                                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold truncate">{user.displayName}</p>
+                                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                                         </div>
                                     </div>
                                     
@@ -242,70 +281,73 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                 </div>
                             ))}
 
-                            {!searching && searchTerm.length >= 3 && searchResults.length === 0 && (
+                            {!searching && searchTerm.length >= 2 && searchResults.length === 0 && (
                                 <p className="text-center py-4 text-sm text-muted-foreground">لا توجد نتائج للبحث.</p>
                             )}
                             
-                            {searchTerm.length < 3 && !searching && (
+                            {searchTerm.length < 2 && !searching && (
                                 <div className="text-center py-8 text-muted-foreground space-y-2">
                                     <Search className="w-8 h-8 mx-auto opacity-20" />
-                                    <p className="text-xs">اكتب 3 أحرف على الأقل للبحث</p>
+                                    <p className="text-xs">اكتب حرفين على الأقل للبحث</p>
                                 </div>
                             )}
                         </div>
                     </GlassCard>
                 </div>
 
-                {/* Right: Members List */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                            <Users className="w-6 h-6 text-primary" />
-                            الأعضاء المنضمون ({members.length})
-                        </h2>
+                {/* Right: Members List Sections */}
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Staff Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <Briefcase className="w-6 h-6 text-blue-500" />
+                                الهيئة التعليمية والإدارية ({staffMembers.length})
+                            </h2>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            {staffMembers.map(member => (
+                                <MemberCard 
+                                    key={member.id} 
+                                    member={member} 
+                                    onRemove={removeMember} 
+                                    loading={actionLoading === member.id}
+                                    icon={getRoleIcon(member.role)}
+                                    label={getRoleLabel(member.role)}
+                                />
+                            ))}
+                            {!loading && staffMembers.length === 0 && (
+                                <p className="col-span-full py-6 text-center text-sm text-muted-foreground border border-dashed rounded-2xl">
+                                    لا يوجد معلمون أو مشرفون مضافون بعد.
+                                </p>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="grid sm:grid-cols-2 gap-4">
-                        {loading ? (
-                            Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="h-24 bg-gray-100 dark:bg-white/5 animate-pulse rounded-2xl" />
-                            ))
-                        ) : members.map(member => (
-                            <GlassCard key={member.id} className="p-4 flex items-center gap-4 group">
-                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                                    {member.photoURL ? (
-                                        <img src={member.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
-                                    ) : (
-                                        (member.displayName?.[0] || "?").toUpperCase()
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold truncate">{member.displayName}</h3>
-                                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                                </div>
-                                <button
-                                    onClick={() => removeMember(member.id)}
-                                    disabled={actionLoading === member.id}
-                                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
-                                    title="إزالة من المجموعة"
-                                >
-                                    {actionLoading === member.id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <UserX className="w-4 h-4" />
-                                    )}
-                                </button>
-                            </GlassCard>
-                        ))}
-
-                        {!loading && members.length === 0 && (
-                            <div className="col-span-full py-20 text-center space-y-4">
-                                <div className="w-20 h-20 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto text-muted-foreground">
-                                    <Users className="w-10 h-10 opacity-20" />
-                                </div>
-                                <p className="text-muted-foreground font-medium">لا يوجد أعضاء في هذه المجموعة بعد.</p>
-                            </div>
-                        )}
+                    {/* Students Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <Users className="w-6 h-6 text-green-500" />
+                                الطلاب المنضمون ({studentMembers.length})
+                            </h2>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            {studentMembers.map(member => (
+                                <MemberCard 
+                                    key={member.id} 
+                                    member={member} 
+                                    onRemove={removeMember} 
+                                    loading={actionLoading === member.id}
+                                    label="طالب"
+                                />
+                            ))}
+                            {!loading && studentMembers.length === 0 && (
+                                <p className="col-span-full py-6 text-center text-sm text-muted-foreground border border-dashed rounded-2xl">
+                                    لا يوجد طلاب مضافون بعد.
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -313,3 +355,48 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
     );
 }
 
+function MemberCard({ member, onRemove, loading, icon, label }: { 
+    member: MemberModel, 
+    onRemove: (id: string) => void, 
+    loading: boolean,
+    icon?: React.ReactNode,
+    label: string 
+}) {
+    return (
+        <GlassCard className="p-4 flex items-center gap-4 group">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg relative">
+                {member.photoURL ? (
+                    <img src={member.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                    (member.displayName?.[0] || "?").toUpperCase()
+                )}
+                {icon && (
+                    <div className="absolute -top-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm border border-gray-100 dark:border-white/10">
+                        {icon}
+                    </div>
+                )}
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                    <h3 className="font-bold truncate">{member.displayName}</h3>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-muted-foreground border border-gray-200 dark:border-white/10">
+                        {label}
+                    </span>
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+            </div>
+            <button
+                onClick={() => onRemove(member.id)}
+                disabled={loading}
+                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
+                title="إزالة من المجموعة"
+            >
+                {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                    <UserX className="w-4 h-4" />
+                )}
+            </button>
+        </GlassCard>
+    );
+}
