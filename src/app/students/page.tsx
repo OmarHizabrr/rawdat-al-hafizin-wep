@@ -16,7 +16,8 @@ import {
     arrayUnion,
     arrayRemove,
     orderBy,
-    limit
+    limit,
+    writeBatch
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
@@ -80,7 +81,7 @@ interface Testimonial {
 }
 
 export default function StudentPortal() {
-    const { user } = useAuth();
+    const { user, userData } = useAuth();
     const router = useRouter();
     const [courses, setCourses] = useState<Course[]>([]);
     const [activeCourse, setActiveCourse] = useState<Course | null>(null);
@@ -687,7 +688,7 @@ function RegistrationSection({ course }: { course: Course }) {
     const [isRegistered, setIsRegistered] = useState(false);
     const [checking, setChecking] = useState(true);
     const [registering, setRegistering] = useState(false);
-    const { user } = useAuth();
+    const { user, userData } = useAuth();
     const [dialogConfig, setDialogConfig] = useState({ open: false, type: 'success', title: '', desc: '' });
 
     useEffect(() => {
@@ -706,16 +707,43 @@ function RegistrationSection({ course }: { course: Course }) {
         if (!user) return;
         setRegistering(true);
         try {
-            await setDoc(doc(db, "courses", course.id, "enrollments", user.uid), {
+            const batch = writeBatch(db);
+
+            // 1. Enrollment Track (Pedagogical record)
+            const enrollmentRef = doc(db, "courses", course.id, "enrollments", user.uid);
+            batch.set(enrollmentRef, {
                 enrolledAt: serverTimestamp(),
-                studentName: user.displayName,
+                studentName: user.displayName || userData?.displayName || "طالب غير معروف",
                 studentEmail: user.email,
-                status: "pending",
+                status: "accepted", // Automatically accepted as requested
             });
-            setDialogConfig({ open: true, type: 'success', title: 'تم التسجيل', desc: 'لقد تم إرسال طلب انضمامك للدورة بنجاح. سيتم مراجعة الطلب قريباً.' });
+
+            // 2. Global Members Track (Alignment with GroupMembersManager)
+            const memberRef = doc(db, "members", course.id, "members", user.uid);
+            batch.set(memberRef, {
+                displayName: user.displayName || userData?.displayName || "طالب",
+                email: user.email,
+                photoURL: user.photoURL || "",
+                role: "student",
+                addedAt: serverTimestamp(),
+            });
+
+            await batch.commit();
+
+            setDialogConfig({ 
+                open: true, 
+                type: 'success', 
+                title: 'تم الانضمام بنجاح', 
+                desc: `لقد تم إدراجك كعضو في دورة "${course.title}". يمكنك البدء الآن!` 
+            });
         } catch (error) {
             console.error("Error registering", error);
-            setDialogConfig({ open: true, type: 'danger', title: 'خطأ في التسجيل', desc: 'حدث خطأ أثناء محاولة التسجيل. يرجى المحاولة لاحقاً.' });
+            setDialogConfig({ 
+                open: true, 
+                type: 'danger', 
+                title: 'عذراً، حدث خطأ', 
+                desc: 'لم نتمكن من إتمام عملية الانضمام حالياً، يرجى المحاولة لاحقاً.' 
+            });
         } finally {
             setRegistering(false);
         }
