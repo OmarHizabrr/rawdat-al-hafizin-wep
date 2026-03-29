@@ -11,7 +11,10 @@ import {
     doc,
     setDoc,
     serverTimestamp,
-    getDoc,
+    addDoc,
+    updateDoc,
+    arrayUnion,
+    arrayRemove,
     orderBy
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -32,7 +35,8 @@ import {
     Globe,
     Loader2,
     ChevronDown,
-    Info
+    Info,
+    X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -60,6 +64,8 @@ interface Testimonial {
     studentPhoto?: string;
     content: string;
     createdAt: Timestamp;
+    likes?: string[]; // Array of uids
+    isVisible?: boolean;
 }
 
 export default function StudentPortal() {
@@ -71,6 +77,11 @@ export default function StudentPortal() {
     const [timeLeftToRegister, setTimeLeftToRegister] = useState<string>("00:00:00");
     const [timeLeftToStart, setTimeLeftToStart] = useState<string>("00:00:00");
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+    
+    // Add Testimonial State
+    const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
+    const [newTestimonialContent, setNewTestimonialContent] = useState("");
+    const [isSubmittingTestimonial, setIsSubmittingTestimonial] = useState(false);
 
     // Fetch Courses
     useEffect(() => {
@@ -128,10 +139,54 @@ export default function StudentPortal() {
                 id: doc.id,
                 ...doc.data(),
             })) as Testimonial[];
-            setTestimonials(data);
+            // Filter only visible ones for students
+            setTestimonials(data.filter(t => t.isVisible !== false));
         });
         return () => unsubscribe();
     }, []);
+
+    const handleSubmitTestimonial = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user || !newTestimonialContent.trim()) return;
+
+        setIsSubmittingTestimonial(true);
+        try {
+            await addDoc(collection(db, "testimonials"), {
+                studentId: user.uid,
+                studentName: user.displayName || "طالب",
+                studentPhoto: user.photoURL || "",
+                content: newTestimonialContent,
+                createdAt: serverTimestamp(),
+                likes: [],
+                isVisible: true // Show by default or change based on policy
+            });
+            setNewTestimonialContent("");
+            setIsTestimonialModalOpen(false);
+        } catch (error) {
+            console.error("Error adding testimonial", error);
+            alert("حدث خطأ أثناء إضافة مشاركتك");
+        } finally {
+            setIsSubmittingTestimonial(false);
+        }
+    };
+
+    const handleToggleLike = async (testimonialId: string, currentLikes: string[] = []) => {
+        if (!user) {
+            alert("يرجى تسجيل الدخول للتفاعل مع المشاركات");
+            return;
+        }
+
+        const isLiked = currentLikes.includes(user.uid);
+        const ref = doc(db, "testimonials", testimonialId);
+
+        try {
+            await updateDoc(ref, {
+                likes: isLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
+            });
+        } catch (error) {
+            console.error("Error toggling like", error);
+        }
+    };
 
     const formatDuration = (ms: number) => {
         const seconds = Math.floor((ms / 1000) % 60);
@@ -360,7 +415,10 @@ export default function StudentPortal() {
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
                     <h3 className="text-xl font-bold">مشاعر الطلاب</h3>
-                    <button className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors">
+                    <button 
+                        onClick={() => setIsTestimonialModalOpen(true)}
+                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                    >
                         <MessageSquarePlus className="w-6 h-6" />
                     </button>
                 </div>
@@ -387,10 +445,15 @@ export default function StudentPortal() {
                                     {t.content}
                                 </p>
                             </div>
-                            <div className="flex items-center gap-1 text-red-500/50 hover:text-red-500 cursor-pointer transition-colors">
-                                <Heart className="w-4 h-4" />
-                                <span className="text-xs font-bold">12</span>
-                            </div>
+                            <button 
+                                onClick={() => handleToggleLike(t.id, t.likes)}
+                                className={`flex items-center gap-1 transition-colors ${
+                                    user && t.likes?.includes(user.uid) ? 'text-red-500' : 'text-red-500/50 hover:text-red-500'
+                                }`}
+                            >
+                                <Heart className={`w-4 h-4 ${user && t.likes?.includes(user.uid) ? 'fill-current' : ''}`} />
+                                <span className="text-xs font-bold">{t.likes?.length || 0}</span>
+                            </button>
                         </GlassCard>
                     ))}
                     {testimonials.length === 0 && (
@@ -460,6 +523,59 @@ export default function StudentPortal() {
                     جميع الحقوق محفوظة © {new Date().getFullYear()} - روضة الحافظين
                 </p>
             </div>
+
+            {/* Add Testimonial Modal */}
+            <AnimatePresence>
+                {isTestimonialModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsTestimonialModalOpen(false)}
+                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="bg-background rounded-3xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden"
+                        >
+                            <div className="p-6 border-b border-gray-100 dark:border-white/5 flex items-center justify-between bg-gray-50 dark:bg-white/5">
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <MessageSquarePlus className="w-5 h-5 text-primary" />
+                                    ماذا يخطر في بالك؟
+                                </h2>
+                                <button onClick={() => setIsTestimonialModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full">
+                                    <X className="w-6 h-6 text-muted-foreground" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSubmitTestimonial} className="p-6 space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold block">شارك تجربتك ومشاعرك</label>
+                                    <textarea
+                                        required
+                                        value={newTestimonialContent}
+                                        onChange={e => setNewTestimonialContent(e.target.value)}
+                                        className="w-full h-32 p-3 rounded-xl border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                                        placeholder="اكتب هنا ما تشعر به تجاه الدورة أو المعلمين..."
+                                    />
+                                </div>
+
+                                <button
+                                    disabled={isSubmittingTestimonial}
+                                    type="submit"
+                                    className="w-full py-4 rounded-xl bg-primary text-white font-bold hover:shadow-lg hover:shadow-primary/30 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {isSubmittingTestimonial ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageSquarePlus className="w-5 h-5" />}
+                                    نشر المشاركة
+                                </button>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

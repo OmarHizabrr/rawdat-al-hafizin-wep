@@ -7,7 +7,9 @@ import {
     onSnapshot,
     doc,
     updateDoc,
-    deleteDoc
+    deleteDoc,
+    getDoc,
+    arrayRemove
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
@@ -32,6 +34,7 @@ interface Testimonial {
     content: string;
     isVisible: boolean;
     createdAt?: any;
+    likes?: string[];
 }
 
 export default function TestimonialsDashboard() {
@@ -42,6 +45,11 @@ export default function TestimonialsDashboard() {
     const [currentTestimonial, setCurrentTestimonial] = useState<Testimonial | null>(null);
     const [editedContent, setEditedContent] = useState("");
     const [saving, setSaving] = useState(false);
+
+    // Likes Modal State
+    const [likesModalOpen, setLikesModalOpen] = useState(false);
+    const [likedByUsers, setLikedByUsers] = useState<any[]>([]);
+    const [loadingLikes, setLoadingLikes] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onSnapshot(collection(db, "testimonials"), (snapshot) => {
@@ -102,6 +110,42 @@ export default function TestimonialsDashboard() {
         }
     };
 
+    const openLikesModal = async (testimonial: Testimonial) => {
+        setCurrentTestimonial(testimonial);
+        setLikesModalOpen(true);
+        if (!testimonial.likes || testimonial.likes.length === 0) {
+            setLikedByUsers([]);
+            return;
+        }
+
+        setLoadingLikes(true);
+        try {
+            const userPromises = testimonial.likes.map(uid => getDoc(doc(db, "users", uid)));
+            const userSnaps = await Promise.all(userPromises);
+            const users = userSnaps
+                .filter(snap => snap.exists())
+                .map(snap => ({ uid: snap.id, ...snap.data() }));
+            setLikedByUsers(users);
+        } catch (e) {
+            console.error("Error fetching liked users:", e);
+        } finally {
+            setLoadingLikes(false);
+        }
+    };
+
+    const handleRemoveLike = async (userUid: string) => {
+        if (!currentTestimonial) return;
+        try {
+            await updateDoc(doc(db, "testimonials", currentTestimonial.id), {
+                likes: arrayRemove(userUid)
+            });
+            // Update local state
+            setLikedByUsers(prev => prev.filter(u => u.uid !== userUid));
+        } catch (e) {
+            console.error("Error removing like:", e);
+        }
+    };
+
     if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin" /></div>;
 
     return (
@@ -151,11 +195,13 @@ export default function TestimonialsDashboard() {
                             </p>
 
                             <div className="flex items-center justify-between pt-2">
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    {/* Reactions placeholder - would require subcollection fetch */}
+                                <button 
+                                    onClick={() => openLikesModal(t)}
+                                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                                >
                                     <Heart className="w-3 h-3 text-red-500" />
-                                    <span>التفاعلات</span>
-                                </div>
+                                    <span>{t.likes?.length || 0} تأييد</span>
+                                </button>
 
                                 <div className="flex items-center gap-1">
                                     <button
@@ -236,6 +282,70 @@ export default function TestimonialsDashboard() {
                                     حفظ
                                 </button>
                             </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Liked By Modal */}
+            <AnimatePresence>
+                {likesModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setLikesModalOpen(false)}
+                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="bg-background rounded-2xl shadow-xl w-full max-w-md relative z-10 p-6"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <Heart className="w-5 h-5 text-red-500 fill-current" />
+                                    المؤيدون لهذه الخاطرة
+                                </h2>
+                                <button onClick={() => setLikesModalOpen(false)}><X className="w-5 h-5" /></button>
+                            </div>
+
+                            {loadingLikes ? (
+                                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary" /></div>
+                            ) : (
+                                <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
+                                    {likedByUsers.length === 0 ? (
+                                        <p className="text-center text-muted-foreground py-10">لا يوجد متفاعلون بعد.</p>
+                                    ) : (
+                                        likedByUsers.map(u => (
+                                            <div key={u.uid} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-white/5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden text-xs flex items-center justify-center font-bold">
+                                                        {u.photoURL ? <img src={u.photoURL} alt="" /> : u.displayName?.[0]}
+                                                    </div>
+                                                    <p className="text-sm font-bold">{u.displayName}</p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleRemoveLike(u.uid)}
+                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="إزالة هذا التأييد"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+
+                            <button
+                                onClick={() => setLikesModalOpen(false)}
+                                className="w-full mt-6 py-3 rounded-xl bg-gray-100 dark:bg-white/5 font-bold"
+                            >
+                                إغلاق
+                            </button>
                         </motion.div>
                     </div>
                 )}
