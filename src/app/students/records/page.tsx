@@ -47,7 +47,7 @@ export default function StudentRecords() {
         const loadData = async () => {
             if (!user) return;
             try {
-                const docRef = doc(db, "students", "applicants", "students", user.uid);
+                const docRef = doc(db, "applicants", user.uid, "applicants", user.uid);
                 const snap = await getDoc(docRef);
 
                 if (snap.exists()) {

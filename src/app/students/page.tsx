@@ -694,7 +694,7 @@ function RegistrationSection({ course }: { course: Course }) {
     useEffect(() => {
         if (!user) return;
         const unsub = onSnapshot(
-            doc(db, "courses", course.id, "enrollments", user.uid),
+            doc(db, "enrollments", course.id, "enrollments", user.uid),
             (doc) => {
                 setIsRegistered(doc.exists());
                 setChecking(false);
@@ -710,7 +710,7 @@ function RegistrationSection({ course }: { course: Course }) {
             const batch = writeBatch(db);
 
             // 1. Enrollment Track (Pedagogical record)
-            const enrollmentRef = doc(db, "courses", course.id, "enrollments", user.uid);
+            const enrollmentRef = doc(db, "enrollments", course.id, "enrollments", user.uid);
             batch.set(enrollmentRef, {
                 enrolledAt: serverTimestamp(),
                 studentName: user.displayName || userData?.displayName || "طالب غير معروف",

@@ -102,7 +102,7 @@ export default function CourseDetailsManagement() {
         fetchCourse();
 
         // Realtime Levels
-        const unsubscribe = onSnapshot(collection(db, "courses", id, "levels"), (snapshot) => {
+        const unsubscribe = onSnapshot(collection(db, "levels", id, "levels"), (snapshot) => {
             const levelsData = snapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
@@ -122,8 +122,8 @@ export default function CourseDetailsManagement() {
         if (!currentLevel.name) return;
         setSaving(true);
         try {
-            const levelId = doc(collection(db, "courses", id, "levels")).id;
-            await setDoc(doc(db, "courses", id, "levels", levelId), {
+            const levelId = doc(collection(db, "levels", id, "levels")).id;
+            await setDoc(doc(db, "levels", id, "levels", levelId), {
                 ...currentLevel,
                 resources: []
             });
@@ -141,7 +141,7 @@ export default function CourseDetailsManagement() {
     const handleDeleteLevel = async (levelId: string, name: string) => {
         showDialog('danger', 'حذف المستوى', `هل أنت متأكد من حذف مستوى "${name}"؟ سيتم حذف جميع الموارد التعليمية بداخله.`, async () => {
             try {
-                await deleteDoc(doc(db, "courses", id, "levels", levelId));
+                await deleteDoc(doc(db, "levels", id, "levels", levelId));
             } catch (e) {
                 console.error(e);
                 showDialog('danger', 'فشل الحذف', 'حدث خطأ أثناء محاولة حذف المستوى.');
@@ -161,7 +161,7 @@ export default function CourseDetailsManagement() {
         setSaving(true);
 
         try {
-            const levelRef = doc(db, "courses", id, "levels", selectedLevelId);
+            const levelRef = doc(db, "levels", id, "levels", selectedLevelId);
             const levelDoc = levels.find(l => l.id === selectedLevelId);
             if (!levelDoc) return;
 
@@ -192,7 +192,7 @@ export default function CourseDetailsManagement() {
     const handleDeleteResource = async (levelId: string, resourceId: string, title: string) => {
         showDialog('warning', 'حذف المورد', `هل تريد حذف المورد "${title}"؟`, async () => {
             try {
-                const levelRef = doc(db, "courses", id, "levels", levelId);
+                const levelRef = doc(db, "levels", id, "levels", levelId);
                 const levelDoc = levels.find(l => l.id === levelId);
                 if (!levelDoc) return;
 

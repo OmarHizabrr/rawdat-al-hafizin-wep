@@ -74,7 +74,7 @@ export default function CourseDetails() {
                 if (snap.exists()) {
                     setCourse({ id: snap.id, ...snap.data() } as Course);
 
-                    const levelsRef = collection(db, "courses", id, "levels");
+                    const levelsRef = collection(db, "levels", id, "levels");
                     const levelsQ = query(levelsRef);
                     const levelsSnap = await getDocs(levelsQ);
                     const levelsData = levelsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Level[];

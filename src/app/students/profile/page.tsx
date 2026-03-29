@@ -103,7 +103,7 @@ export default function StudentProfile() {
             if (!user) return;
 
             try {
-                const studentRef = doc(db, "students", "applicants", "students", user.uid);
+                const studentRef = doc(db, "applicants", user.uid, "applicants", user.uid);
                 const studentSnap = await getDoc(studentRef);
 
                 if (studentSnap.exists()) {
@@ -188,7 +188,7 @@ export default function StudentProfile() {
                 }
             };
 
-            await setDoc(doc(db, "students", "applicants", "students", user.uid), studentData, { merge: true });
+            await setDoc(doc(db, "applicants", user.uid, "applicants", user.uid), studentData, { merge: true });
             
             await setDoc(doc(db, "users", user.uid), {
                 displayName: personalInfo.fullName,

@@ -76,7 +76,7 @@ export default function TeacherHalaqaDetails() {
         setSaving(true);
 
         try {
-            await addDoc(collection(db, "groups", id, "evaluations"), {
+            await addDoc(collection(db, "evaluations", id, "evaluations"), {
                 studentId: selectedStudent.id,
                 studentName: selectedStudent.displayName,
                 type: evalType,
