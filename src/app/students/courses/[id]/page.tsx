@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface Course {
     id: string;
@@ -171,20 +172,40 @@ export default function CourseDetails() {
                         </motion.div>
 
                         {isStarted && (
-                            <GlassCard className="p-8 space-y-4 bg-white/[0.02] border-white/5 shadow-2xl">
-                                <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest">
-                                    <span className="text-muted-foreground">إنجاز الدورة الكلي</span>
-                                    <span className="text-primary">{Math.round(progress)}%</span>
-                                </div>
-                                <div className="h-3 bg-white/5 rounded-full overflow-hidden shadow-inner">
-                                    <motion.div 
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${progress}%` }}
-                                        transition={{ duration: 2, ease: "easeOut" }}
-                                        className="h-full bg-gradient-to-r from-primary to-purple-600 rounded-full" 
-                                    />
-                                </div>
-                            </GlassCard>
+                            <div className="space-y-4">
+                                <GlassCard className="p-8 space-y-4 bg-white/[0.02] border-white/5 shadow-2xl">
+                                    <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest">
+                                        <span className="text-muted-foreground">إنجاز الدورة الكلي</span>
+                                        <span className="text-primary">{Math.round(progress)}%</span>
+                                    </div>
+                                    <div className="h-3 bg-white/5 rounded-full overflow-hidden shadow-inner">
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${progress}%` }}
+                                            transition={{ duration: 2, ease: "easeOut" }}
+                                            className="h-full bg-gradient-to-r from-primary to-purple-600 rounded-full" 
+                                        />
+                                    </div>
+                                </GlassCard>
+
+                                <Link 
+                                    href={`/students/courses/${id}/plan`}
+                                    className="block w-full"
+                                >
+                                    <GlassCard className="p-6 bg-primary/10 border-primary/20 hover:bg-primary/20 transition-all group flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20 group-hover:scale-110 transition-transform">
+                                                <Calendar className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-lg leading-none">الخطة الدراسية اليومية</h4>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary mt-1">تتبع إنجازك في منهج الصحيحين</p>
+                                            </div>
+                                        </div>
+                                        <ChevronDown className="w-6 h-6 text-primary -rotate-90 group-hover:translate-x-1 transition-all" />
+                                    </GlassCard>
+                                </Link>
+                            </div>
                         )}
                     </div>
 
