@@ -111,6 +111,20 @@ export default function CoursesDashboard() {
         setCurrentCourse(prev => ({ ...prev, [field]: date }));
     };
 
+    const calculateDuration = (start?: Timestamp, end?: Timestamp): string => {
+        if (!start || !end) return "";
+        const diffTime = Math.abs(end.seconds - start.seconds);
+        const diffDays = Math.ceil(diffTime / (60 * 60 * 24)) + 1; // Include start day
+        
+        if (diffDays >= 30) {
+            const months = Math.floor(diffDays / 30);
+            const remainingDays = diffDays % 30;
+            if (remainingDays === 0) return `${months} شهر`;
+            return `${months} شهر و ${remainingDays} يوم`;
+        }
+        return `${diffDays} يوم`;
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
@@ -214,6 +228,11 @@ export default function CoursesDashboard() {
                                     <div className="flex items-center gap-1 text-muted-foreground">
                                         <Calendar className="w-4 h-4" />
                                         <span>{formatDate(course.startDate)} - {formatDate(course.endDate)}</span>
+                                        <span className="text-primary font-bold">({calculateDuration(course.startDate, course.endDate)})</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-muted-foreground">
+                                        <BookOpen className="w-4 h-4" />
+                                        <span>التسجيل: {calculateDuration(course.registrationStart, course.registrationEnd) || "غير محدد"}</span>
                                     </div>
                                     <div className="flex items-center gap-1 text-muted-foreground">
                                         <DollarSign className="w-4 h-4" />
@@ -332,6 +351,10 @@ export default function CoursesDashboard() {
                                                 className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5"
                                             />
                                         </div>
+                                        <div className="col-span-2 text-xs text-primary font-bold px-2">
+                                            مدة التسجيل: {calculateDuration(currentCourse.registrationStart, currentCourse.registrationEnd) || "---"}
+                                        </div>
+
                                         <div className="space-y-1">
                                             <label className="text-sm font-medium">بداية الدورة</label>
                                             <input
@@ -349,6 +372,9 @@ export default function CoursesDashboard() {
                                                 onChange={e => handleDateChange('endDate', e.target.value)}
                                                 className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5"
                                             />
+                                        </div>
+                                        <div className="col-span-2 text-xs text-primary font-bold px-2">
+                                            مدة الدورة: {calculateDuration(currentCourse.startDate, currentCourse.endDate) || "---"}
                                         </div>
                                     </div>
 
