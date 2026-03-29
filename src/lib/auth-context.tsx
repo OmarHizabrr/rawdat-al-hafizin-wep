@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
                     isActive: true,
-                    role: "teacher", // Default role
+                    role: "student", // Default role
                     authProvider: "google"
                 }, { merge: true });
             } else {
