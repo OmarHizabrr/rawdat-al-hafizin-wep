@@ -38,6 +38,7 @@ interface UserProfile {
     role: 'admin' | 'teacher' | 'student' | 'committee';
     isActive?: boolean;
     photoURL?: string;
+    adminNotes?: string;
 }
 
 export default function UserManagement() {
@@ -118,7 +119,8 @@ export default function UserManagement() {
                 email: editForm.email,
                 phoneNumber: editForm.phoneNumber,
                 role: editForm.role,
-                isActive: editForm.isActive
+                isActive: editForm.isActive,
+                adminNotes: editForm.adminNotes || ""
             });
             setIsEditOpen(false);
             showDialog('success', 'تم التحديث', `تم تحديث بيانات ${editForm.displayName} بنجاح.`);
@@ -359,6 +361,16 @@ export default function UserManagement() {
                                         onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
                                         className="w-full p-3 rounded-2xl border bg-gray-50 dark:bg-black/20 focus:ring-4 focus:ring-primary/10 outline-none transition-all dir-ltr text-right"
                                         placeholder="+967..."
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">ملاحظات الإدارة للمتابعة</label>
+                                    <textarea
+                                        value={editForm.adminNotes || ""}
+                                        onChange={(e) => setEditForm({ ...editForm, adminNotes: e.target.value })}
+                                        className="w-full h-24 p-3 rounded-2xl border bg-gray-50 dark:bg-black/20 focus:ring-4 focus:ring-primary/10 outline-none transition-all resize-none"
+                                        placeholder="اكتب ملاحظات إدارية لمتابعة الطالب..."
                                     />
                                 </div>
 

@@ -46,14 +46,17 @@ interface CourseModel {
     endDate?: Timestamp;
     registrationStart?: Timestamp;
     registrationEnd?: Timestamp;
+    whatsappLink?: string;
+    conditions?: string[];
 }
 
 const initialCourseState: Partial<CourseModel> = {
     title: "",
     description: "",
-    cost: "",
     mechanism: "",
     features: [],
+    whatsappLink: "",
+    conditions: [""],
 };
 
 export default function CoursesDashboard() {
@@ -66,8 +69,9 @@ export default function CoursesDashboard() {
     const [saving, setSaving] = useState(false);
     const router = useRouter();
 
-    // Temporary state for features input
+    // Temporary state for inputs
     const [featuresInput, setFeaturesInput] = useState<string[]>([""]);
+    const [conditionsInput, setConditionsInput] = useState<string[]>([""]);
 
     useEffect(() => {
         const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
@@ -84,6 +88,9 @@ export default function CoursesDashboard() {
     useEffect(() => {
         if (currentCourse.features) {
             setFeaturesInput(currentCourse.features.length > 0 ? currentCourse.features : [""]);
+        }
+        if (currentCourse.conditions) {
+            setConditionsInput(currentCourse.conditions.length > 0 ? currentCourse.conditions : [""]);
         }
     }, [currentCourse]);
 
@@ -139,6 +146,7 @@ export default function CoursesDashboard() {
             const courseData = {
                 ...currentCourse,
                 features: validFeatures,
+                conditions: conditionsInput.filter(c => c.trim().length > 0),
                 updatedAt: serverTimestamp()
             };
 
@@ -405,6 +413,54 @@ export default function CoursesDashboard() {
                                         <div className="col-span-2 text-xs text-primary font-bold px-2">
                                             مدة الدورة: {calculateDuration(currentCourse.startDate, currentCourse.endDate) || "---"}
                                         </div>
+                                    </div>
+
+                                    <div className="space-y-1 border-t pt-4">
+                                        <label className="text-sm font-medium">رابط مجموعة الواتساب</label>
+                                        <input
+                                            type="url"
+                                            value={currentCourse.whatsappLink || ""}
+                                            onChange={e => setCurrentCourse({ ...currentCourse, whatsappLink: e.target.value })}
+                                            className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20"
+                                            placeholder="https://chat.whatsapp.com/..."
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2 border-t pt-4">
+                                        <label className="text-sm font-medium block">شروط التسجيل في الدورة</label>
+                                        {conditionsInput.map((condition, index) => (
+                                            <div key={index} className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={condition}
+                                                    onChange={e => {
+                                                        const newConditions = [...conditionsInput];
+                                                        newConditions[index] = e.target.value;
+                                                        setConditionsInput(newConditions);
+                                                    }}
+                                                    className="flex-1 p-2 rounded-lg border bg-gray-50 dark:bg-white/5"
+                                                    placeholder={`شرط ${index + 1}`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newConditions = conditionsInput.filter((_, i) => i !== index);
+                                                        setConditionsInput(newConditions);
+                                                    }}
+                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            onClick={() => setConditionsInput([...conditionsInput, ""])}
+                                            className="text-sm text-primary hover:underline flex items-center gap-1"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            إضافة شرط
+                                        </button>
                                     </div>
 
                                     <div className="space-y-2 border-t pt-4">

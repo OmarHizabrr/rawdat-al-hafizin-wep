@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import { 
+    doc, 
+    getDoc, 
+    collection, 
+    query, 
+    getDocs, 
+    Timestamp, 
+    writeBatch,
+    serverTimestamp
+} from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
@@ -12,24 +21,27 @@ import {
     Hourglass,
     BookOpen,
     FileText,
-    Video,
-    Music,
-    Link as LinkIcon,
+    PlayCircle,
+    DownloadCloud,
     ExternalLink,
     ChevronDown,
     Loader2,
     CheckCircle,
     ArrowRight,
-    PlayCircle,
-    DownloadCloud,
-    Layout,
     Layers,
     Info,
-    ArrowUpRight
+    ArrowUpRight,
+    Music,
+    Link as LinkIcon,
+    Sparkles,
+    Lock,
+    MessageCircle,
+    Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { EliteDialog } from "@/components/ui/EliteDialog";
 
 interface Course {
     id: string;
@@ -42,6 +54,8 @@ interface Course {
     cost: string;
     mechanism: string;
     features: string[];
+    whatsappLink?: string;
+    conditions?: string[];
 }
 
 interface Resource {
@@ -61,6 +75,7 @@ interface Level {
 export default function CourseDetails() {
     const { id } = useParams<{ id: string }>();
     const router = useRouter();
+    const { user } = useAuth();
     const [course, setCourse] = useState<Course | null>(null);
     const [levels, setLevels] = useState<Level[]>([]);
     const [loading, setLoading] = useState(true);
@@ -136,7 +151,6 @@ export default function CourseDetails() {
 
     return (
         <div className="max-w-7xl mx-auto space-y-12 pb-24 px-4">
-            {/* Simple Top Nav */}
             <div className="flex items-center justify-between">
                 <button 
                     onClick={() => router.back()} 
@@ -147,14 +161,12 @@ export default function CourseDetails() {
                 </button>
                 <div className="flex items-center gap-2">
                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">محتوى محدث</span>
+                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">برنامج معتمد</span>
                 </div>
             </div>
 
             <div className="grid lg:grid-cols-12 gap-10">
-                {/* Main Content Area */}
                 <div className="lg:col-span-8 space-y-12">
-                    {/* Hero Info */}
                     <div className="space-y-6">
                         <motion.div
                             initial={{ opacity: 0, x: 20 }}
@@ -187,31 +199,33 @@ export default function CourseDetails() {
                                         />
                                     </div>
                                 </GlassCard>
-
-                                <Link 
-                                    href={`/students/courses/${id}/plan`}
-                                    className="block w-full"
-                                >
-                                    <GlassCard className="p-6 bg-primary/10 border-primary/20 hover:bg-primary/20 transition-all group flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20 group-hover:scale-110 transition-transform">
-                                                <Calendar className="w-6 h-6" />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-lg leading-none">الخطة الدراسية اليومية</h4>
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary mt-1">تتبع إنجازك في منهج الصحيحين</p>
-                                            </div>
-                                        </div>
-                                        <ChevronDown className="w-6 h-6 text-primary -rotate-90 group-hover:translate-x-1 transition-all" />
-                                    </GlassCard>
-                                </Link>
                             </div>
                         )}
                     </div>
 
-                    {/* Content Syllabus */}
-                    <div className="space-y-8">
-                        <div className="flex items-center gap-3">
+                    <div className="space-y-12">
+                        {course.conditions && course.conditions.length > 0 && (
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center border border-orange-500/10">
+                                        <Info className="w-5 h-5 text-orange-500" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold tracking-tight">شروط الالتحاق بالدورة</h2>
+                                </div>
+                                <div className="grid gap-3">
+                                    {course.conditions.map((condition, i) => (
+                                        <div key={i} className="flex items-start gap-4 p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10">
+                                            <div className="w-6 h-6 rounded-lg bg-orange-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                                                <span className="text-xs font-black text-orange-600">{i + 1}</span>
+                                            </div>
+                                            <p className="text-sm font-medium opacity-90">{condition}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-3 pt-6 border-t border-white/5">
                             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/10 backdrop-blur-md">
                                 <Layers className="w-5 h-5 text-primary" />
                             </div>
@@ -254,16 +268,14 @@ export default function CourseDetails() {
                     </div>
                 </div>
 
-                {/* Sidebar Info Grid */}
                 <div className="lg:col-span-4 space-y-8">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="sticky top-24 space-y-8"
                     >
-                        {/* Course Stats Card */}
                         <GlassCard className="p-8 space-y-8 bg-white/[0.02] border-white/5 shadow-3xl">
-                            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-muted-foreground opacity-50 px-1">تفاصيل البرنامج</h3>
+                            <h1 className="font-black text-xs uppercase tracking-[0.2em] text-muted-foreground opacity-50 px-1">تفاصيل البرنامج</h1>
                             
                             <div className="space-y-6">
                                 <SidebarStat icon={Calendar} label="تاريخ الانطلاق" value={formatDate(course.startDate)} />
@@ -287,9 +299,12 @@ export default function CourseDetails() {
                                     ))}
                                 </div>
                             </div>
+
+                            <div className="h-px bg-white/5" />
+                            
+                            <RegistrationSection course={course} />
                         </GlassCard>
 
-                        {/* Support Card */}
                         <GlassCard className="p-6 bg-primary/5 border-primary/10 flex items-center justify-between group cursor-pointer hover:bg-primary/10 transition-all">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -309,10 +324,156 @@ export default function CourseDetails() {
     );
 }
 
-// Internal Content Components
-function EliteAccordion({ index, title, subtitle, children }: any) {
-    const [isOpen, setIsOpen] = useState(index === 1); // Open first one by default
+function RegistrationSection({ course }: { course: Course }) {
+    const { user, userData } = useAuth();
+    const [isRegistered, setIsRegistered] = useState(false);
+    const [checking, setChecking] = useState(true);
+    const [registering, setRegistering] = useState(false);
+    const [dialogConfig, setDialogConfig] = useState({ open: false, type: 'success', title: '', desc: '' });
 
+    useEffect(() => {
+        if (!user) {
+            setChecking(false);
+            return;
+        }
+        const checkRegistration = async () => {
+            const regRef = doc(db, "enrollments", course.id, "enrollments", user.uid);
+            const regSnap = await getDoc(regRef);
+            setIsRegistered(regSnap.exists());
+            setChecking(false);
+        };
+        checkRegistration();
+    }, [user, course.id]);
+
+    const handleRegister = async () => {
+        if (!user) return;
+        setRegistering(true);
+        try {
+            const batch = writeBatch(db);
+            const enrollmentRef = doc(db, "enrollments", course.id, "enrollments", user.uid);
+            batch.set(enrollmentRef, {
+                enrolledAt: serverTimestamp(),
+                studentName: user.displayName || userData?.displayName || "طالب",
+                studentEmail: user.email,
+                status: "accepted",
+            });
+            await batch.commit();
+            setIsRegistered(true);
+            setDialogConfig({ 
+                open: true, 
+                type: 'success', 
+                title: 'تم الانضمام بنجاح', 
+                desc: `لقد تم إدراجك كعضو في دورة "${course.title}". يرجى الانضمام لمجموعات الواتساب الرسمية الآن.` 
+            });
+        } catch (error) {
+            console.error("Error registering", error);
+            setDialogConfig({ 
+                open: true, 
+                type: 'danger', 
+                title: 'عذراً، حدث خطأ', 
+                desc: 'لم نتمكن من إتمام عملية الانضمام حالياً، يرجى المحاولة لاحقاً.' 
+            });
+        } finally {
+            setRegistering(false);
+        }
+    };
+
+    if (checking) return <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse"><Loader2 className="w-3 h-3 animate-spin"/> جاري التحقق...</div>;
+
+    const now = new Date();
+    const isRegOpen =
+        course.registrationStart &&
+        course.registrationEnd &&
+        now > course.registrationStart.toDate() &&
+        now < course.registrationEnd.toDate();
+
+    if (isRegistered) {
+        return (
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="space-y-6"
+            >
+                <GlassCard className="p-8 bg-gradient-to-br from-green-500/10 to-emerald-600/5 border-green-500/20 relative overflow-hidden shadow-2xl shadow-green-500/5">
+                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-green-500/10 blur-3xl rounded-full" />
+                    
+                    <div className="relative z-10 space-y-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/20 animate-bounce-slow">
+                                <CheckCircle className="w-8 h-8 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-green-600 dark:text-green-400">مبارك انضمامك!</h3>
+                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">أنت الآن عضو رسمي في هذه الدورة</p>
+                            </div>
+                        </div>
+
+                        <div className="p-6 bg-white/20 dark:bg-black/20 rounded-[2rem] border border-white/20 backdrop-blur-sm">
+                            <p className="text-sm font-medium leading-relaxed italic opacity-80">
+                                "نحن سعداء ببدء رحلتك العلمية معنا، نسأل الله لك الهدى والسداد في حفظ سنة نبيه ﷺ."
+                            </p>
+                        </div>
+
+                        {course.whatsappLink && (
+                            <div className="space-y-3">
+                                <p className="text-[10px] font-black text-center text-muted-foreground uppercase tracking-[0.2em]">الخطوة التالية الهامة</p>
+                                <a 
+                                    href={course.whatsappLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block w-full py-5 bg-green-600 hover:bg-green-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-green-600/30 hover:scale-[1.02] active:scale-95 text-center flex items-center justify-center gap-3 text-lg"
+                                >
+                                    <MessageCircle className="w-6 h-6" />
+                                    <span>انضم لمجموعة الواتساب الرسمية</span>
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                </GlassCard>
+                
+                <Link href="/students" className="block w-full py-4 text-center text-sm font-bold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2">
+                    <ArrowRight className="w-4 h-4" />
+                    العودة للوحة تحكم الطالب
+                </Link>
+            </motion.div>
+        );
+    }
+
+    return (
+        <>
+            <button
+                disabled={!isRegOpen || registering}
+                onClick={handleRegister}
+                className={cn(
+                    "w-full px-8 py-5 rounded-2xl font-bold text-white transition-all shadow-xl flex items-center justify-center gap-3",
+                    isRegOpen 
+                        ? "bg-primary hover:bg-primary/90 hover:scale-[1.05] active:scale-95 shadow-primary/20" 
+                        : "bg-gray-400 cursor-not-allowed grayscale"
+                )}
+            >
+                {registering ? <Loader2 className="w-5 h-5 animate-spin"/> : (isRegOpen ? <Sparkles className="w-5 h-5" /> : <Lock className="w-5 h-5" />)}
+                {isRegOpen ? "التسجيل في الدورة" : "التسجيل مغلق"}
+            </button>
+            <EliteDialog 
+                isOpen={dialogConfig.open}
+                onClose={() => setDialogConfig({...dialogConfig, open: false})}
+                onConfirm={() => {
+                    setDialogConfig({...dialogConfig, open: false});
+                    if (dialogConfig.type === 'success' && course.whatsappLink) {
+                        window.open(course.whatsappLink, '_blank');
+                    }
+                }}
+                type={dialogConfig.type as any}
+                title={dialogConfig.title}
+                description={dialogConfig.desc}
+                confirmText={dialogConfig.type === 'success' && course.whatsappLink ? "الانضمام للواتساب" : "موافق"}
+            />
+        </>
+    );
+}
+
+function EliteAccordion({ index, title, subtitle, children }: any) {
+    const [isOpen, setIsOpen] = useState(index === 1);
     return (
         <GlassCard className="p-0 overflow-hidden border-white/5 shadow-xl transition-all hover:border-white/10 group">
             <div 
@@ -335,7 +496,6 @@ function EliteAccordion({ index, title, subtitle, children }: any) {
                     <ChevronDown className={cn("w-5 h-5", isOpen ? "text-primary" : "text-muted-foreground")} />
                 </div>
             </div>
-            
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -362,9 +522,7 @@ function ResourceItem({ resource }: { resource: Resource }) {
             default: return { icon: LinkIcon, color: "text-primary", bg: "bg-primary/10", label: "رابط خارجي" };
         }
     };
-
     const meta = getResourceMeta(resource.type);
-
     return (
         <a 
             href={resource.url} 

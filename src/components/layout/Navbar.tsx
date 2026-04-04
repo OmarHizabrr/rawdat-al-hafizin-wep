@@ -15,7 +15,8 @@ import {
     LogOut,
     User,
     ShieldCheck,
-    LayoutDashboard
+    LayoutDashboard,
+    Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -64,8 +65,8 @@ export function Navbar() {
 
     return (
         <nav className="fixed left-4 right-4 top-4 z-50 mx-auto max-w-7xl rounded-2xl border border-white/20 bg-white/70 px-6 py-3 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-black/60 transition-all">
-            <div className="flex items-center justify-between">
-                {/* Logo */}
+            <div className="flex items-center justify-between flex-row-reverse md:flex-row">
+                {/* Logo - On the left on mobile (end of RTL row), on the right on desktop (start of RTL row) */}
                 <Link href="/" className="flex items-center gap-2">
                     <BookOpen className="h-6 w-6 text-primary" />
                     <span className="text-xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent hidden sm:block">
@@ -73,7 +74,7 @@ export function Navbar() {
                     </span>
                 </Link>
 
-                {/* Desktop Menu */}
+                {/* Desktop Menu - Normal RTL flow */}
                 <div className="hidden md:flex items-center gap-6">
                     {navItems.map((item) => {
                         const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
@@ -130,85 +131,184 @@ export function Navbar() {
                     )}
                 </div>
 
-                {/* Mobile Menu Button */}
+                {/* Mobile Menu Button - On the right side in RTL flow (first item with flex-row-reverse) */}
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="md:hidden p-2 text-muted-foreground hover:text-primary"
+                    className="md:hidden p-2 text-muted-foreground hover:text-primary relative z-50"
                 >
-                    {isOpen ? <X /> : <Menu />}
+                    {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                 </button>
             </div>
 
-            {/* Mobile Menu Dropdown */}
+            {/* Mobile Sidebar (Drawer) */}
             <AnimatePresence>
                 {isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        className="absolute left-0 right-0 top-full mt-4 flex flex-col gap-2 rounded-2xl border border-white/20 bg-white/95 p-4 shadow-xl backdrop-blur-xl dark:bg-black/95 md:hidden"
-                    >
-                        {user && (
-                            <div className="flex items-center gap-3 p-3 border-b border-gray-100 dark:border-white/10 pb-4 mb-2">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                    {userData?.photoURL ? (
-                                        <img src={userData.photoURL} alt="Profile" className="w-full h-full rounded-full object-cover" />
-                                    ) : (
-                                        (userData?.displayName?.[0] || "U").toUpperCase()
-                                    )}
+                    <>
+                        {/* Overlay */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsOpen(false)}
+                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[45] md:hidden h-screen w-screen -m-10"
+                        />
+                        
+                        {/* Right-side Drawer */}
+                        <motion.div
+                            initial={{ x: "100%" }}
+                            animate={{ x: 0 }}
+                            exit={{ x: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="fixed right-0 top-0 bottom-0 h-screen w-3/4 max-w-sm bg-white dark:bg-slate-950 z-50 p-6 shadow-2xl border-l border-white/20 md:hidden flex flex-col"
+                        >
+                            <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100 dark:border-white/10">
+                                <div className="flex items-center gap-2">
+                                    <BookOpen className="h-6 w-6 text-primary" />
+                                    <span className="text-xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                                        روضة الحافظين
+                                    </span>
                                 </div>
-                                <div className="flex-1">
-                                    <p className="font-bold text-sm">{userData?.displayName || "مستخدم"}</p>
-                                    <p className="text-xs text-muted-foreground">{user.email || user.phoneNumber}</p>
-                                </div>
+                                <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-full">
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
-                        )}
 
-                        {navItems.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={() => setIsOpen(false)}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-xl p-3 text-sm font-medium transition-colors hover:bg-primary/10 hover:text-primary",
-                                    pathname === item.href ? "bg-primary/10 text-primary" : "text-muted-foreground"
+                            {user && (
+                                <div className="flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 mb-8">
+                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shadow-inner">
+                                        {userData?.photoURL ? (
+                                            <img src={userData.photoURL} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                                        ) : (
+                                            (userData?.displayName?.[0] || "U").toUpperCase()
+                                        )}
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <p className="font-bold text-foreground truncate">{userData?.displayName || "مستخدم"}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{user.email || user.phoneNumber}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex-1 space-y-2">
+                                <p className="text-xs font-bold text-muted-foreground/50 px-3 py-1 uppercase tracking-wider">القائمة الرئيسية</p>
+                                {navItems.map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        onClick={() => setIsOpen(false)}
+                                        className={cn(
+                                            "flex items-center gap-4 rounded-xl p-4 text-sm font-bold transition-all hover:bg-primary/10 hover:text-primary",
+                                            pathname === item.href ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground"
+                                        )}
+                                    >
+                                        <item.icon className="h-5 w-5 shrink-0" />
+                                        {item.name}
+                                    </Link>
+                                ))}
+
+                                {user && (
+                                    <>
+                                        <div className="h-px bg-gray-100 dark:bg-white/10 my-4" />
+                                        <p className="text-xs font-bold text-muted-foreground/50 px-3 py-1 uppercase tracking-wider">إعدادات الحساب</p>
+                                        <Link
+                                            href="/profile"
+                                            onClick={() => setIsOpen(false)}
+                                            className="flex items-center gap-4 rounded-xl p-4 text-sm font-bold transition-all hover:bg-primary/10 hover:text-primary text-muted-foreground"
+                                        >
+                                            <User className="h-5 w-5 shrink-0" />
+                                            الملف الشخصي
+                                        </Link>
+                                        <Link
+                                            href="/records"
+                                            onClick={() => setIsOpen(false)}
+                                            className="flex items-center gap-4 rounded-xl p-4 text-sm font-bold transition-all hover:bg-primary/10 hover:text-primary text-muted-foreground"
+                                        >
+                                            <LayoutDashboard className="h-5 w-5 shrink-0" />
+                                            سجل الإنجازات
+                                        </Link>
+                                    </>
                                 )}
-                            >
-                                <item.icon className="h-5 w-5" />
-                                {item.name}
-                            </Link>
-                        ))}
+                            </div>
 
-                        {user ? (
-                            <>
-                                <Link
-                                    href="/profile"
-                                    onClick={() => setIsOpen(false)}
-                                    className="flex items-center gap-3 rounded-xl p-3 text-sm font-medium transition-colors hover:bg-primary/10 hover:text-primary text-muted-foreground"
-                                >
-                                    <User className="h-5 w-5" />
-                                    الملف الشخصي
-                                </Link>
+                            {user ? (
                                 <button
                                     onClick={handleLogout}
-                                    className="flex items-center gap-3 rounded-xl p-3 text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-500 text-red-500 w-full text-right"
+                                    className="flex items-center gap-4 rounded-xl p-4 text-sm font-bold transition-all bg-red-50 dark:bg-red-950/20 text-red-600 hover:bg-red-100 mt-auto"
                                 >
-                                    <LogOut className="h-5 w-5" />
+                                    <LogOut className="h-5 w-5 shrink-0" />
                                     تسجيل الخروج
                                 </button>
-                            </>
-                        ) : (
-                            <Link
-                                href="/login"
-                                onClick={() => setIsOpen(false)}
-                                className="mt-2 w-full py-3 rounded-xl bg-primary text-white font-bold text-center shadow-lg hover:shadow-primary/20"
-                            >
-                                تسجيل الدخول
-                            </Link>
-                        )}
-                    </motion.div>
+                            ) : (
+                                <Link
+                                    href="/login"
+                                    onClick={() => setIsOpen(false)}
+                                    className="mt-auto w-full py-4 rounded-xl bg-primary text-white font-bold text-center shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                                >
+                                    <LogOut className="h-5 w-5 rotate-180" />
+                                    تسجيل الدخول
+                                </Link>
+                            )}
+                        </motion.div>
+                    </>
                 )}
             </AnimatePresence>
+
+            {/* Mobile Bottom Navigation for Students */}
+            {user && (
+                <div className="fixed bottom-6 left-4 right-4 z-50 md:hidden">
+                    <div className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-3xl shadow-2xl p-2 flex items-center justify-around">
+                        <MobileNavItem 
+                            href="/" 
+                            icon={Home} 
+                            label="الرئيسية" 
+                            isActive={pathname === "/"} 
+                        />
+                        <MobileNavItem 
+                            href="/students" 
+                            icon={LayoutDashboard} 
+                            label="إنجازي" 
+                            isActive={pathname === "/students"} 
+                        />
+                        <div className="relative -top-6">
+                            <Link href="/students">
+                                <div className="w-14 h-14 bg-primary rounded-2xl shadow-xl shadow-primary/40 flex items-center justify-center text-white rotate-45 group hover:scale-110 transition-transform">
+                                    <div className="-rotate-45">
+                                        <Sparkles className="w-6 h-6" />
+                                    </div>
+                                </div>
+                            </Link>
+                        </div>
+                        <MobileNavItem 
+                            href="/profile" 
+                            icon={User} 
+                            label="ملفي" 
+                            isActive={pathname === "/profile"} 
+                        />
+                        <button 
+                            onClick={() => setIsOpen(true)}
+                            className="flex flex-col items-center gap-1 p-2 rounded-2xl text-muted-foreground"
+                        >
+                            <Menu className="w-5 h-5" />
+                            <span className="text-[10px] font-bold">المزيد</span>
+                        </button>
+                    </div>
+                </div>
+            )}
         </nav>
+    );
+}
+
+function MobileNavItem({ href, icon: Icon, label, isActive }: { href: string, icon: any, label: string, isActive: boolean }) {
+    return (
+        <Link href={href} className={cn(
+            "flex flex-col items-center gap-1 p-2 rounded-2xl transition-all",
+            isActive ? "text-primary scale-110" : "text-muted-foreground"
+        )}>
+            <Icon className={cn("w-5 h-5", isActive ? "stroke-[2.5px]" : "stroke-[2px]")} />
+            <span className="text-[10px] font-black">{label}</span>
+            {isActive && (
+                <motion.div layoutId="mobile-nav-dot" className="w-1 h-1 bg-primary rounded-full" />
+            )}
+        </Link>
     );
 }

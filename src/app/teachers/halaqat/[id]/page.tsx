@@ -33,7 +33,7 @@ export default function TeacherHalaqaDetails() {
     
     // Evaluation Modal
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-    const [evalType, setEvalType] = useState<"attendance" | "recitation">("recitation");
+    const [evalType, setEvalType] = useState<"attendance" | "recitation" | "test">("recitation");
     const [evalMark, setEvalMark] = useState("ممتاز");
     const [evalNotes, setEvalNotes] = useState("");
     const [saving, setSaving] = useState(false);
@@ -79,13 +79,29 @@ export default function TeacherHalaqaDetails() {
             await addDoc(collection(db, "evaluations", id, "evaluations"), {
                 studentId: selectedStudent.id,
                 studentName: selectedStudent.displayName,
+                groupId: id,
+                groupName: group?.name,
                 type: evalType,
-                mark: evalType === "recitation" ? evalMark : null,
-                status: evalType === "attendance" ? evalMark : null, // 'حاضر', 'غائب', 'مستأذن'
+                mark: evalMark,
+                status: evalType === "attendance" ? evalMark : null,
                 notes: evalNotes,
+                isFinalTest: evalType === "test",
                 date: new Date().toISOString().split('T')[0],
                 createdAt: serverTimestamp()
             });
+
+            // Also save to a global student record for easy fetching in the records page
+            if (evalType === "test") {
+                await addDoc(collection(db, "student_records", selectedStudent.id, "achievements"), {
+                    title: `اختبار نهائي: ${group?.name}`,
+                    mark: evalMark,
+                    date: new Date().toISOString().split('T')[0],
+                    type: "certificate",
+                    courseId: id, // or the linked course id
+                    createdAt: serverTimestamp()
+                });
+            }
+
             setSelectedStudent(null);
             setEvalNotes("");
         } catch (error) {
@@ -188,6 +204,17 @@ export default function TeacherHalaqaDetails() {
                                 <BookOpen className="w-4 h-4" />
                                 التسميع
                             </button>
+                            <button 
+                                onClick={() => {
+                                    setSelectedStudent(student);
+                                    setEvalType("test");
+                                    setEvalMark("ممتاز");
+                                }}
+                                className="flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 transition-colors text-sm font-bold col-span-2"
+                            >
+                                <Users className="w-4 h-4" />
+                                الاختبار النهائي
+                            </button>
                         </div>
                     </GlassCard>
                 ))}
@@ -218,8 +245,8 @@ export default function TeacherHalaqaDetails() {
                         >
                             <div className="p-6 border-b border-gray-100 dark:border-white/5 flex items-center justify-between bg-gray-50 dark:bg-white/5">
                                 <h2 className="text-xl font-bold flex items-center gap-2">
-                                    {evalType === "attendance" ? <Calendar className="w-5 h-5 text-blue-500" /> : <BookOpen className="w-5 h-5 text-green-500" />}
-                                    {evalType === "attendance" ? "تسجيل الحضور" : "تقييم التسميع"}
+                                    {evalType === "attendance" ? <Calendar className="w-5 h-5 text-blue-500" /> : evalType === "test" ? <Users className="w-5 h-5 text-amber-500" /> : <BookOpen className="w-5 h-5 text-green-500" />}
+                                    {evalType === "attendance" ? "تسجيل الحضور" : evalType === "test" ? "الاختبار النهائي" : "تقييم التسميع"}
                                 </h2>
                                 <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-white/10 rounded-full">
                                     <XCircle className="w-6 h-6 text-muted-foreground" />
@@ -258,14 +285,14 @@ export default function TeacherHalaqaDetails() {
                                     <div className="space-y-3">
                                         <label className="text-sm font-bold">تقييم التسميع والمراجعة</label>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {['ممتاز', 'جيد جداً', 'جيد', 'مقبول', 'ضعيف', 'لم يسمع'].map(mark => (
+                                            {(evalType === "test" ? ['ممتاز', 'جيد جداً', 'جيد', 'مقبول'] : ['ممتاز', 'جيد جداً', 'جيد', 'مقبول', 'ضعيف', 'لم يسمع']).map(mark => (
                                                 <button
                                                     key={mark}
                                                     type="button"
                                                     onClick={() => setEvalMark(mark)}
                                                     className={`py-2 rounded-xl border text-sm font-bold transition-colors ${
                                                         evalMark === mark 
-                                                        ? 'bg-green-500 text-white border-green-500' 
+                                                        ? (evalType === 'test' ? 'bg-amber-500 text-white border-amber-500' : 'bg-green-500 text-white border-green-500')
                                                         : 'hover:bg-gray-50 dark:hover:bg-white/5'
                                                     }`}
                                                 >

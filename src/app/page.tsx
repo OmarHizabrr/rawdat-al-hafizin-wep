@@ -14,7 +14,8 @@ import {
   Star,
   CheckCircle2,
   Trophy,
-  Target
+  Target,
+  User as UserIcon
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -84,19 +85,31 @@ export default function Home() {
 
 function GuestView() {
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+    const [liveStats, setLiveStats] = useState({ students: "+1,200", groups: "+40", teachers: "+30" });
 
     useEffect(() => {
-        const fetchTestimonials = async () => {
+        const fetchData = async () => {
             try {
+                // Fetch Testimonials
                 const q = query(collection(db, "testimonials"), where("isVisible", "==", true), limit(6));
                 const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Testimonial));
-                setTestimonials(data);
+                setTestimonials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Testimonial)));
+
+                // Fetch Live Stats counts
+                const usersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "student")));
+                const groupsSnap = await getDocs(collection(db, "groups"));
+                const teachersSnap = await getDocs(query(collection(db, "users"), where("role", "==", "teacher")));
+
+                setLiveStats({
+                    students: `+${usersSnap.size.toLocaleString()}`,
+                    groups: `+${groupsSnap.size.toLocaleString()}`,
+                    teachers: `+${teachersSnap.size.toLocaleString()}`
+                });
             } catch (e) {
-                console.error("Failed to fetch testimonials", e);
+                console.error("Failed to fetch landing data", e);
             }
         };
-        fetchTestimonials();
+        fetchData();
     }, []);
 
     return (
@@ -132,24 +145,11 @@ function GuestView() {
             </section>
 
             {/* Stats Grid */}
-            <section className="max-w-5xl mx-auto relative z-10 -mt-10">
+            <section className="max-w-5xl mx-auto relative z-10 -mt-10 px-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {stats.map((stat, index) => (
-                    <GlassCard key={index} className="relative overflow-hidden group hover:border-primary/50 transition-colors">
-                        <div className="absolute -top-4 -right-4 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <stat.icon className="w-32 h-32" />
-                        </div>
-                        <div className="relative z-10 flex items-center justify-between p-2">
-                        <div>
-                            <p className="text-muted-foreground font-bold mb-1 text-lg">{stat.title}</p>
-                            <h3 className="text-4xl font-extrabold">{stat.value}</h3>
-                        </div>
-                        <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.color} text-white shadow-lg`}>
-                            <stat.icon className="w-8 h-8" />
-                        </div>
-                        </div>
-                    </GlassCard>
-                    ))}
+                    <StatCard title="إجمالي الطلاب" value={liveStats.students} icon={Users} color="from-blue-500 to-cyan-500" />
+                    <StatCard title="عدد الحلقات" value={liveStats.groups} icon={BookOpen} color="from-purple-500 to-pink-500" />
+                    <StatCard title="المعلمون المجازون" value={liveStats.teachers} icon={GraduationCap} color="from-amber-500 to-orange-500" />
                 </div>
             </section>
 
@@ -256,17 +256,40 @@ function FeatureCard({ icon: Icon, title, desc, color, bg }: any) {
 function UserDashboard({ userData }: { userData: any }) {
     return (
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
-            <section className="py-8 border-b border-gray-100 dark:border-white/5 pb-10">
-                <motion.h1 variants={item} className="text-3xl font-extrabold tracking-tight sm:text-5xl bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent py-2">
-                مرحباً بك، {userData?.displayName || 'يا هلا!'}
-                </motion.h1>
-                <motion.p variants={item} className="text-xl text-muted-foreground mt-2 font-medium">
-                {userData?.role === 'admin' && "لوحة التحكم بانتظارك لإدارة تفاصيل النظام."}
-                {userData?.role === 'teacher' && "جزاك الله خيراً على جهودك المبذولة في الحلقات."}
-                {userData?.role === 'student' && "نرجو لك التوفيق في حفظ ومراجعة كتاب الله المكنون."}
-                {userData?.role === 'pending' && "فضلاً أدخل رمز الوصول لتفعيل حسابك وفتح الصلاحيات."}
-                {userData?.role === 'committee' && "لجنة الإدارة والاختبارات ترحب بك."}
-                </motion.p>
+            <section className="py-8 border-b border-gray-100 dark:border-white/5 pb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex-1">
+                    <motion.h1 variants={item} className="text-3xl font-extrabold tracking-tight sm:text-5xl bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent py-2">
+                    مرحباً بك، {userData?.displayName || 'يا هلا!'}
+                    </motion.h1>
+                    <motion.p variants={item} className="text-xl text-muted-foreground mt-2 font-medium">
+                    {userData?.role === 'admin' && "لوحة التحكم بانتظارك لإدارة تفاصيل النظام."}
+                    {userData?.role === 'teacher' && "جزاك الله خيراً على جهودك المبذولة في الحلقات العلمية."}
+                    {userData?.role === 'student' && "نرجو لك التوفيق في حفظ ومراجعة سنة النبي الكريم ﷺ."}
+                    {userData?.role === 'pending' && "فضلاً أدخل رمز الوصول لتفعيل حسابك وفتح الصلاحيات."}
+                    {userData?.role === 'committee' && "لجنة الإدارة والاختبارات ترحب بك."}
+                    </motion.p>
+                </div>
+
+                <motion.div variants={item} className="flex items-center gap-4">
+                    <Link href="/profile" className="group">
+                        <div className="flex items-center gap-4 p-3 pr-6 rounded-[2.5rem] bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-xl shadow-primary/5 hover:border-primary/50 transition-all hover:scale-105">
+                            <div className="text-right hidden sm:block">
+                                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">ملفي الشخصي</p>
+                                <p className="font-bold text-sm">بيانات الحساب</p>
+                            </div>
+                            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shadow-inner relative overflow-hidden group-hover:scale-110 transition-transform">
+                                {userData?.photoURL ? (
+                                    <img src={userData.photoURL} alt="Profile" className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                    <UserIcon className="w-8 h-8" />
+                                )}
+                                <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <LogIn className="w-6 h-6 text-white" />
+                                </div>
+                            </div>
+                        </div>
+                    </Link>
+                </motion.div>
             </section>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -305,6 +328,25 @@ function UserDashboard({ userData }: { userData: any }) {
                 </div>
             </div>
         </motion.div>
+    );
+}
+
+function StatCard({ title, value, icon: Icon, color }: any) {
+    return (
+        <GlassCard className="relative overflow-hidden group hover:border-primary/50 transition-colors">
+            <div className="absolute -top-4 -right-4 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Icon className="w-32 h-32" />
+            </div>
+            <div className="relative z-10 flex items-center justify-between p-2">
+                <div>
+                    <p className="text-muted-foreground font-bold mb-1 text-lg">{title}</p>
+                    <h3 className="text-4xl font-extrabold">{value}</h3>
+                </div>
+                <div className={`p-4 rounded-2xl bg-gradient-to-br ${color} text-white shadow-lg`}>
+                    <Icon className="w-8 h-8" />
+                </div>
+            </div>
+        </GlassCard>
     );
 }
 

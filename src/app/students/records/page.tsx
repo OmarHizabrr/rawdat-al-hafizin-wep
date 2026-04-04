@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, onSnapshot } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
     User,
@@ -41,18 +41,30 @@ interface StudentData {
 export default function StudentRecords() {
     const { user } = useAuth();
     const [studentData, setStudentData] = useState<StudentData | null>(null);
+    const [achievements, setAchievements] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const loadData = async () => {
             if (!user) return;
             try {
+                // Fetch student profile info
                 const docRef = doc(db, "applicants", user.uid, "applicants", user.uid);
                 const snap = await getDoc(docRef);
-
                 if (snap.exists()) {
                     setStudentData(snap.data() as StudentData);
                 }
+
+                // Fetch achievements/certificates
+                const q = query(collection(db, "student_records", user.uid, "achievements"));
+                const unsubscribe = onSnapshot(q, (snapshot: any) => {
+                    const data = snapshot.docs.map((doc: any) => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    setAchievements(data);
+                });
+                return () => unsubscribe();
             } catch (error) {
                 console.error("Error loading student records:", error);
             } finally {
@@ -196,18 +208,20 @@ export default function StudentRecords() {
                 <div className="space-y-6">
                     <SectionLabel icon={Award} label="الإنجازات والشهادات" />
                     <div className="space-y-4">
-                        <AchievementCard 
-                            title="شهادة إتمام المستوى التأسيسي" 
-                            date="١٥ يناير ٢٠٢٦" 
-                            icon={Award} 
-                            color="amber" 
-                        />
-                        <AchievementCard 
-                            title="التفوق في اختبار التفسير" 
-                            date="٠٢ فبراير ٢٠٢٦" 
-                            icon={Star} 
-                            color="blue" 
-                        />
+                        {achievements.filter(a => a.type === "certificate").map((a, i) => (
+                            <AchievementCard 
+                                key={a.id}
+                                title={a.title} 
+                                date={new Date(a.date).toLocaleDateString('ar-SA')} 
+                                icon={Award} 
+                                color="amber" 
+                            />
+                        ))}
+                        {achievements.length === 0 && (
+                            <div className="p-8 text-center bg-white/5 border border-dashed rounded-3xl opacity-50">
+                                لا توجد إنجازات مسجلة حالياً، بانتظار تقييم الاختبار النهائي.
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -227,9 +241,22 @@ export default function StudentRecords() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                <TestRow title="اختبار الأربعين النووية (المستوى ١)" score="٩٨/١٠٠" grade="ممتاز" color="green" />
-                                <TestRow title="اختبار منظومة البيقونية" score="٩٥/١٠٠" grade="ممتاز" color="green" />
-                                <TestRow title="اختبار بلوغ المرام (القسم ١)" score="٨٨/١٠٠" grade="جيد جداً" color="blue" />
+                                {achievements.map((a, i) => (
+                                    <TestRow 
+                                        key={a.id}
+                                        title={a.title} 
+                                        score={a.mark} 
+                                        grade={a.mark} 
+                                        color={a.mark === "ممتاز" ? "green" : "blue"} 
+                                    />
+                                ))}
+                                {achievements.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="p-12 text-center text-muted-foreground opacity-40 font-bold uppercase tracking-widest italic">
+                                            لم تكتمل اختبارات هذا المستوى بعد.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

@@ -8,10 +8,11 @@ import {
     doc,
     setDoc,
     updateDoc,
-    deleteDoc,
     serverTimestamp,
     writeBatch,
-    getDocs
+    getDocs,
+    query,
+    where
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
@@ -45,6 +46,11 @@ interface GroupModel {
     };
 }
 
+interface TeacherModel {
+    uid: string;
+    displayName: string;
+}
+
 const initialGroupState: GroupModel = {
     id: "",
     name: "",
@@ -64,12 +70,13 @@ const DAYS = [
 ];
 
 interface HalaqatDashboardProps {
-    readonly?: boolean; // If true, disable editing/adding
-    supervisorFilter?: string; // If provided, only show groups for this supervisor
+    readonly?: boolean;
+    supervisorFilter?: string;
 }
 
 export function HalaqatDashboard({ readonly = false, supervisorFilter }: HalaqatDashboardProps) {
     const [groups, setGroups] = useState<GroupModel[]>([]);
+    const [teachers, setTeachers] = useState<TeacherModel[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,7 +84,6 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
     const [isEditing, setIsEditing] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    // Dialog state
     const [dialogConfig, setDialogConfig] = useState<{
         isOpen: boolean;
         type: 'success' | 'danger' | 'warning';
@@ -100,6 +106,15 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
             setGroups(groupsData);
             setLoading(false);
         });
+
+        const fetchTeachers = async () => {
+            const q = query(collection(db, "users"), where("role", "==", "teacher"));
+            const snap = await getDocs(q);
+            const teachersData = snap.docs.map(d => ({ uid: d.id, displayName: d.data().displayName || d.id }));
+            setTeachers(teachersData);
+        };
+        fetchTeachers();
+
         return () => unsubscribe();
     }, []);
 
@@ -110,9 +125,7 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
     const filteredGroups = groups.filter(g => {
         const matchesSearch = g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             g.supervisorId.toLowerCase().includes(searchTerm.toLowerCase());
-
         const matchesSupervisor = supervisorFilter ? g.supervisorId === supervisorFilter : true;
-
         return matchesSearch && matchesSupervisor;
     });
 
@@ -158,22 +171,15 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
         showDialog('danger', 'حذف الحلقة نهائياً', `🚨 هل أنت متأكد تماماً من حذف حلقة "${name}"؟\nسيتم حذف جميع الأعضاء والتقييمات والسجلات المرتبطة بها نهائياً ولا يمكن التراجع عن ذلك.`, async () => {
             try {
                 const batch = writeBatch(db);
-
-                // 1. Fetch and delete members: members/{groupId}/members
                 const membersSnap = await getDocs(collection(db, "members", id, "members"));
                 membersSnap.forEach((doc) => batch.delete(doc.ref));
-
-                // 2. Fetch and delete evaluations: evaluations/{groupId}/evaluations
                 const evaluationsSnap = await getDocs(collection(db, "evaluations", id, "evaluations"));
                 evaluationsSnap.forEach((doc) => batch.delete(doc.ref));
-
-                // 3. Delete the main group document
                 batch.delete(doc(db, "groups", id));
-
                 await batch.commit();
                 showDialog('success', 'تم الحذف الكامل', `تم حذف حلقة "${name}" وكافة ارتباطاتها بنجاح.`);
             } catch (error) {
-                console.error("Error deleting group and its associations:", error);
+                console.error("Error deleting group:", error);
                 showDialog('danger', 'فشل الحذف الكامل', 'حدث خطأ أثناء محاولة مسح كافة البيانات المرتبطة.');
             }
         });
@@ -215,7 +221,6 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                 )}
             </div>
 
-            {/* Search */}
             <div className="relative group max-w-2xl">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <input
@@ -227,7 +232,6 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                 />
             </div>
 
-            {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <AnimatePresence mode="popLayout">
                     {filteredGroups.map((group, index) => (
@@ -250,7 +254,7 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                                             <h3 className="text-2xl font-bold tracking-tight">{group.name}</h3>
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium p-1 px-2.5 bg-gray-100 dark:bg-white/5 rounded-full w-fit">
                                                 <UserCircle className="w-3.5 h-3.5 text-primary" />
-                                                <span>المشرف: {group.supervisorId || "غير محدد"}</span>
+                                                <span>المشرف: {teachers.find(t => t.uid === group.supervisorId)?.displayName || group.supervisorId || "غير محدد"}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -280,14 +284,12 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                                                 <button
                                                     onClick={() => handleEdit(group)}
                                                     className="p-2.5 hover:bg-blue-500/10 rounded-xl text-blue-500 transition-all hover:scale-110"
-                                                    title="تعديل التفاصيل"
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(group.id, group.name)}
                                                     className="p-2.5 hover:bg-red-500/10 rounded-xl text-red-500 transition-all hover:scale-110"
-                                                    title="حذف"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -299,16 +301,8 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                         </motion.div>
                     ))}
                 </AnimatePresence>
-                
-                {filteredGroups.length === 0 && !loading && (
-                    <div className="col-span-full text-center py-20 bg-white/5 rounded-[2.5rem] border border-dashed border-white/10">
-                        <Search className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
-                        <p className="text-muted-foreground/60">لا توجد حلقات تطابق بحثك حالياً.</p>
-                    </div>
-                )}
             </div>
 
-            {/* Edit Modal */}
             <AnimatePresence>
                 {isModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -326,19 +320,8 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                             className="bg-background border border-white/10 rounded-[2.5rem] shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden max-h-[95vh] flex flex-col"
                         >
                             <div className="flex items-center justify-between p-8 border-b border-white/5 bg-primary/5">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
-                                        <Plus className="w-6 h-6 text-primary" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-bold">{isEditing ? 'تعديل بيانات الحلقة' : 'إنشاء حلقة جديدة'}</h2>
-                                        <p className="text-xs text-muted-foreground">قم بتعبئة تفاصيل الحلقة والجدول الزمني</p>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="p-2 hover:bg-white/10 rounded-xl transition-colors"
-                                >
+                                <h2 className="text-xl font-bold">{isEditing ? 'تعديل بيانات الحلقة' : 'إنشاء حلقة جديدة'}</h2>
+                                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
                                     <X className="w-6 h-6" />
                                 </button>
                             </div>
@@ -354,19 +337,21 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                                                 value={currentGroup.name}
                                                 onChange={e => setCurrentGroup({ ...currentGroup, name: e.target.value })}
                                                 className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold"
-                                                placeholder="مثلاً: حلقة الإمام عاصم"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2">معرف المشرف (ID)</label>
-                                            <input
+                                            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2">معلم الحلقة (المشرف)</label>
+                                            <select
                                                 required
-                                                type="text"
                                                 value={currentGroup.supervisorId}
                                                 onChange={e => setCurrentGroup({ ...currentGroup, supervisorId: e.target.value })}
-                                                className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono"
-                                                placeholder="رقم الهاتف أو المعرف"
-                                            />
+                                                className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold appearance-none"
+                                            >
+                                                <option value="">اختر المعلم...</option>
+                                                {teachers.map(teacher => (
+                                                    <option key={teacher.uid} value={teacher.uid}>{teacher.displayName}</option>
+                                                ))}
+                                            </select>
                                         </div>
                                     </div>
 
@@ -403,7 +388,6 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                                             <Calendar className="w-5 h-5 text-primary" />
                                             تنظيم الجدول الزمني
                                         </h3>
-
                                         {['recitationDays', 'reviewDays', 'vacationDays'].map((type) => (
                                             <div key={type} className="space-y-3">
                                                 <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2">
@@ -441,7 +425,7 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                                                         ...currentGroup,
                                                         schedule: { ...currentGroup.schedule, startTime: e.target.value }
                                                     })}
-                                                    className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono"
+                                                    className="w-full p-4 rounded-2xl border bg-background/50 outline-none transition-all font-mono"
                                                 />
                                             </div>
                                             <div className="space-y-2">
@@ -453,7 +437,7 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                                                         ...currentGroup,
                                                         schedule: { ...currentGroup.schedule, endTime: e.target.value }
                                                     })}
-                                                    className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono"
+                                                    className="w-full p-4 rounded-2xl border bg-background/50 outline-none transition-all font-mono"
                                                 />
                                             </div>
                                         </div>
@@ -462,12 +446,7 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                             </div>
 
                             <div className="p-8 border-t border-white/5 bg-white/5 flex gap-4">
-                                <button
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 py-4 hover:bg-white/10 rounded-2xl font-bold transition-all"
-                                >
-                                    إلغاء
-                                </button>
+                                <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 hover:bg-white/10 rounded-2xl font-bold transition-all">إلغاء</button>
                                 <button
                                     form="groupForm"
                                     disabled={saving}

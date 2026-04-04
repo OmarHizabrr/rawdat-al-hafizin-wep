@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, getDocs } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Users, Calendar, Clock, ChevronRight, Loader2 } from "lucide-react";
+import { Users, Calendar, Clock, ChevronRight, Loader2, BookOpen, TrendingUp } from "lucide-react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
 interface GroupModel {
     id: string;
@@ -23,6 +24,9 @@ interface GroupModel {
 export default function TeacherDashboard() {
     const { user, loading: authLoading } = useAuth();
     const [myGroups, setMyGroups] = useState<GroupModel[]>([]);
+    const [stats, setStats] = useState({
+        totalStudents: 0,
+    });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -33,12 +37,32 @@ export default function TeacherDashboard() {
             where("supervisorId", "==", user.uid)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             })) as GroupModel[];
             setMyGroups(data);
+
+            // Fetch Stats for these groups
+            if (data.length > 0) {
+                try {
+                    const groupIds = data.map(g => g.id);
+                    // 1. Total Students
+                    const studentsSnap = await getDocs(query(
+                        collection(db, "users"),
+                        where("role", "==", "student"),
+                        where("groupId", "in", groupIds)
+                    ));
+
+                    setStats({
+                        totalStudents: studentsSnap.size,
+                    });
+                } catch (error) {
+                    console.error("Error fetching teacher stats:", error);
+                }
+            }
+            
             setLoading(false);
         });
 
@@ -60,53 +84,86 @@ export default function TeacherDashboard() {
     }
 
     return (
-        <div className="space-y-6 pb-20">
-            <div>
-                <h1 className="text-2xl font-bold">حلقاتي</h1>
-                <p className="text-muted-foreground">الحلقات التي تشرف عليها</p>
+        <div className="space-y-10 pb-20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-4xl font-black tracking-tight">لوحة المعلم</h1>
+                    <p className="text-muted-foreground mt-2 font-medium">مرحباً بك مجدداً، إليك حالة حلقاتك العلمية لهذا اليوم.</p>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {myGroups.map(group => (
-                    <GlassCard key={group.id} className="group relative overflow-hidden transition-all hover:border-primary/50">
-                        <div className={`absolute top-0 right-0 p-2 rounded-bl-xl text-xs font-bold text-white ${group.gender === 'male' ? 'bg-blue-500' : 'bg-pink-500'}`}>
-                            {group.gender === 'male' ? 'بنين' : 'بنات'}
-                        </div>
+            {/* Stats Header */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <StatCard label="إجمالي الطلاب" value={stats.totalStudents} icon={Users} color="bg-blue-500" />
+                <StatCard label="عدد الحلقات" value={myGroups.length} icon={BookOpen} color="bg-orange-500" />
+                <StatCard label="تقدير عام" value="ممتاز" icon={TrendingUp} color="bg-green-500" />
+            </div>
 
-                        <div className="p-6 space-y-4">
-                            <h3 className="text-xl font-bold mb-4">{group.name}</h3>
-                            
-                            <div className="space-y-2 text-sm">
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Calendar className="w-4 h-4" />
-                                    <span>{group.schedule?.recitationDays?.join(" • ") || "لم يحدد أيام"}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Clock className="w-4 h-4" />
-                                    <span>{group.schedule?.startTime || "--:--"} - {group.schedule?.endTime || "--:--"}</span>
-                                </div>
+            <div className="space-y-6">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Calendar className="w-6 h-6 text-primary" />
+                    حلقاتي النشطة
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {myGroups.map(group => (
+                        <GlassCard key={group.id} className="group relative overflow-hidden transition-all hover:border-primary/50">
+                            <div className={`absolute top-0 right-0 p-2 rounded-bl-xl text-xs font-bold text-white ${group.gender === 'male' ? 'bg-blue-500' : 'bg-pink-500'}`}>
+                                {group.gender === 'male' ? 'بنين' : 'بنات'}
                             </div>
 
-                            <div className="pt-4 border-t border-gray-100 dark:border-white/5 flex justify-end">
-                                <Link 
-                                    href={`/teachers/halaqat/${group.id}`}
-                                    className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-xl transition-colors font-medium text-sm"
-                                >
-                                    <Users className="w-4 h-4" />
-                                    <span>إدارة الطلاب</span>
-                                    <ChevronRight className="w-4 h-4" />
-                                </Link>
-                            </div>
-                        </div>
-                    </GlassCard>
-                ))}
+                            <div className="p-6 space-y-4">
+                                <h3 className="text-xl font-bold mb-4">{group.name}</h3>
+                                
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Calendar className="w-4 h-4" />
+                                        <span>{group.schedule?.recitationDays?.join(" • ") || "لم يحدد أيام"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Clock className="w-4 h-4" />
+                                        <span>{group.schedule?.startTime || "--:--"} - {group.schedule?.endTime || "--:--"}</span>
+                                    </div>
+                                </div>
 
-                {myGroups.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-muted-foreground bg-gray-50 dark:bg-white/5 rounded-2xl border border-dashed">
-                        لا توجد حلقات مسندة إليك حالياً.
-                    </div>
-                )}
+                                <div className="pt-4 border-t border-gray-100 dark:border-white/5 flex justify-end">
+                                    <Link 
+                                        href={`/teachers/halaqat/${group.id}`}
+                                        className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-xl transition-colors font-medium text-sm"
+                                    >
+                                        <Users className="w-4 h-4" />
+                                        <span>إدارة الطلاب</span>
+                                        <ChevronRight className="w-4 h-4" />
+                                    </Link>
+                                </div>
+                            </div>
+                        </GlassCard>
+                    ))}
+
+                    {myGroups.length === 0 && (
+                        <div className="col-span-full text-center py-12 text-muted-foreground bg-gray-50 dark:bg-white/5 rounded-2xl border border-dashed">
+                            لا توجد حلقات مسندة إليك حالياً.
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
+    );
+}
+
+function StatCard({ label, value, icon: Icon, color }: any) {
+    return (
+        <GlassCard className="p-6 relative overflow-hidden group border-white/5">
+            <div className={`absolute top-0 right-0 w-24 h-24 ${color} opacity-[0.03] blur-3xl -mr-12 -mt-12 group-hover:opacity-10 transition-opacity`} />
+            <div className="flex items-center gap-4 relative z-10">
+                <div className={`w-12 h-12 rounded-2xl ${color}/10 flex items-center justify-center text-white shadow-inner`}>
+                    <Icon className={color.replace('bg-', 'text-')} />
+                </div>
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60 mb-0.5">{label}</p>
+                    <h4 className="text-2xl font-black tracking-tight">{value}</h4>
+                </div>
+            </div>
+        </GlassCard>
     );
 }

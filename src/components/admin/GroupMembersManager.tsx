@@ -15,7 +15,8 @@ import {
     getDocs,
     limit,
     serverTimestamp,
-    writeBatch
+    writeBatch,
+    orderBy
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
@@ -34,7 +35,15 @@ import {
     Square,
     ChevronDown,
     ShieldAlert,
-    UserCog
+    UserCog,
+    Award,
+    BarChart3,
+    X,
+    Calendar,
+    Plus,
+    TrendingUp,
+    Clock,
+    LineChart
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -48,6 +57,7 @@ interface MemberModel {
     photoURL?: string;
     role: string;
     addedAt: any;
+    status?: string; // For course graduation
 }
 
 interface UserSummary {
@@ -92,6 +102,14 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         description: '',
         onConfirm: () => {}
     });
+
+    const [showProgressModal, setShowProgressModal] = useState(false);
+    const [selectedStudent, setSelectedStudent] = useState<MemberModel | null>(null);
+    const [studentLogs, setStudentLogs] = useState<any[]>([]);
+    const [studentExams, setStudentExams] = useState<any[]>([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+    const [examForm, setExamForm] = useState({ title: '', mark: '', date: new Date().toISOString().split('T')[0] });
+    const [isSavingExam, setIsSavingExam] = useState(false);
 
     // 1. Fetch Group Info & Current Members
     useEffect(() => {
@@ -154,6 +172,59 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         });
     }, [availableUsers, members, searchTerm]);
 
+    const handleViewProgress = async (student: MemberModel) => {
+        setSelectedStudent(student);
+        setShowProgressModal(true);
+        setLoadingLogs(true);
+        try {
+            const q = query(
+                collection(db, "daily_logs"),
+                where("userId", "==", student.id),
+                where("courseId", "==", groupId),
+                orderBy("date", "desc"),
+                limit(14)
+            );
+            const snap = await getDocs(q);
+            setStudentLogs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+            // Fetch Exams
+            const eq = query(
+                collection(db, "exams"),
+                where("userId", "==", student.id),
+                where("courseId", "==", groupId),
+                orderBy("date", "desc")
+            );
+            const esnap = await getDocs(eq);
+            setStudentExams(esnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (error) {
+            console.error("Error fetching logs:", error);
+        } finally {
+            setLoadingLogs(false);
+        }
+    };
+
+    const handleAddExam = async () => {
+        if (!selectedStudent || !examForm.title || !examForm.mark) return;
+        setIsSavingExam(true);
+        try {
+            const examRef = doc(collection(db, "exams"));
+            const examData = {
+                ...examForm,
+                userId: selectedStudent.id,
+                courseId: groupId,
+                createdBy: "teacher", // Placeholder for actual teacher name
+                createdAt: serverTimestamp()
+            };
+            await setDoc(examRef, examData);
+            setStudentExams([examData, ...studentExams]);
+            setExamForm({ title: '', mark: '', date: new Date().toISOString().split('T')[0] });
+        } catch (error) {
+            console.error("Error saving exam:", error);
+        } finally {
+            setIsSavingExam(false);
+        }
+    };
+
     const toggleSelect = (userId: string) => {
         const next = new Set(selectedUserIds);
         if (next.has(userId)) next.delete(userId);
@@ -185,6 +256,17 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                     role: user.role, // Initial role set from their global role
                     addedAt: serverTimestamp()
                 });
+
+                // If adding a student to a COURSE, also create an enrollment record
+                if (groupType === 'course' && user.role === 'student') {
+                    const enrollmentRef = doc(db, "enrollments", groupId, "enrollments", user.id);
+                    batch.set(enrollmentRef, {
+                        studentName: user.displayName,
+                        email: user.email,
+                        enrolledAt: serverTimestamp(),
+                        status: 'accepted'
+                    });
+                }
             });
             
             await batch.commit();
@@ -221,7 +303,17 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
             onConfirm: async () => {
                 setActionLoading(member.id);
                 try {
-                    await deleteDoc(doc(db, "members", groupId, "members", member.id));
+                    const batch = writeBatch(db);
+                    
+                    // Always remove from members
+                    batch.delete(doc(db, "members", groupId, "members", member.id));
+                    
+                    // If removing from a course, also remove from enrollments
+                    if (groupType === 'course') {
+                        batch.delete(doc(db, "enrollments", groupId, "enrollments", member.id));
+                    }
+                    
+                    await batch.commit();
                     setDialogConfig(prev => ({ ...prev, isOpen: false }));
                 } catch (error) {
                     console.error("Delete error:", error);
@@ -230,6 +322,37 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                 }
             }
         });
+    };
+
+    const toggleGraduation = async (member: MemberModel) => {
+        if (groupType !== 'course') return;
+        
+        const isGraduating = member.status !== 'completed';
+        setActionLoading(member.id);
+        
+        try {
+            const batch = writeBatch(db);
+            
+            // 1. Update status in course members
+            const memberRef = doc(db, "members", groupId, "members", member.id);
+            batch.update(memberRef, {
+                status: isGraduating ? 'completed' : 'accepted'
+            });
+            
+            // 2. Update status in enrollments
+            const enrollmentRef = doc(db, "enrollments", groupId, "enrollments", member.id);
+            batch.update(enrollmentRef, {
+                status: isGraduating ? 'completed' : 'accepted',
+                completedAt: isGraduating ? serverTimestamp() : null
+            });
+            
+            await batch.commit();
+            setDialogConfig({ ...dialogConfig, isOpen: false });
+        } catch (error) {
+            console.error("Graduation toggle error:", error);
+        } finally {
+            setActionLoading(null);
+        }
     };
 
     const confirmChangeRole = (member: MemberModel, newRole: string) => {
@@ -248,10 +371,10 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
 
     const getRoleIcon = (role: string) => {
         switch (role) {
-            case 'admin': return <Shield className="w-4 h-4 text-red-500" />;
-            case 'teacher': return <GraduationCap className="w-4 h-4 text-blue-500" />;
-            case 'student': return <User className="w-4 h-4 text-green-500" />;
-            default: return <User className="w-4 h-4" />;
+            case 'admin': return Shield;
+            case 'teacher': return GraduationCap;
+            case 'student': return User;
+            default: return User;
         }
     };
 
@@ -278,6 +401,52 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
             </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
+                {/* Analytics & Overview (New Add) */}
+                <div className="col-span-full">
+                    <div className="grid md:grid-cols-4 gap-4">
+                        <GlassCard className="p-6 border-primary/20 bg-primary/5 flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary"><BarChart3 className="w-6 h-6" /></div>
+                            <div><p className="text-sm font-bold opacity-60">متوسط الإنجاز اليومي</p><p className="text-2xl font-black">{Math.round((studentMembers.filter(m => m.status === 'completed').length / (studentMembers.length || 1)) * 100)}%</p></div>
+                        </GlassCard>
+                        <GlassCard className="p-6 border-green-500/20 bg-green-500/5 flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500"><Users className="w-6 h-6" /></div>
+                            <div><p className="text-sm font-bold opacity-60">إجمالي طلاب الحلقة</p><p className="text-2xl font-black">{studentMembers.length}</p></div>
+                        </GlassCard>
+                        <GlassCard className="p-6 border-amber-500/20 bg-amber-500/5 flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500"><Award className="w-6 h-6" /></div>
+                            <div><p className="text-sm font-bold opacity-60">المتميزون للأسبوع</p><p className="text-xl font-black">أكثر من 90%</p></div>
+                        </GlassCard>
+                        <GlassCard className="p-6 border-blue-500/20 bg-blue-500/5 flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500"><LineChart className="w-6 h-6" /></div>
+                            <div><p className="text-sm font-bold opacity-60">نشاط المجموعة</p><p className="text-2xl font-black">مستقر</p></div>
+                        </GlassCard>
+                    </div>
+                </div>
+
+                {/* Top Performers (Quick View) */}
+                <div className="col-span-full">
+                    <div className="flex items-center gap-4 mb-4">
+                        <TrendingUp className="w-6 h-6 text-amber-500" />
+                        <h2 className="text-xl font-bold">فرسان الحلقة (الأوائل)</h2>
+                    </div>
+                    <div className="grid md:grid-cols-3 gap-6">
+                        {studentMembers.slice(0, 3).map((m, i) => (
+                            <div key={i} className="relative group">
+                                <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition-opacity" />
+                                <GlassCard className="relative p-4 flex items-center gap-4 border-amber-500/30">
+                                    <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-black shadow-lg">#{i+1}</div>
+                                    <div className="flex-1 text-right">
+                                        <p className="font-bold text-sm">{m.displayName}</p>
+                                        <p className="text-[10px] text-muted-foreground">صاحب همة عالية</p>
+                                    </div>
+                                    <Award className="w-5 h-5 text-amber-500" />
+                                </GlassCard>
+                            </div>
+                        ))}
+                        {studentMembers.length === 0 && <p className="col-span-full text-center text-sm opacity-40 py-10 border border-dashed rounded-3xl">سيظهر المتصدرون هنا بعد تقييم الأداء..</p>}
+                    </div>
+                </div>
+
                 {/* Left: Candidates Section */}
                 <div className="lg:col-span-1 space-y-6">
                     <GlassCard className="p-6 relative">
@@ -406,13 +575,28 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                             </h2>
                         </div>
                         <div className="grid sm:grid-cols-2 gap-4">
-                            {studentMembers.map(member => (
+                             {studentMembers.map(member => (
                                 <MemberCard 
                                     key={member.id} 
                                     member={member} 
                                     onRemove={() => confirmRemoveMember(member)} 
                                     onChangeRole={(r) => confirmChangeRole(member, r)}
+                                    onViewProgress={() => handleViewProgress(member)}
+                                    onToggleGraduation={() => {
+                                        const isGraduating = member.status !== 'completed';
+                                        setDialogConfig({
+                                            isOpen: true,
+                                            type: isGraduating ? 'success' : 'warning',
+                                            title: isGraduating ? "تخريج طالب" : "إلغاء التخرج",
+                                            description: isGraduating 
+                                                ? `هل أنت متأكد من ترقية ${member.displayName} إلى حالة "خريج"؟ سيتمكن الطالب من إصدار شهادته فوراً.`
+                                                : `هل تريد إلغاء حالة التخرج لـ ${member.displayName}؟ سيتم سحب صلاحية عرض الشهادة.`,
+                                            onConfirm: () => toggleGraduation(member)
+                                        });
+                                    }}
+                                    canGraduate={groupType === 'course'}
                                     loading={actionLoading === member.id}
+                                    icon={User}
                                     label="طالب"
                                 />
                             ))}
@@ -436,16 +620,141 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                 type={dialogConfig.type}
                 loading={actionLoading !== null}
             />
+
+            {/* Progress Modal */}
+            <AnimatePresence>
+                {showProgressModal && selectedStudent && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowProgressModal(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+                        <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="bg-background border border-white/10 rounded-[2.5rem] shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+                            <div className="p-8 border-b border-white/5 flex items-center justify-between bg-primary/5">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+                                        <BarChart3 className="w-6 h-6 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold">سجل إنجاز الطالب</h2>
+                                        <p className="text-xs text-muted-foreground">{selectedStudent.displayName} • متابعة آخر 14 يوماً</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowProgressModal(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><X className="w-6 h-6" /></button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-8">
+                                {loadingLogs ? (
+                                    <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                        <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" />
+                                        <p className="text-xs font-bold opacity-40">جاري تحميل السجلات...</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-10">
+                                        {/* Exam Recording Form */}
+                                        <div className="p-6 rounded-3xl border border-primary/20 bg-primary/5 space-y-4">
+                                            <h3 className="text-sm font-bold flex items-center gap-2 text-primary">
+                                                <Award className="w-4 h-4" />
+                                                تسجيل نتيجة اختبار جديد
+                                            </h3>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <input 
+                                                    type="text" placeholder="عنوان الاختبار (مثل: جزء عم)" 
+                                                    value={examForm.title} onChange={e => setExamForm({...examForm, title: e.target.value})}
+                                                    className="col-span-full p-3 rounded-xl border bg-background text-xs"
+                                                />
+                                                <input 
+                                                    type="text" placeholder="الدرجة / التقدير" 
+                                                    value={examForm.mark} onChange={e => setExamForm({...examForm, mark: e.target.value})}
+                                                    className="p-3 rounded-xl border bg-background text-xs"
+                                                />
+                                                <input 
+                                                    type="date" 
+                                                    value={examForm.date} onChange={e => setExamForm({...examForm, date: e.target.value})}
+                                                    className="p-3 rounded-xl border bg-background text-xs"
+                                                />
+                                            </div>
+                                            <button 
+                                                disabled={isSavingExam || !examForm.title}
+                                                onClick={handleAddExam}
+                                                className="w-full py-3 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                {isSavingExam ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                                حفظ نتيجة الاختبار
+                                            </button>
+                                        </div>
+
+                                        {/* Exams List */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-sm font-bold flex items-center gap-2 opacity-60">
+                                                <TrendingUp className="w-4 h-4" />
+                                                سجل الاختبارات السابقة
+                                            </h3>
+                                            {studentExams.length === 0 ? (
+                                                <p className="text-[10px] opacity-40 text-center py-4 border border-dashed rounded-xl">لا توجد اختبارات مسجلة بعد</p>
+                                            ) : studentExams.map((exam, idx) => (
+                                                <div key={idx} className="p-4 rounded-xl border bg-white/5 flex items-center justify-between">
+                                                    <div className="text-right">
+                                                        <p className="text-xs font-bold">{exam.title}</p>
+                                                        <p className="text-[10px] opacity-50">{exam.date}</p>
+                                                    </div>
+                                                    <div className="px-3 py-1 bg-green-500/10 text-green-500 rounded-lg text-xs font-black">{exam.mark}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                                <div className="space-y-4">
+                                                    <h3 className="text-sm font-bold flex items-center gap-2 opacity-60">
+                                                        <Clock className="w-4 h-4" />
+                                                        سجل الإنجاز اليومي
+                                                    </h3>
+                                                    {studentLogs.length === 0 ? (
+                                                        <div className="text-center py-10 space-y-4">
+                                                            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto opacity-20"><Calendar className="w-6 h-6" /></div>
+                                                            <p className="text-[10px] opacity-40">لا توجد سجلات إنجاز مؤخراً.</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            {studentLogs.map((log, idx) => (
+                                                                <div key={idx} className="p-4 rounded-2xl border bg-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="px-3 py-1 bg-white/10 rounded-lg text-[10px] font-mono">{log.date}</div>
+                                                                        <div className={`px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider ${log.completed ? 'bg-green-500/20 text-green-500' : 'bg-amber-500/20 text-amber-500'}`}>
+                                                                            {log.completed ? 'مكتمل' : 'جزئي'}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {log.completedTasks?.map((tid: string, tidx: number) => (
+                                                                            <div key={tidx} className="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded-md text-[8px] font-bold">
+                                                                                {tid}
+                                                                            </div>
+                                                                        ))}
+                                                                        {!log.completedTasks?.length && <span className="text-[8px] opacity-40 italic font-medium">لا مهام مسجلة</span>}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                            <div className="p-6 border-t border-white/5 bg-white/5">
+                                <button onClick={() => setShowProgressModal(false)} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-2xl font-bold transition-all">إغلاق</button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
-function MemberCard({ member, onRemove, onChangeRole, loading, icon, label }: { 
+function MemberCard({ member, onRemove, onChangeRole, onViewProgress, onToggleGraduation, canGraduate, loading, icon: Icon, label }: { 
     member: MemberModel, 
     onRemove: () => void, 
     onChangeRole: (role: string) => void,
+    onViewProgress?: () => void,
+    onToggleGraduation?: () => void,
+    canGraduate?: boolean,
     loading: boolean,
-    icon?: React.ReactNode,
+    icon: any,
     label: string 
 }) {
     const [showActions, setShowActions] = useState(false);
@@ -458,14 +767,20 @@ function MemberCard({ member, onRemove, onChangeRole, loading, icon, label }: {
             <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg relative">
                     {member.photoURL ? <img src={member.photoURL} alt="" className="w-full h-full rounded-full object-cover" /> : (member.displayName?.[0] || "?").toUpperCase()}
-                    {icon && <div className="absolute -top-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm border border-gray-100 dark:border-white/10">{icon}</div>}
+                    <div className="absolute -top-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-sm border border-gray-100 dark:border-white/10"><Icon className="w-3 h-3" /></div>
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <h3 className="font-bold truncate">{member.displayName}</h3>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-muted-foreground border border-gray-200 dark:border-white/10">{label}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                     <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                    {member.status === 'completed' && (
+                        <div className="flex items-center gap-1 mt-1 text-[10px] font-black text-green-500 uppercase tracking-widest">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>خريج / مُتم</span>
+                        </div>
+                    )}
                 </div>
                 
                 {/* Independent Role Management Menu */}
@@ -494,9 +809,15 @@ function MemberCard({ member, onRemove, onChangeRole, loading, icon, label }: {
                                     <button onClick={() => { onChangeRole('teacher'); setShowActions(false); }} className="w-full text-right px-4 py-2.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center gap-2 transition-colors">
                                         <GraduationCap className="w-3 h-3 text-blue-500" /> جعل معلم للمجموعة
                                     </button>
-                                    <button onClick={() => { onChangeRole('student'); setShowActions(false); }} className="w-full text-right px-4 py-2.5 text-xs hover:bg-green-50 dark:hover:bg-green-500/10 flex items-center gap-2 transition-colors">
+                                     <button onClick={() => { onChangeRole('student'); setShowActions(false); }} className="w-full text-right px-4 py-2.5 text-xs hover:bg-green-50 dark:hover:bg-green-500/10 flex items-center gap-2 transition-colors">
                                         <User className="w-3 h-3 text-green-500" /> جعل طالب (عضو عادي)
                                     </button>
+                                    {canGraduate && member.role === 'student' && (
+                                        <button onClick={() => { onToggleGraduation?.(); setShowActions(false); }} className="w-full text-right px-4 py-2.5 text-xs hover:bg-amber-50 dark:hover:bg-amber-500/10 flex items-center gap-2 transition-colors font-bold text-amber-600">
+                                            <Award className="w-3 h-3" /> 
+                                            {member.status === 'completed' ? 'إلغاء حالة التخرج' : 'اعتماد كتخرج'}
+                                        </button>
+                                    )}
                                     <div className="border-t mt-1" />
                                     <button onClick={() => { onRemove(); setShowActions(false); }} className="w-full text-right px-4 py-3 text-xs text-red-500 hover:bg-red-500/5 flex items-center gap-2 font-bold transition-colors">
                                         <UserX className="w-3 h-3" /> إزالة من المجموعة
