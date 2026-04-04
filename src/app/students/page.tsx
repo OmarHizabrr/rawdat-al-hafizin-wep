@@ -39,6 +39,7 @@ interface Testimonial {
     studentName: string;
     content: string;
     likes: string[];
+    photoURL?: string;
 }
 
 interface PlanDay {
@@ -317,6 +318,7 @@ export default function StudentsDashboard() {
             await setDoc(doc(collection(db, "testimonials")), {
                 userId: user.uid,
                 studentName: user.displayName || userData?.displayName || "طالب العلم",
+                photoURL: user.photoURL || userData?.photoURL || "",
                 content: newTestimonialContent,
                 likes: [],
                 createdAt: serverTimestamp()
@@ -500,7 +502,13 @@ export default function StudentsDashboard() {
                             </div>
                             <div className="flex items-center justify-between pt-6 border-t border-white/5">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary border border-primary/10">{t.studentName[0]}</div>
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary border border-primary/10 overflow-hidden">
+                                        {t.photoURL ? (
+                                            <img src={t.photoURL} alt={t.studentName} className="w-full h-full object-cover" />
+                                        ) : (
+                                            t.studentName[0]
+                                        )}
+                                    </div>
                                     <span className="text-sm font-bold">{t.studentName}</span>
                                 </div>
                                 <button onClick={() => handleToggleLike(t.id, t.likes)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${t.likes.includes(user?.uid || '') ? 'bg-red-500/10 text-red-500' : 'hover:bg-white/10 opacity-40'}`}>
