@@ -108,8 +108,8 @@ export default function LoginPage() {
                             <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
                         </svg>
                     </div>
-                    <h1 className="text-3xl font-bold">بوابتك لتعليم وتحفيظ القرآن والسنة</h1>
-                    <p className="mt-2 text-muted-foreground">بوابتك لتعلم وحفظ القرآن الكريم</p>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">برنامج تحفيظ السنة النبوية</h1>
+                    <p className="mt-2 text-muted-foreground font-medium">بجمع فضيلة الشيخ يحيى بن عبد العزيز اليحيى</p>
                 </div>
 
                 <GlassCard className="p-8">

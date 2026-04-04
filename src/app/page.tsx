@@ -112,11 +112,11 @@ function GuestView() {
 
                 <motion.h1 variants={item} className="text-5xl md:text-7xl font-extrabold tracking-tight bg-gradient-to-br from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent mb-6 leading-normal py-2">
                     منصة <span className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">روضة الحافظين</span><br />
-                    طريقك لإتقان القرآن والسنة
+                    لتحفيظ السنة النبوية
                 </motion.h1>
 
                 <motion.p variants={item} className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-12 leading-relaxed">
-                    منظومة تعليمية إلكترونية متكاملة تجمع بين الأصالة والتقنية الحديثة، لإدارة الحلقات القرآنية وربط الطالب بالمعلم في بيئة محفزة.
+                    هو برنامج علمي متكامل يُعنى بحفظ أحاديث السنة النبوية بجمع فضيلة الشيخ يحيى بن عبد العزيز اليحيى، وفق منهجٍ متدرّج يهدف لربط الحافظ بكلام النبي ﷺ.
                 </motion.p>
 
                 <motion.div variants={item} className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -124,8 +124,9 @@ function GuestView() {
                         <LogIn className="w-5 h-5" />
                         <span>ابدأ رحلتك الآن</span>
                     </Link>
-                    <Link href="/login" className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white dark:bg-white/5 text-foreground font-bold border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors text-lg flex justify-center">
-                        <span>تسجيل الدخول</span>
+                    <Link href="/about" className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white dark:bg-white/5 text-foreground font-bold border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors text-lg flex justify-center items-center gap-2">
+                        <BookOpen className="w-5 h-5 text-primary" />
+                        <span>التعريف بالبرنامج</span>
                     </Link>
                 </motion.div>
             </section>
@@ -156,7 +157,7 @@ function GuestView() {
             <section className="space-y-12">
                 <div className="text-center space-y-4">
                     <h2 className="text-3xl md:text-5xl font-bold">لماذا <span className="text-primary">روضة الحافظين؟</span></h2>
-                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">نقدم بيئة تعليمية متكاملة تضمن للطالب الاستمرارية والمتابعة الدقيقة.</p>
+                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">نقدم منهجاً علمياً متميزاً وتحت إشراف مباشر لضمان جودة الحفظ والإتقان.</p>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -228,7 +229,7 @@ function GuestView() {
                 
                 <div className="relative z-10 space-y-6 max-w-2xl mx-auto">
                     <h2 className="text-4xl font-extrabold leading-tight">جاهز للبدء في رحلة الحفظ؟</h2>
-                    <p className="text-xl text-white/90">انضم إلى مئات الطلاب الذين أتموا حفظ كتاب الله معنا.</p>
+                    <p className="text-xl text-white/90">انضم إلى مئات الطلاب الذين أتموا حفظ سنة رسول الله ﷺ معنا.</p>
                     <div className="pt-4">
                         <Link href="/register" className="inline-block px-10 py-4 rounded-xl bg-white text-primary font-bold text-lg hover:shadow-xl hover:scale-105 transition-all">
                             سجل الآن وابدأ
@@ -298,7 +299,7 @@ function UserDashboard({ userData }: { userData: any }) {
                 <GlassCard className="p-6 md:col-span-2 flex items-center justify-center bg-primary/5 border-primary/10 relative overflow-hidden group">
                     <div className="absolute right-0 top-0 w-24 h-full bg-primary/10 -skew-x-12 translate-x-10 group-hover:translate-x-0 transition-transform duration-500" />
                     <p className="text-2xl font-extrabold text-center leading-loose text-primary/80 z-10 selection:bg-primary/20">
-                    "خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ"
+                    "نَضَّرَ اللَّهُ امْرَأً سَمِعَ مَقَالَتِي فَوَعَاهَا فَأَدَّاهَا كَمَا سَمِعَهَا"
                     </p>
                 </GlassCard>
                 </div>

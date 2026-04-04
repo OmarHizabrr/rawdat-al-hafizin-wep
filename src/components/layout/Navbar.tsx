@@ -34,6 +34,7 @@ export function Navbar() {
 
     const navItems = [
         { name: "الرئيسية", href: "/", icon: Home },
+        { name: "التعريف بالبرنامج", href: "/about", icon: BookOpen },
         { name: "بوابة الطلاب", href: "/students", icon: Users },
         // { name: "المعلمين", href: "/teachers", icon: GraduationCap },
         // { name: "السجلات", href: "/records", icon: FileText },

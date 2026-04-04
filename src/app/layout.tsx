@@ -10,8 +10,8 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
-  title: "روضة الحافظين | Rawdat Al-Hafizin",
-  description: "منصة متكاملة لإدارة حلقات تحفيظ القرآن الكريم والسنة النبوية.",
+  title: "روضة الحافظين | برنامج تحفيظ السنة النبوية",
+  description: "برنامج علمي متكامل يُعنى بحفظ أحاديث السنة النبوية بجمع الشيخ يحيى اليحيى، وفق منهجٍ متدرّج يبدأ بأصح كتب السنة.",
   icons: {
     icon: "/logo.png",
     shortcut: "/logo.png",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "روضة الحافظين | Rawdat Al-Hafizin",
-    description: "منصة متكاملة لإدارة حلقات تحفيظ القرآن الكريم والسنة النبوية.",
+    description: "برنامج علمي متكامل يُعنى بحفظ أحاديث السنة النبوية بجمع الشيخ يحيى اليحيى، وفق منهجٍ متدرّج يبدأ بأصح كتب السنة.",
     url: "https://qursunnah-wep.vercel.app",
     siteName: "Rawdat Al-Hafizin",
     images: [

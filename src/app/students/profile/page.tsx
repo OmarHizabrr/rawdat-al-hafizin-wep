@@ -50,7 +50,7 @@ interface StudentData {
         internetAvailable: boolean;
         canAttendOnline: boolean;
         agreesToAttendance: boolean;
-        hasMemorizedQuran: boolean;
+        hasMemorizedSunnah: boolean;
         isAccepted?: boolean;
         joinedAt?: any;
     };
@@ -75,7 +75,7 @@ const initialData: StudentData = {
         internetAvailable: false,
         canAttendOnline: false,
         agreesToAttendance: false,
-        hasMemorizedQuran: false,
+        hasMemorizedSunnah: false,
     },
 };
 
@@ -164,7 +164,7 @@ export default function StudentProfile() {
 
         const { enrollmentStatus, personalInfo } = formData;
         
-        if (!enrollmentStatus.internetAvailable || !enrollmentStatus.canAttendOnline || !enrollmentStatus.agreesToAttendance || !enrollmentStatus.hasMemorizedQuran) {
+        if (!enrollmentStatus.internetAvailable || !enrollmentStatus.canAttendOnline || !enrollmentStatus.agreesToAttendance || !enrollmentStatus.hasMemorizedSunnah) {
             showDialog('warning', 'شروط غير مستوفاة', 'يجب الموافقة على جميع شروط الالتزام والمتابعة للمتابعة في إرسال الطلب.');
             return;
         }
@@ -395,9 +395,9 @@ export default function StudentProfile() {
                             onChange={(c: boolean) => handleChange('enrollmentStatus', 'agreesToAttendance', c)}
                         />
                         <EliteCheckbox 
-                            label="أقر بأنني أتممت حفظ القرآن الكريم"
-                            checked={formData.enrollmentStatus.hasMemorizedQuran}
-                            onChange={(c: boolean) => handleChange('enrollmentStatus', 'hasMemorizedQuran', c)}
+                            label="ألتزم بالتفرغ التام لحفظ السنة النبوية"
+                            checked={formData.enrollmentStatus.hasMemorizedSunnah}
+                            onChange={(c: boolean) => handleChange('enrollmentStatus', 'hasMemorizedSunnah', c)}
                         />
                     </div>
                     

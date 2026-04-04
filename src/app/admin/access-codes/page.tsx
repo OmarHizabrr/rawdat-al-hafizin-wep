@@ -67,7 +67,7 @@ export default function AccessCodesManagement() {
                 } else {
                     // Set defaults if not exists
                     setCodes({
-                        admin: '000000',
+                        admin: '414456',
                         teacher: '111111',
                         student: '222222',
                         committee: '333333'

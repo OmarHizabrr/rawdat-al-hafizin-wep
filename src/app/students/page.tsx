@@ -293,8 +293,8 @@ export default function StudentPortal() {
                         <Award className="w-10 h-10 text-white" />
                     </motion.div>
                     <div className="space-y-1">
-                        <h2 className="text-3xl font-black text-white drop-shadow-xl">أهلاً بك يا حافظ القرآن</h2>
-                        <p className="text-white/80 font-medium tracking-wide">"خيركم من تعلم القران وعلمه"</p>
+                        <h2 className="text-3xl font-black text-white drop-shadow-xl">أهلاً بك يا حافظ السنة</h2>
+                        <p className="text-white/80 font-medium tracking-wide">"نضر الله امرأ سمع مقالتي فوعاها فأداها كما سمعها"</p>
                     </div>
                 </div>
 

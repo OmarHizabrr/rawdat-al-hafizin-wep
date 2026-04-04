@@ -70,8 +70,8 @@ export default function RegisterPage() {
                 className="w-full max-w-lg"
             >
                 <div className="mb-6 text-center">
-                    <h1 className="text-3xl font-bold">بوابتك لتعليم وتحفيظ القرآن والسنة</h1>
-                    <p className="mt-2 text-muted-foreground">انضم إلينا الآن</p>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">برنامج تحفيظ السنة النبوية</h1>
+                    <p className="mt-2 text-muted-foreground font-medium">بجمع فضيلة الشيخ يحيى بن عبد العزيز اليحيى</p>
                 </div>
 
                 <GlassCard className="p-8">

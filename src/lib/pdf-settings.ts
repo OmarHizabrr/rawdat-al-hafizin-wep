@@ -13,8 +13,8 @@ export interface PdfSettings {
 }
 
 export const defaultPdfSettings: PdfSettings = {
-    rightHeader: 'الجمهورية اليمنية\nوزارة الأوقاف والإرشاد\nقطاع تحفيظ القرآن الكريم',
-    leftHeader: 'Republic of Yemen\nMinistry of Awqaf\nHoly Quran Sector',
+    rightHeader: 'المملكة العربية السعودية\nبرنامج تحفيظ السنة النبوية\nبجمع الشيخ يحيى اليحيى',
+    leftHeader: 'Kingdom of Saudi Arabia\nSunnah Memorization Program\nby Sheikh Yahya Al-Yahya',
     footerText: 'مدير المركز\n....................',
     isHeaderVisible: true,
     isFooterVisible: true,

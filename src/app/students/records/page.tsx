@@ -93,9 +93,9 @@ export default function StudentRecords() {
 
     // Modern Progress Visuals
     const progressChart = [
-        { label: "حفظ القرآن", value: 45, color: "from-green-500 to-emerald-700", icon: CheckCircle },
-        { label: "التفسير والتدبر", value: 30, color: "from-blue-500 to-indigo-700", icon: BookOpen },
-        { label: "السنة النبوية", value: 15, color: "from-amber-500 to-orange-700", icon: Star },
+        { label: "حفظ الأحاديث", value: 45, color: "from-green-500 to-emerald-700", icon: CheckCircle },
+        { label: "شروح السنة", value: 30, color: "from-blue-500 to-indigo-700", icon: BookOpen },
+        { label: "علوم الحديث", value: 15, color: "from-amber-500 to-orange-700", icon: Star },
     ];
 
     return (
@@ -227,9 +227,9 @@ export default function StudentRecords() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                <TestRow title="اختبار الحزب الأول (سورة البقرة)" score="٩٨/١٠٠" grade="ممتاز" color="green" />
-                                <TestRow title="اختبار متن الجزرية (القسم الأول)" score="٩٥/١٠٠" grade="ممتاز" color="green" />
-                                <TestRow title="اختبار فقه العبادات (المستوى ١)" score="٨٨/١٠٠" grade="جيد جداً" color="blue" />
+                                <TestRow title="اختبار الأربعين النووية (المستوى ١)" score="٩٨/١٠٠" grade="ممتاز" color="green" />
+                                <TestRow title="اختبار منظومة البيقونية" score="٩٥/١٠٠" grade="ممتاز" color="green" />
+                                <TestRow title="اختبار بلوغ المرام (القسم ١)" score="٨٨/١٠٠" grade="جيد جداً" color="blue" />
                             </tbody>
                         </table>
                     </div>
@@ -240,9 +240,9 @@ export default function StudentRecords() {
             <div className="space-y-6">
                 <SectionLabel icon={Activity} label="آخر النشاطات الأكاديمية" />
                 <div className="grid gap-3">
-                    <ActivityItem text="تم رفع تقييم التسميع لليوم - الحزب الثاني" time="قبل ساعتين" />
-                    <ActivityItem text="تحميل ملف مرجعيات التجويد - المستوى ٢" time="بالأمس" />
-                    <ActivityItem text="الانضمام لحلقة 'الرواد' العلمية" time="قبل ٣ أيام" />
+                    <ActivityItem text="تم رفع تقييم التسميع لليوم - الجمع بين الصحيحين" time="قبل ساعتين" />
+                    <ActivityItem text="تحميل ملف مرجعيات مصطلح الحديث - المستوى ٢" time="بالأمس" />
+                    <ActivityItem text="الانضمام لحلقة 'الرواد' للسنة النبوية" time="قبل ٣ أيام" />
                 </div>
             </div>
         </div>
