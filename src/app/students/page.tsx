@@ -17,63 +17,51 @@ import {
     ArrowRight, Info, CreditCard, Users, 
     Download, ScrollText, Loader2, X,
     Layout, Quote, HelpCircle, Mail, Globe,
-    Lock as LockIcon, Hash, BookOpen, TrendingUp
+    Lock as LockIcon, Hash, BookOpen, TrendingUp,
+    GraduationCap
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { EliteDialog } from "@/components/ui/EliteDialog";
-import { cn } from "@/lib/utils";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { ActivityChart } from "../../components/students/ActivityChart";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
 
-// --- Types ---
 interface Course {
     id: string;
     title: string;
     description: string;
-    registrationStart: any;
-    registrationEnd: any;
     startDate: any;
     endDate: any;
-    mechanism: string;
-    cost: string;
-    features: string[];
-    whatsappLink?: string;
+    registrationEnd: any;
 }
 
 interface Testimonial {
     id: string;
     studentName: string;
-    studentPhoto?: string;
     content: string;
     likes: string[];
-    createdAt: any;
 }
 
-import { PlanDay, TierTask } from "@/types/plan";
+interface PlanDay {
+    dayIndex: number;
+    tasks: string[];
+}
 
-const getLevelInfo = (pts: number) => {
-    if (pts < 100) return { label: 'بداية النور', rank: 1 };
-    if (pts < 500) return { label: 'طالب بصيرة', rank: 2 };
-    if (pts < 1500) return { label: 'همّة علية', rank: 3 };
-    return { label: 'صاحب إتقان', rank: 4 };
+const getLevelInfo = (points: number) => {
+    if (points >= 1500) return { label: 'صاحب إتقان', color: 'text-amber-500', bg: 'bg-amber-500/10', rank: 4 };
+    if (points >= 500) return { label: 'همّة علية', color: 'text-purple-500', bg: 'bg-purple-500/10', rank: 3 };
+    if (points >= 100) return { label: 'طالب بصيرة', color: 'text-blue-500', bg: 'bg-blue-500/10', rank: 2 };
+    return { label: 'بداية النور', color: 'text-emerald-500', bg: 'bg-emerald-500/10', rank: 1 };
 };
 
-const getLevelProgress = (pts: number) => {
-    const caps = [100, 500, 1500, 5000];
-    const cap = caps.find(c => pts < c) || 5000;
-    return { percent: Math.min((pts / cap) * 100, 100), next: cap - pts };
-};
-
-// --- Main Component ---
-export default function StudentPortal() {
+export default function StudentsDashboard() {
     const { user } = useAuth();
     const router = useRouter();
     const [courses, setCourses] = useState<Course[]>([]);
     const [activeCourse, setActiveCourse] = useState<Course | null>(null);
     const [loading, setLoading] = useState(true);
-    const [timeLeftToRegister, setTimeLeftToRegister] = useState({ d: "00", h: "00", m: "00" });
-    const [timeLeftToStart, setTimeLeftToStart] = useState({ d: "00", h: "00", m: "00" });
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+    const [timeLeftToRegister, setTimeLeftToRegister] = useState({ d: '00', h: '00', m: '00' });
+    const [timeLeftToStart, setTimeLeftToStart] = useState({ d: '00', h: '00', m: '00' });
     
     const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
     const [newTestimonialContent, setNewTestimonialContent] = useState("");
@@ -134,68 +122,26 @@ export default function StudentPortal() {
         return () => unsubscribe();
     }, []);
 
-    // Timers Effect
-    useEffect(() => {
-        if (!activeCourse) return;
-        const timer = setInterval(() => {
-            const now = new Date().getTime();
-            
-            // Reg Timer
-            if (activeCourse.registrationEnd) {
-                const diff = activeCourse.registrationEnd.toDate().getTime() - now;
-                if (diff > 0) {
-                    setTimeLeftToRegister({
-                        d: Math.floor(diff / (1000 * 60 * 60 * 24)).toString().padStart(2, '0'),
-                        h: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0'),
-                        m: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0')
-                    });
-                }
-            }
-
-            // Start Timer
-            if (activeCourse.startDate) {
-                const diff = activeCourse.startDate.toDate().getTime() - now;
-                if (diff > 0) {
-                    setTimeLeftToStart({
-                        d: Math.floor(diff / (1000 * 60 * 60 * 24)).toString().padStart(2, '0'),
-                        h: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0'),
-                        m: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0')
-                    });
-                }
-            }
-
-            // Progress Stats
-            if (activeCourse.startDate && activeCourse.endDate) {
-                const total = activeCourse.endDate.toDate().getTime() - activeCourse.startDate.toDate().getTime();
-                const elapsed = now - activeCourse.startDate.toDate().getTime();
-                const remaining = activeCourse.endDate.toDate().getTime() - now;
-                
-                setTotalDays(Math.ceil(total / (1000 * 60 * 60 * 24)));
-                setDaysRemaining(Math.max(0, Math.ceil(remaining / (1000 * 60 * 60 * 24))));
-                setProgressPercent(Math.min(100, Math.max(0, Math.round((elapsed / total) * 100))));
-            }
-        }, 1000);
-        return () => clearInterval(timer);
-    }, [activeCourse]);
-
-    // Daily Logic Effect
+    // Dashboard Data Effect
     useEffect(() => {
         if (!user || !activeCourse) return;
 
         const fetchData = async () => {
             try {
-                // Fetch Daily Log for today
-                const logId = `${user.uid}_${todayStr}`;
-                const logSnap = await getDoc(doc(db, "daily_logs", logId));
-                if (logSnap.exists()) {
-                    setDailyLog(logSnap.data() as any);
-                }
+                // Fetch Daily Log
+                const logRef = doc(db, "daily_logs", `${activeCourse.id}_${user.uid}_${todayStr}`);
+                const logSnap = await getDoc(logRef);
+                if (logSnap.exists()) setDailyLog(logSnap.data() as any);
+                else setDailyLog(null);
 
-                // Fetch Last 7 Days Logs
+                // Fetch Last Week for Sparkline
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
                 const qLastWeek = query(
                     collection(db, "daily_logs"),
                     where("userId", "==", user.uid),
                     where("courseId", "==", activeCourse.id),
+                    where("date", ">=", sevenDaysAgo.toISOString().split('T')[0]),
                     orderBy("date", "desc"),
                     limit(7)
                 );
@@ -211,8 +157,7 @@ export default function StudentPortal() {
         };
         fetchData();
 
-        // 2. Fetch Today's Multi-Tier Plan
-        const planRef = collection(db, "coursePlans", activeCourse.id, "coursePlans");
+        // Fetch Plan
         const fetchPlan = async () => {
             if (!activeCourse.startDate) return;
             const start = activeCourse.startDate.toDate();
@@ -220,7 +165,7 @@ export default function StudentPortal() {
             const dayNum = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
             
             if (dayNum > 0) {
-                const q = query(planRef, where("dayIndex", "==", dayNum));
+                const q = query(collection(db, "coursePlans", activeCourse.id, "coursePlans"), where("dayIndex", "==", dayNum));
                 const snap = await getDocs(q);
                 if (!snap.empty) setTodayPlan(snap.docs[0].data() as PlanDay);
                 else setTodayPlan(null);
@@ -228,7 +173,7 @@ export default function StudentPortal() {
         };
         fetchPlan();
 
-        // 3. Fetch Enrollment
+        // Fetch Enrollment
         const enrollRef = doc(db, "enrollments", activeCourse.id, "enrollments", user.uid);
         const unsubEnroll = onSnapshot(enrollRef, (snap) => {
             setIsEnrolled(snap.exists());
@@ -249,628 +194,352 @@ export default function StudentPortal() {
         setLastRank(currentRank);
     }, [userData?.totalPoints]);
 
-    // Achievements Effect
-    useEffect(() => {
-        if (!user) return;
-        const q = query(collection(db, "enrollments_history"), where("studentId", "==", user.uid), where("status", "==", "completed"));
-        const fetch = async () => {
-            const snap = await getDocs(q);
-            setCompletedEnrollments(snap.docs.map(d => d.data()));
-        };
-        fetch();
-    }, [user]);
-
-    const handleToggleTask = async (tierId: string) => {
-        if (!user || !activeCourse) return;
-        
+    const handleToggleTask = async (task: string, isCompleted: boolean) => {
+        if (!user || !activeCourse || isLoggingDaily) return;
         setIsLoggingDaily(true);
         try {
             const batch = writeBatch(db);
-            const logRef = doc(db, "daily_logs", `${user.uid}_${todayStr}`);
+            const logId = `${activeCourse.id}_${user.uid}_${todayStr}`;
+            const logRef = doc(db, "daily_logs", logId);
             
-            const currentTasks = dailyLog?.completedTasks || [];
-            const isCompleted = currentTasks.includes(tierId);
+            let currentLog = dailyLog;
+            if (!currentLog) {
+                currentLog = {
+                    userId: user.uid,
+                    courseId: activeCourse.id,
+                    date: todayStr,
+                    pages: 0,
+                    completedTasks: [],
+                    completed: false
+                };
+                batch.set(logRef, { ...currentLog, createdAt: serverTimestamp() });
+            }
+
             const newTasks = isCompleted 
-                ? currentTasks.filter(id => id !== tierId)
-                : [...currentTasks, tierId];
+                ? [...(currentLog.completedTasks || []), task]
+                : (currentLog.completedTasks || []).filter(t => t !== task);
 
-            const allTasksFinished = todayPlan?.tasks?.every(t => newTasks.includes(t.tierId)) || false;
-
-            batch.set(logRef, {
-                userId: user.uid,
-                courseId: activeCourse.id,
-                date: todayStr,
+            const isDayCompleted = newTasks.length === (todayPlan?.tasks?.length || 0);
+            
+            batch.update(logRef, {
                 completedTasks: newTasks,
-                completed: allTasksFinished,
-                updatedAt: serverTimestamp(),
-                createdAt: dailyLog ? undefined : serverTimestamp()
-            }, { merge: true });
+                completed: isDayCompleted
+            });
 
-            const userRef = doc(db, "users", user.uid);
-            if (!isCompleted) {
-                // Streak Logic
-                let newStreak = userData?.streak || 0;
-                const lastDate = userData?.lastActiveDate || "";
-                
-                const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-                const yStr = yesterday.toISOString().split('T')[0];
-
-                if (lastDate === yStr) {
-                    newStreak += 1;
-                } else if (lastDate !== todayStr) {
-                    newStreak = 1;
-                }
-
+            // If completing a task for the first time, give points
+            if (isCompleted) {
+                const userRef = doc(db, "users", user.uid);
                 batch.update(userRef, {
                     totalPoints: increment(5),
-                    streak: newStreak,
-                    lastActiveDate: todayStr,
-                    lastActive: serverTimestamp()
+                    lastActiveDate: serverTimestamp()
                 });
+                
+                // Streak Logic (simplified for client-side)
+                const lastDate = userData?.lastActiveDate?.toDate()?.toISOString()?.split('T')[0];
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-                // Update local status for immediate UI feedback
-                setUserData((prev: any) => prev ? ({ ...prev, streak: newStreak, totalPoints: (prev.totalPoints || 0) + 5 }) : prev);
+                if (lastDate === yesterdayStr) {
+                    batch.update(userRef, { streak: increment(1) });
+                } else if (lastDate !== todayStr) {
+                    batch.update(userRef, { streak: 1 });
+                }
             }
 
             await batch.commit();
-            if (!isCompleted) {
+            setDailyLog({ ...currentLog, completedTasks: newTasks, completed: isDayCompleted });
+            
+            if (isDayCompleted && !dailyLog?.completed) {
                 setShowCelebrate(true);
                 setTimeout(() => setShowCelebrate(false), 3000);
             }
         } catch (error) {
-            console.error("Error", error);
-            setDialogConfig({ isOpen: true, type: 'danger', title: 'خطأ', description: 'لم نتمكن من حفظ إنجازك حالياً.' });
+            console.error("Error toggling task", error);
         } finally {
             setIsLoggingDaily(false);
+        }
+    };
+
+    const handleJoinCourse = async () => {
+        if (!user || !activeCourse) return;
+        setLoading(true);
+        try {
+            const batch = writeBatch(db);
+            const enrollRef = doc(db, "enrollments", activeCourse.id, "enrollments", user.uid);
+            batch.set(enrollRef, {
+                userId: user.uid,
+                courseId: activeCourse.id,
+                courseTitle: activeCourse.title,
+                studentName: user.displayName || userData?.displayName || "طالب العلم",
+                studentEmail: user.email,
+                enrolledAt: serverTimestamp(),
+                status: 'active'
+            });
+
+            const memberRef = doc(db, "courses", activeCourse.id, "members", user.uid);
+            batch.set(memberRef, {
+                userId: user.uid,
+                displayName: user.displayName || userData?.displayName || "طالب العلم",
+                email: user.email,
+                role: 'student',
+                addedAt: serverTimestamp(),
+                photoURL: user.photoURL || userData?.photoURL || ""
+            });
+
+            await batch.commit();
+            setDialogConfig({
+                isOpen: true,
+                type: 'success',
+                title: 'تم الانضمام بنجاح',
+                description: `مبارك انضمامك لدورة ${activeCourse.title}. نسأل الله لك النفع والبركة.`
+            });
+        } catch (error) {
+            console.error("Error joining course", error);
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleToggleLike = async (tid: string, likes: string[]) => {
         if (!user) return;
         const ref = doc(db, "testimonials", tid);
-        if (likes.includes(user.uid)) {
-            await updateDoc(ref, { likes: likes.filter(id => id !== user.uid) });
-        } else {
-            await updateDoc(ref, { likes: arrayUnion(user.uid) });
-        }
+        const isLiked = likes.includes(user.uid);
+        await updateDoc(ref, {
+            likes: isLiked ? likes.filter(id => id !== user.uid) : arrayUnion(user.uid)
+        });
     };
 
-    const handleSubmitTestimonial = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmitTestimonial = async () => {
         if (!user || !newTestimonialContent.trim()) return;
         setIsSubmittingTestimonial(true);
         try {
             await setDoc(doc(collection(db, "testimonials")), {
-                studentName: user.displayName || userData?.displayName || "طالب",
-                studentPhoto: user.photoURL || "",
+                userId: user.uid,
+                studentName: user.displayName || userData?.displayName || "طالب العلم",
                 content: newTestimonialContent,
                 likes: [],
                 createdAt: serverTimestamp()
             });
             setNewTestimonialContent("");
             setIsTestimonialModalOpen(false);
-            setDialogConfig({ isOpen: true, type: 'success', title: 'تم النشر', description: 'شكراً لمشاركة مشاعرك الصادقة!' });
         } catch (error) {
-            setDialogConfig({ isOpen: true, type: 'danger', title: 'خطأ', description: 'فشل نشر المشاركة.' });
+            console.error("Error submitting testimonial", error);
         } finally {
             setIsSubmittingTestimonial(false);
         }
     };
 
-    if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-            <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" />
+    if (loading && !activeCourse) return (
+        <div className="min-h-screen flex items-center justify-center">
+            <Loader2 className="w-12 h-12 text-primary animate-spin opacity-20" />
         </div>
     );
 
     return (
-        <div className="space-y-12 pb-24 px-4 max-w-5xl mx-auto">
-            {/* Header / Brand Nav */}
-            <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center justify-between bg-white/5 border border-white/5 backdrop-blur-xl p-6 rounded-[2rem] shadow-2xl"
-            >
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                        <Star className="w-6 h-6 text-primary fill-current" />
+        <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-12 pb-32">
+            {/* Motivation Header */}
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-6">
+                    <div className="relative group">
+                        <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-primary to-purple-600 p-[2px] shadow-2xl shadow-primary/20 transition-transform group-hover:scale-105">
+                            <div className="w-full h-full rounded-[1.9rem] bg-background flex items-center justify-center overflow-hidden border-4 border-background">
+                                {user?.photoURL ? (
+                                    <img src={user.photoURL} alt="User" className="w-full h-full object-cover" />
+                                ) : (
+                                    <UserIcon className="w-10 h-10 text-primary opacity-40" />
+                                )}
+                            </div>
+                        </div>
+                        <div className="absolute -bottom-2 -right-2 px-3 py-1 bg-amber-500 text-white text-[10px] font-black rounded-full shadow-lg border-2 border-background flex items-center gap-1">
+                            <Star className="w-3 h-3" /> {userData?.totalPoints || 0} XP
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-xl font-black bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">روضة الحافظين</h1>
-                        <p className="text-[10px] text-muted-foreground font-bold tracking-tighter uppercase">Student Hub</p>
+                    <div className="text-right md:text-left space-y-1">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-3xl font-black">{user?.displayName || "طالب العلم"}</h1>
+                            <div className={`px-4 py-1 ${getLevelInfo(userData?.totalPoints || 0).bg} ${getLevelInfo(userData?.totalPoints || 0).color} text-[10px] font-black rounded-full border border-current/20 uppercase tracking-widest`}>
+                                {getLevelInfo(userData?.totalPoints || 0).label}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-muted-foreground">
+                            <div className="flex items-center gap-1.5 text-orange-500 font-bold">
+                                <TrendingUp className="w-4 h-4" />
+                                <span className="text-sm">سلسلة: {userData?.streak || 0} يوم</span>
+                            </div>
+                            <div className="w-1 h-1 rounded-full bg-border" />
+                            <div className="text-sm font-medium">طالب بصيرة • السنة النبوية</div>
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => router.push('/profile')} className="p-3 hover:bg-white/10 rounded-2xl transition-all"><UserIcon className="w-5 h-5 text-muted-foreground hover:text-primary" /></button>
-                    <button onClick={() => router.push('/settings')} className="p-3 hover:bg-white/10 rounded-2xl transition-all"><Settings className="w-5 h-5 text-muted-foreground hover:text-primary" /></button>
+
+                <div className="flex items-center gap-4">
+                    <ActivityChart logs={lastWeekLogs} />
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => router.push('/profile')} className="p-4 hover:bg-primary/10 rounded-2xl transition-all border border-transparent hover:border-primary/20"><UserIcon className="w-5 h-5 text-muted-foreground hover:text-primary" /></button>
+                        <button onClick={() => router.push('/settings')} className="p-4 hover:bg-primary/10 rounded-2xl transition-all border border-transparent hover:border-primary/20"><Settings className="w-5 h-5 text-muted-foreground hover:text-primary" /></button>
+                    </div>
                 </div>
             </motion.div>
 
-            {/* Hero / Welcome */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative h-64 rounded-[3.5rem] overflow-hidden shadow-2xl"
-            >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary via-purple-700 to-indigo-900" />
-                <div className="relative z-10 h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
-                    <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-[2rem] flex items-center justify-center border border-white/20">
-                        <Award className="w-10 h-10 text-white" />
-                    </div>
-                    <div className="space-y-1">
-                        <h2 className="text-3xl font-black text-white flex items-center gap-3">
-                            <Sparkles className="w-8 h-8 text-amber-400 animate-pulse" />
-                            أهلاً بك يا حافظ السنة
-                        </h2>
-                        <p className="text-white/80 font-medium tracking-wide">"نضر الله امرأ سمع مقالتي فوعاها فأداها كما سمعها"</p>
-                    </div>
-                </div>
-            </motion.div>
-
-            {/* Progress Bar (Journey) */}
-            {activeCourse && (
-                <section className="relative group">
-                    <GlassCard className="p-8 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 overflow-hidden">
-                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                            <div className="relative w-32 h-32 flex-shrink-0">
-                                <svg className="w-full h-full transform -rotate-90">
-                                    <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-200 dark:text-white/5" />
-                                    <motion.circle 
-                                        cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" 
-                                        strokeDasharray={2 * Math.PI * 58}
-                                        initial={{ strokeDashoffset: 2 * Math.PI * 58 }}
-                                        animate={{ strokeDashoffset: (2 * Math.PI * 58) * (1 - progressPercent / 100) }}
-                                        transition={{ duration: 1.5 }}
-                                        className="text-primary" 
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-2xl font-black">{progressPercent}%</span>
-                                    <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">الإنجاز</span>
-                                </div>
+            {/* Level Up Celebration Modal */}
+            <AnimatePresence>
+                {showLevelUp && (
+                    <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.2 }} className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+                        <GlassCard className="p-10 border-amber-500/50 bg-amber-500/10 backdrop-blur-2xl text-center space-y-6 shadow-[0_0_100px_rgba(245,158,11,0.3)]">
+                            <Award className="w-24 h-24 text-amber-500 mx-auto drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
+                            <div className="space-y-2">
+                                <h2 className="text-4xl font-black text-white">مبارك الارتقاء!</h2>
+                                <p className="text-xl font-bold text-amber-500">لقد وصلت لمرتبة: {getLevelInfo(userData?.totalPoints || 0).label}</p>
                             </div>
-                            <div className="flex-1 text-center md:text-right space-y-4">
-                                <div className="space-y-1">
-                                    <h2 className="text-2xl font-black">{activeCourse.title}</h2>
-                                    <p className="text-sm font-medium text-muted-foreground italic">"{activeCourse.description.substring(0, 80)}..."</p>
+                        </GlassCard>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Progress Card or Join Card */}
+            {activeCourse && !fetchingEnrolled && (
+                <div className="relative">
+                    {!isEnrolled ? (
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                            <GlassCard className="p-10 border-primary/40 bg-gradient-to-br from-primary/20 via-primary/5 to-transparent overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] -mr-32 -mt-32 rounded-full" />
+                                <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+                                    <div className="w-20 h-20 bg-primary/20 rounded-3xl flex items-center justify-center border border-primary/30 shadow-xl shadow-primary/20">
+                                        <GraduationCap className="w-10 h-10 text-primary" />
+                                    </div>
+                                    <div className="space-y-2 text-right">
+                                        <h2 className="text-3xl font-black text-center">{activeCourse.title}</h2>
+                                        <p className="text-muted-foreground font-medium max-w-md mx-auto leading-loose italic opacity-80 text-center">"{activeCourse.description}"</p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-center gap-6 py-4">
+                                        <div className="flex items-center gap-2 text-xs font-bold opacity-60"><Calendar className="w-4 h-4" /> التسجيل متاح الآن</div>
+                                        <div className="flex items-center gap-2 text-xs font-bold opacity-60"><Users className="w-4 h-4" /> انضم لـ 1,200 طالب</div>
+                                    </div>
+                                    <button onClick={handleJoinCourse} disabled={loading} className="px-12 py-5 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl shadow-2xl shadow-primary/40 transition-all flex items-center gap-3 active:scale-95 disabled:opacity-50">
+                                        {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
+                                        انضم الآن وابدأ الرحلة
+                                    </button>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
-                                        <p className="text-[10px] text-muted-foreground font-bold">المتبقي</p>
-                                        <p className="font-black">{daysRemaining} يوم</p>
-                                    </div>
-                                    <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-center">
-                                        <p className="text-[10px] text-muted-foreground font-bold">المدة</p>
-                                        <p className="font-black">{totalDays} يوم</p>
-                                    </div>
-                                    <div className="p-3 rounded-2xl bg-primary text-white text-center">
-                                        <p className="text-[10px] font-bold">الجهد</p>
-                                        <p className="font-black">{streak} يوم</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </GlassCard>
-                </section>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-8">
-                    {activeCourse && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <CountdownWidget label="باقي على التسجيل" timer={timeLeftToRegister} color="orange" icon={Clock} />
-                            <CountdownWidget label="باقي على البداية" timer={timeLeftToStart} color="green" icon={Calendar} />
-                        </div>
-                    )}
-
-                    {/* Elite Motivation Header (Points, Level, Streak) */}
-                    {isEnrolled && userData && (
-                        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 mb-8">
-                             <GlassCard className="p-0 border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent overflow-hidden shadow-2xl">
-                                <div className="grid md:grid-cols-3 gap-6 p-8">
-                                    {/* Level & Points */}
-                                    <div className="space-y-4 text-right">
-                                        <div className="flex items-center justify-end gap-3 text-primary">
-                                            <Award className="w-8 h-8 drop-shadow-lg" />
-                                            <h2 className="text-3xl font-black">{getLevelInfo(userData.totalPoints || 0).label}</h2>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between items-center text-[10px] font-bold opacity-60 uppercase tracking-widest">
-                                                <span>{getLevelProgress(userData.totalPoints || 0).next} نقطة للمستوى التالي</span>
-                                                <span>النور المتراكم</span>
-                                            </div>
-                                            <div className="h-3 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/10 shadow-inner">
-                                                <motion.div initial={{ width: 0 }} animate={{ width: `${getLevelProgress(userData.totalPoints || 0).percent}%` }} className="h-full bg-primary rounded-full shadow-lg shadow-primary/30" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Weekly Achievement Sparkline */}
-                                    <div className="flex items-end justify-center gap-2 h-20 group relative">
-                                        {Array.from({ length: 7 }).map((_, i) => {
-                                            const d = new Date(); d.setDate(d.getDate() - (6 - i));
-                                            const dStr = d.toISOString().split('T')[0];
-                                            const log = lastWeekLogs.find(l => l.date === dStr);
-                                            const h = log ? (log.completed ? '100%' : '40%') : '10%';
-                                            return (
-                                                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                                                    <motion.div 
-                                                        initial={{ height: 0 }} animate={{ height: h }} 
-                                                        className={cn(
-                                                            "w-full rounded-md shadow-sm transition-all duration-500",
-                                                            log?.completed ? "bg-primary" : log ? "bg-amber-500/40" : "bg-white/5"
-                                                        )} 
-                                                    />
-                                                    <span className="text-[8px] font-black opacity-30">{dStr.slice(-2)}</span>
-                                                </div>
-                                            );
-                                        })}
-                                        <div className="absolute -top-6 text-[10px] font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">إنجازك خلال الأسبوع</div>
-                                    </div>
-
-                                    {/* Streak Badge */}
-                                    <div className="flex flex-col items-center md:items-end justify-center">
-                                        <div className="relative group">
-                                            <div className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full scale-150 animate-pulse" />
-                                            <div className="relative bg-black/40 border border-white/10 p-5 rounded-[2rem] flex items-center gap-4 transition-transform hover:scale-105 active:scale-95 shadow-xl">
-                                                <div className="text-right">
-                                                    <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest leading-none mb-1">همّة متصلة</p>
-                                                    <p className="text-3xl font-black text-white">{userData.streak || 0} يوم</p>
-                                                </div>
-                                                <div className="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/40">
-                                                    <TrendingUp className="w-6 h-6 text-white" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                             </GlassCard>
-                        </motion.div>
-                    )}
-
-                    {/* Level Up Celebration Modal */}
-                    <AnimatePresence>
-                        {showLevelUp && (
-                            <motion.div 
-                                initial={{ opacity: 0, scale: 0.5 }} 
-                                animate={{ opacity: 1, scale: 1 }} 
-                                exit={{ opacity: 0, scale: 1.2 }}
-                                className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
-                            >
-                                <GlassCard className="p-10 border-amber-500/50 bg-amber-500/10 backdrop-blur-2xl text-center space-y-6 shadow-[0_0_100px_rgba(245,158,11,0.3)]">
-                                    <motion.div animate={{ rotate: [0, 10, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
-                                        <Award className="w-24 h-24 text-amber-500 mx-auto drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
-                                    </motion.div>
-                                    <div className="space-y-2">
-                                        <h2 className="text-4xl font-black text-white">مبارك الارتقاء!</h2>
-                                        <p className="text-xl font-bold text-amber-500">لقد وصلت لمرتبة: {getLevelInfo(userData.totalPoints || 0).label}</p>
-                                    </div>
-                                    <div className="text-sm font-medium opacity-60">واصل همّتك لنيل الدرجات العلا</div>
-                                </GlassCard>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    {/* Progress Card (Multi-Tier) */}
-                    {activeCourse && !fetchingEnrolled && (
-                        <div className="relative">
-                            {!isEnrolled ? (
-                                <GlassCard className="p-10 border-primary/30 bg-primary/5 text-center space-y-6">
-                                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto border border-primary/20">
-                                        <LockIcon className="w-10 h-10 text-primary" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <h3 className="text-2xl font-black">أنت غير مسجل بعد</h3>
-                                        <p className="text-muted-foreground">قم بالتسجيل لتبدأ رحلتك الإيمانية فوراً.</p>
-                                    </div>
-                                    <div className="flex justify-center">
-                                        <RegistrationSection course={activeCourse} />
-                                    </div>
-                                </GlassCard>
-                            ) : (
-                                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-                                    <GlassCard className={cn(
-                                        "p-8 overflow-hidden group relative transition-all duration-500",
-                                        dailyLog?.completed ? "border-green-500/30 bg-green-500/5 shadow-green-500/10" : "border-amber-500/20 bg-amber-500/5 shadow-amber-500/5"
-                                    )}>
-                                        {showCelebrate && <CelebrateOverlay />}
-                                        
-                                        {/* Status Sign (علامة) */}
-                                        {!dailyLog?.completedTasks?.length && (
-                                            <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 bg-amber-500/20 rounded-full animate-pulse border border-amber-500/30">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-lg shadow-amber-500/50" />
-                                                <span className="text-[8px] font-black uppercase text-amber-600">بانتظار الإنجاز</span>
-                                            </div>
-                                        )}
-
-                                        <div className="space-y-8 relative z-10">
-                                            <div className="flex items-center gap-6">
-                                                <div className={cn(
-                                                    "w-16 h-16 rounded-2xl flex items-center justify-center border transition-all duration-500",
-                                                    dailyLog?.completed ? "bg-green-500/10 border-green-500/20 text-green-500" : "bg-primary/10 border-primary/20 text-primary"
-                                                )}>
-                                                    {dailyLog?.completed ? <CheckCircle className="w-8 h-8" /> : <Timer className="w-8 h-8 animate-pulse" />}
-                                                </div>
-                                                <div className="text-right">
-                                                    <h3 className={cn("text-2xl font-black", dailyLog?.completed ? "text-green-600" : "text-primary")}>
-                                                        {dailyLog?.completed ? "تبارك الله! أتممت الورد" : "هل أنجزت خطتك اليوم؟"}
-                                                    </h3>
-                                                    <p className="text-muted-foreground text-sm font-medium">سجل إنجازك لكل مهمة على حدة.</p>
-                                                </div>
-                                            </div>
-                                            
-                                            {/* Tier Tasks List (Interactive Checklist) */}
-                                            <div className="grid gap-3">
-                                                {todayPlan?.tasks?.map((task, idx) => {
-                                                    const isDone = dailyLog?.completedTasks?.includes(task.tierId);
-                                                    return (
-                                                        <button 
-                                                            key={idx}
-                                                            disabled={isLoggingDaily}
-                                                            onClick={() => handleToggleTask(task.tierId)}
-                                                            className={cn(
-                                                                "flex items-center justify-between p-4 rounded-2xl border transition-all text-right group/task relative overflow-hidden",
-                                                                isDone 
-                                                                    ? "bg-green-500/10 border-green-500/30 shadow-inner" 
-                                                                    : "bg-white/5 border-white/10 hover:border-primary/40"
-                                                            )}
-                                                        >
-                                                            <div className="flex items-center gap-4 relative z-10 text-right">
-                                                                <div className={cn(
-                                                                    "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                                                                    isDone ? "bg-green-500/20 text-green-600" : "bg-primary/10 text-primary"
-                                                                )}>
-                                                                    {task.type === 'hadiths' ? <Hash className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
-                                                                </div>
-                                                                <div>
-                                                                    <p className={cn("text-[10px] font-black uppercase tracking-widest", isDone ? "text-green-600/60" : "text-muted-foreground")}>
-                                                                        {task.label}
-                                                                    </p>
-                                                                    <p className={cn("text-sm font-bold", isDone && "line-through opacity-50")}>
-                                                                        {task.start} {task.end ? `- ${task.end}` : ''} {task.type}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            <div className={cn(
-                                                                "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all",
-                                                                isDone 
-                                                                    ? "bg-green-500 border-green-500 text-white scale-110" 
-                                                                    : "border-white/20 group-hover/task:border-primary/50"
-                                                            )}>
-                                                                {isDone ? <CheckCircle className="w-4 h-4" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/10" />}
-                                                            </div>
-
-                                                            {/* Mini ripple on click */}
-                                                            {isLoggingDaily && <div className="absolute inset-0 bg-white/5 animate-pulse" />}
-                                                        </button>
-                                                    );
-                                                })}
-                                                {!todayPlan && (
-                                                    <div className="p-8 bg-white/5 border border-dashed border-white/10 rounded-3xl text-center flex flex-col items-center gap-3">
-                                                        <Info className="w-8 h-8 opacity-20" />
-                                                        <p className="text-xs font-bold opacity-40">لا يوجد مهام محددة لهذا اليوم في خطتك الحالية.</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </GlassCard>
-                                </motion.div>
-                            )}
-                        </div>
-                    )}
-
-                    <div className="grid sm:grid-cols-2 gap-4">
-                        {activeCourse?.features.map((f, i) => (
-                            <GlassCard key={i} className="p-4 flex items-center gap-4 bg-white/5 border-white/5">
-                                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center"><CheckCircle className="w-5 h-5 text-green-500" /></div>
-                                <span className="text-sm font-medium">{f}</span>
                             </GlassCard>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Sidebar */}
-                <div className="space-y-8">
-                    <GlassCard className="p-6 bg-gradient-to-br from-amber-500/10 to-transparent border-amber-500/20 relative">
-                        <Quote className="absolute -top-4 -right-4 w-24 h-24 text-amber-500/5 -rotate-12" />
-                        <div className="relative z-10 space-y-4">
-                            <h3 className="text-amber-600 font-bold uppercase tracking-widest text-[10px]">نبضة السنّة</h3>
-                            <p className="text-lg font-bold leading-loose italic">"مَنْ يُرِدِ اللَّهُ بِهِ خَيْرًا يُفَقِّهْهُ فِي الدِّينِ"</p>
-                        </div>
-                    </GlassCard>
-
-                    {activeCourse && (
-                        <GlassCard className="p-6 space-y-6">
-                            <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-widest"><Info className="w-4 h-4 text-primary" /> تفاصيل الروضة</h3>
-                            <div className="grid gap-3">
-                                <InfoBadge icon={Timer} label="الآلية" value={activeCourse.mechanism} color="blue" />
-                                <InfoBadge icon={CreditCard} label="التكلفة" value={activeCourse.cost} color="green" />
-                                <InfoBadge icon={Users} label="الفئة" value="طلاب العلم" color="purple" />
-                            </div>
+                        </motion.div>
+                    ) : (
+                        <GlassCard className="p-8 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 overflow-hidden">
+                             <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                                <div className="relative w-32 h-32 flex-shrink-0">
+                                    <svg className="w-full h-full transform -rotate-90">
+                                        <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-200 dark:text-white/5" />
+                                        <motion.circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={2 * Math.PI * 58} initial={{ strokeDashoffset: 2 * Math.PI * 58 }} animate={{ strokeDashoffset: (2 * Math.PI * 58) * (1 - progressPercent / 100) }} className="text-primary" />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-2xl font-black text-primary">{progressPercent}%</span>
+                                        <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">الإنجاز</span>
+                                    </div>
+                                </div>
+                                <div className="flex-1 text-center md:text-right space-y-4">
+                                    <h2 className="text-2xl font-black">{activeCourse.title}</h2>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="p-4 rounded-2xl bg-white/5 border border-white/10"><p className="text-[10px] text-muted-foreground font-bold">المتبقي</p><p className="font-black">{daysRemaining} يوم</p></div>
+                                        <div className="p-4 rounded-2xl bg-white/5 border border-white/10"><p className="text-[10px] text-muted-foreground font-bold">المدة</p><p className="font-black">{totalDays} يوم</p></div>
+                                        <div className="p-4 rounded-2xl bg-primary text-white"><p className="text-[10px] font-bold">الجهد</p><p className="font-black">{streak} يوم</p></div>
+                                    </div>
+                                </div>
+                             </div>
                         </GlassCard>
                     )}
                 </div>
-            </div>
+            )}
 
-            {/* Testimonials */}
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold flex items-center gap-2"><MessageCircle className="w-6 h-6 text-pink-500" /> مشاعر إيمانية</h3>
-                    <button onClick={() => setIsTestimonialModalOpen(true)} className="text-primary font-bold text-sm flex items-center gap-2"><MessageSquarePlus className="w-5 h-5" /> شاركنا</button>
-                </div>
-                <div className="flex overflow-x-auto gap-6 pb-4 no-scrollbar scroll-smooth snap-x">
-                    {testimonials.map(t => (
-                        <GlassCard key={t.id} className="min-w-[300px] p-6 flex flex-col justify-between snap-center">
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-primary/10 overflow-hidden">
-                                        {t.studentPhoto ? <img src={t.studentPhoto} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-bold text-primary">{t.studentName?.[0]}</div>}
+            {/* Daily Tasks */}
+            {isEnrolled && todayPlan && (
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                        <div className="space-y-1">
+                            <h3 className="text-xl font-black flex items-center gap-2">
+                                <Calendar className="w-5 h-5 text-primary" /> ورد اليوم {todayPlan.dayIndex}
+                            </h3>
+                            <p className="text-xs text-muted-foreground font-medium">استعن بالله ولا تعجز، فخير العمل أدومه وإن قل.</p>
+                        </div>
+                        {dailyLog?.completed && <div className="px-4 py-2 bg-green-500/10 text-green-500 text-[10px] font-black rounded-full border border-green-500/20 flex items-center gap-2 uppercase tracking-widest animate-bounce"><Sparkles className="w-3 h-3" /> تم الإنجاز بنجاح</div>}
+                    </div>
+                    
+                    <div className="grid gap-4">
+                        {todayPlan.tasks.map((task, idx) => {
+                            const isDone = dailyLog?.completedTasks?.includes(task);
+                            return (
+                                <GlassCard key={idx} className={`p-6 transition-all duration-300 group cursor-pointer border-transparent hover:border-primary/20 ${isDone ? 'bg-primary/5 opacity-60' : 'hover:bg-white/5'}`} onClick={() => handleToggleTask(task, !isDone)}>
+                                    <div className="flex items-center gap-5">
+                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${isDone ? 'bg-primary text-white scale-90' : 'bg-white/10 text-muted-foreground group-hover:bg-primary/20'}`}>
+                                            {isLoggingDaily ? <Loader2 className="w-6 h-6 animate-spin" /> : isDone ? <CheckCircle className="w-7 h-7" /> : <div className="w-3 h-3 rounded-full border-2 border-current opacity-40" />}
+                                        </div>
+                                        <div className="flex-1 space-y-1">
+                                            <p className={`text-lg font-bold transition-all ${isDone ? 'line-through opacity-40' : ''}`}>{task}</p>
+                                            <p className="text-[10px] opacity-40 font-black uppercase tracking-widest">+5 XP عند الإكمال</p>
+                                        </div>
+                                        <button className={`p-3 rounded-xl transition-all ${isDone ? 'text-primary' : 'text-muted-foreground opacity-20'}`}><TrendingUp className="w-5 h-5" /></button>
                                     </div>
-                                    <p className="font-bold text-xs">{t.studentName}</p>
-                                </div>
-                                <p className="text-sm italic opacity-80 leading-relaxed">"{t.content}"</p>
+                                </GlassCard>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Testimonials Section */}
+            <div className="space-y-8">
+                <div className="flex items-center justify-between px-2">
+                    <h3 className="text-xl font-black flex items-center gap-2"><MessageCircle className="w-5 h-5 text-primary" /> قناديل الهدى (تجارب الطلاب)</h3>
+                    <button onClick={() => setIsTestimonialModalOpen(true)} className="px-5 py-2.5 bg-primary/10 hover:bg-primary text-primary hover:text-white text-xs font-black rounded-xl transition-all border border-primary/20 flex items-center gap-2"><MessageSquarePlus className="w-4 h-4" /> شاركنا تجربتك</button>
+                </div>
+                <div className="grid md:grid-cols-3 gap-6">
+                    {testimonials.map((t) => (
+                        <GlassCard key={t.id} className="p-8 space-y-6 flex flex-col justify-between hover:scale-[1.02] transition-transform duration-500">
+                            <div className="space-y-4">
+                                <Quote className="w-10 h-10 text-primary opacity-20" />
+                                <p className="text-lg leading-loose font-medium italic opacity-80">"{t.content}"</p>
                             </div>
-                            <button onClick={() => handleToggleLike(t.id, t.likes)} className="mt-4 flex items-center gap-2 text-xs font-bold text-red-500/60"><Heart className={cn("w-4 h-4", t.likes.includes(user?.uid||'')&&"fill-current text-red-500")} /> {t.likes.length}</button>
+                            <div className="flex items-center justify-between pt-6 border-t border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary border border-primary/10">{t.studentName[0]}</div>
+                                    <span className="text-sm font-bold">{t.studentName}</span>
+                                </div>
+                                <button onClick={() => handleToggleLike(t.id, t.likes)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${t.likes.includes(user?.uid || '') ? 'bg-red-500/10 text-red-500' : 'hover:bg-white/10 opacity-40'}`}>
+                                    <Heart className={`w-4 h-4 ${t.likes.includes(user?.uid || '') ? 'fill-current' : ''}`} />
+                                    <span className="text-xs font-black">{t.likes.length}</span>
+                                </button>
+                            </div>
                         </GlassCard>
                     ))}
                 </div>
             </div>
 
-            {/* Achievements */}
-            {completedEnrollments.length > 0 && (
-                <div className="space-y-6">
-                    <h3 className="text-xl font-bold flex items-center gap-2"><Award className="w-6 h-6 text-amber-500" /> إنجازاتي</h3>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                        {completedEnrollments.map((c, i) => (
-                            <GlassCard key={i} className="p-4 flex items-center justify-between border-amber-500/20 bg-amber-500/5">
-                                <div className="flex items-center gap-3">
-                                    <ScrollText className="w-8 h-8 text-amber-600" />
-                                    <div><p className="font-bold">{c.courseTitle}</p><p className="text-[10px] opacity-50">أتممت بنجاح</p></div>
-                                </div>
-                                <button className="p-2 bg-amber-600 text-white rounded-lg shadow-lg"><Download className="w-4 h-4" /></button>
-                            </GlassCard>
-                        ))}
+            {/* Dialogs */}
+            <Dialog open={dialogConfig.isOpen} onOpenChange={(open: boolean) => setDialogConfig(prev => ({ ...prev, isOpen: open }))}>
+                <DialogContent className="max-w-md bg-background border-border rounded-3xl shadow-2xl p-8">
+                    <DialogHeader className="space-y-4">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-2 ${dialogConfig.type === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                            {dialogConfig.type === 'success' ? <CheckCircle className="w-8 h-8" /> : <X className="w-8 h-8" />}
+                        </div>
+                        <DialogTitle className="text-2xl font-black text-center">{dialogConfig.title}</DialogTitle>
+                        <DialogDescription className="text-center font-medium leading-relaxed opacity-60 text-lg">{dialogConfig.description}</DialogDescription>
+                    </DialogHeader>
+                    <button onClick={() => setDialogConfig(prev => ({ ...prev, isOpen: false }))} className="w-full mt-8 py-4 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl transition-all shadow-xl shadow-primary/20">حسناً، فهمت</button>
+                </DialogContent>
+            </Dialog>
+
+            {/* Testimonial Modal */}
+            <Dialog open={isTestimonialModalOpen} onOpenChange={setIsTestimonialModalOpen}>
+                <DialogContent className="max-w-xl">
+                    <DialogHeader><DialogTitle className="text-2xl font-black">شارك تجربتك مع زملائك</DialogTitle></DialogHeader>
+                    <div className="space-y-6 py-6">
+                        <textarea value={newTestimonialContent} onChange={(e) => setNewTestimonialContent(e.target.value)} placeholder="اكتب هنا تجربتك أو نصيحة لزملائك الطلاب..." className="w-full h-48 p-6 bg-white/5 border border-white/10 rounded-2xl font-medium leading-loose resize-none focus:ring-2 focus:ring-primary/20 outline-none" />
+                        <button onClick={handleSubmitTestimonial} disabled={isSubmittingTestimonial || !newTestimonialContent.trim()} className="w-full py-5 bg-primary hover:bg-primary/90 text-white font-black rounded-2xl transition-all disabled:opacity-50 flex items-center justify-center gap-3">
+                            {isSubmittingTestimonial ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                            نشر التجربة الآن
+                        </button>
                     </div>
-                </div>
-            )}
-
-            {/* FAQ */}
-            <div className="space-y-6">
-                <h3 className="text-xl font-bold">الأسئلة الشائعة</h3>
-                <div className="grid gap-3">
-                    <FAQItem q="كيف أسجل إنجازي؟" a="عبر بطاقة 'هل أنجزت وردك اليوم' المتوفرة في صفحتك الرئيسية." />
-                    <FAQItem q="متى أحصل على الشهادة؟" a="عند إتمام كامل متطلبات الدورة والموافقة الإدارية." />
-                </div>
-            </div>
-
-            {/* Modals */}
-            <AnimatePresence>
-                {isTestimonialModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsTestimonialModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-                        <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-background border border-white/10 p-8 rounded-[2.5rem] shadow-2xl w-full max-w-lg relative z-10">
-                            <h2 className="text-xl font-bold mb-6">شارك حفظة السنة مشاعرك</h2>
-                            <textarea required autoFocus value={newTestimonialContent} onChange={e => setNewTestimonialContent(e.target.value)} className="w-full h-40 p-4 rounded-2xl border bg-white/5 outline-none mb-6 resize-none" placeholder="اكتب بصدق..." />
-                            <button disabled={isSubmittingTestimonial} onClick={handleSubmitTestimonial} className="w-full py-4 bg-primary text-white font-bold rounded-2xl flex items-center justify-center gap-2">
-                                {isSubmittingTestimonial ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />} نشر الآن
-                            </button>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            <EliteDialog 
-                isOpen={dialogConfig.isOpen} 
-                onClose={() => setDialogConfig({...dialogConfig, isOpen: false})} 
-                onConfirm={() => setDialogConfig({...dialogConfig, isOpen: false})} 
-                type={dialogConfig.type} title={dialogConfig.title} 
-                description={dialogConfig.description} confirmText="حسناً" 
-            />
+                </DialogContent>
+            </Dialog>
         </div>
-    );
-}
-
-// --- Sub-Components ---
-
-function CountdownWidget({ label, timer, color, icon: Icon }: any) {
-    const cls: any = { orange: "text-orange-500 bg-orange-500/5 border-orange-500/20", green: "text-green-500 bg-green-500/5 border-green-500/20" };
-    return (
-        <GlassCard className={cn("p-6 flex flex-col items-center justify-center text-center space-y-4 border-2 transition-all hover:scale-105", cls[color])}>
-            <div className="flex items-center gap-2 opacity-60"><Icon className="w-4 h-4" /><span className="text-[10px] font-black uppercase tracking-widest">{label}</span></div>
-            <div className="flex items-center gap-4">
-                <div className="flex flex-col"><span className="text-3xl font-black">{timer.d}</span><span className="text-[8px] uppercase">يوم</span></div>
-                <span className="text-2xl font-light opacity-20">:</span>
-                <div className="flex flex-col"><span className="text-3xl font-black">{timer.h}</span><span className="text-[8px] uppercase">ساعة</span></div>
-                <span className="text-2xl font-light opacity-20">:</span>
-                <div className="flex flex-col"><span className="text-3xl font-black">{timer.m}</span><span className="text-[8px] uppercase">دقيقة</span></div>
-            </div>
-        </GlassCard>
-    );
-}
-
-function InfoBadge({ icon: Icon, label, value, color }: any) {
-    const cls: any = { blue: "text-blue-500 border-blue-500/10 bg-blue-500/5", green: "text-green-500 border-green-500/10 bg-green-500/5", purple: "text-purple-500 border-purple-500/10 bg-purple-500/5" };
-    return (
-        <div className={cn("p-3 rounded-2xl border flex items-center gap-3", cls[color])}>
-            <Icon className="w-5 h-5 opacity-40" />
-            <div className="text-right"><p className="text-[8px] uppercase font-bold opacity-50">{label}</p><p className="text-xs font-black">{value}</p></div>
-        </div>
-    );
-}
-
-function FAQItem({ q, a }: { q: string, a: string }) {
-    return (
-        <GlassCard className="p-0 overflow-hidden border-white/5">
-            <details className="group">
-                <summary className="p-6 cursor-pointer list-none flex items-center justify-between font-bold text-sm tracking-tight">{q}<ChevronDown className="w-4 h-4 opacity-50 group-open:rotate-180 transition-transform" /></summary>
-                <div className="px-6 pb-6 text-sm opacity-70 leading-relaxed">{a}</div>
-            </details>
-        </GlassCard>
-    );
-}
-
-function CelebrateOverlay() {
-    return (
-        <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
-            {[...Array(20)].map((_, i) => (
-                <motion.div
-                    key={i}
-                    initial={{ y: -20, x: Math.random() * 400, opacity: 1, rotate: 0 }}
-                    animate={{ y: 500, x: (Math.random() - 0.5) * 200 + 200, opacity: 0, rotate: 360 }}
-                    transition={{ duration: 3, delay: i * 0.1, repeat: Infinity }}
-                    className="absolute w-2 h-2 bg-primary rounded-full"
-                    style={{ backgroundColor: ['#EAB308', '#A855F7', '#EF4444', '#10B981'][i % 4] }}
-                />
-            ))}
-        </div>
-    );
-}
-
-function RegistrationSection({ course }: { course: Course }) {
-    const { user, userData } = useAuth();
-    const [registering, setRegistering] = useState(false);
-    const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', description: '', type: 'success' as any, onConfirm: null as any });
-
-    const handleRegister = async () => {
-        if (!user) return;
-        setRegistering(true);
-        try {
-            const batch = writeBatch(db);
-            const ref = doc(db, "enrollments", course.id, "enrollments", user.uid);
-            batch.set(ref, { enrolledAt: serverTimestamp(), studentName: user.displayName || "طالب", status: "accepted" });
-            
-            const memberRef = doc(db, "members", course.id, "members", user.uid);
-            batch.set(memberRef, { displayName: user.displayName || "طالب", role: "student", addedAt: serverTimestamp() });
-            
-            await batch.commit();
-            const msg = `أهلاً بك في دورة ${course.title}. استعد للبداية! ${course.whatsappLink ? `\n\nيرجى الانضمام لمجموعة الواتساب:\n ${course.whatsappLink}` : ''}`;
-            setDialogConfig({ isOpen: true, title: 'تم الانضمام!', description: msg, type: 'success', onConfirm: null });
-        } catch (e) {
-            setDialogConfig({ isOpen: true, title: 'عذراً', description: 'حدث خطأ أثناء التسجيل.', type: 'danger', onConfirm: null });
-        } finally { setRegistering(false); }
-    };
-
-    const isRegOpen = course.registrationStart && course.registrationEnd && new Date() > course.registrationStart.toDate() && new Date() < course.registrationEnd.toDate();
-
-    return (
-        <>
-            <button 
-                disabled={!isRegOpen || registering} 
-                onClick={handleRegister} 
-                className={cn("px-10 py-5 rounded-2xl font-black text-white transition-all shadow-2xl flex items-center gap-3", isRegOpen ? "bg-primary hover:scale-105 active:scale-95 shadow-primary/40" : "bg-gray-400 grayscale cursor-not-allowed")}
-            >
-                {registering ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
-                {isRegOpen ? "انضم لهذه الروضة الآن" : "التسجيل مغلق"}
-            </button>
-            <EliteDialog 
-                isOpen={dialogConfig.isOpen} 
-                onClose={() => setDialogConfig({...dialogConfig, isOpen: false})} 
-                onConfirm={() => setDialogConfig({...dialogConfig, isOpen: false})} 
-                type={dialogConfig.type as any} 
-                title={dialogConfig.title} 
-                description={dialogConfig.description} 
-            />
-        </>
     );
 }
