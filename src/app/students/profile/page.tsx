@@ -50,7 +50,7 @@ interface StudentData {
         internetAvailable: boolean;
         canAttendOnline: boolean;
         agreesToAttendance: boolean;
-        hasMemorizedSunnah: boolean;
+        hasMemorizedQuran: boolean;
         isAccepted?: boolean;
         joinedAt?: any;
     };
@@ -75,7 +75,7 @@ const initialData: StudentData = {
         internetAvailable: false,
         canAttendOnline: false,
         agreesToAttendance: false,
-        hasMemorizedSunnah: false,
+        hasMemorizedQuran: false,
     },
 };
 
@@ -164,7 +164,7 @@ export default function StudentProfile() {
 
         const { enrollmentStatus, personalInfo } = formData;
         
-        if (!enrollmentStatus.internetAvailable || !enrollmentStatus.canAttendOnline || !enrollmentStatus.agreesToAttendance || !enrollmentStatus.hasMemorizedSunnah) {
+        if (!enrollmentStatus.internetAvailable || !enrollmentStatus.canAttendOnline || !enrollmentStatus.agreesToAttendance || !enrollmentStatus.hasMemorizedQuran) {
             showDialog('warning', 'شروط غير مستوفاة', 'يجب الموافقة على جميع شروط الالتزام والمتابعة للمتابعة في إرسال الطلب.');
             return;
         }
@@ -254,9 +254,9 @@ export default function StudentProfile() {
                     <GlassCard className="p-8 md:p-12 space-y-10 border-white/5 shadow-2xl bg-white/[0.02]">
                         <div className="grid md:grid-cols-2 gap-8">
                             <EliteInput 
-                                label="الاسم الرباعي الكامل (بالعربية)" 
+                                label="الاسم الرباعي الكامل (كما هو في الهوية)" 
                                 icon={User}
-                                placeholder="اكتب اسمك كما هو في البطاقة الوطنية..."
+                                placeholder="اكتب اسمك الرباعي هنا..."
                                 required
                                 value={formData.personalInfo.fullName}
                                 onChange={(val: string) => handleChange('personalInfo', 'fullName', val)}
@@ -303,16 +303,16 @@ export default function StudentProfile() {
 
                         <div className="grid md:grid-cols-2 gap-8">
                             <EliteInput 
-                                label="العنوان السكني المختصر" 
+                                label="مكان الإقامة (المدينة - الحي)" 
                                 icon={MapPin} 
-                                placeholder="المدينة - الحي"
+                                placeholder="اكتب عنوانك بالتفصيل..."
                                 required
                                 value={formData.personalInfo.residence}
                                 onChange={(val: string) => handleChange('personalInfo', 'residence', val)}
                             />
 
                             <div className="space-y-3">
-                                <label className="text-xs font-black uppercase text-muted-foreground tracking-widest px-1">رقم الجوال الفعال</label>
+                            <label className="text-xs font-black uppercase text-muted-foreground tracking-widest px-1">رقم الهاتف (الواتسـاب)</label>
                                 <div className="flex gap-3 dir-ltr">
                                     <div className="w-24 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center font-black text-sm text-primary shadow-inner">
                                         {formData.personalInfo.phonePrefix}
@@ -331,7 +331,7 @@ export default function StudentProfile() {
 
                         <div className="grid md:grid-cols-2 gap-8">
                             <EliteSelect 
-                                label="تحصيلك العلمي" 
+                                label="المستوى الدراسي" 
                                 icon={GraduationCap}
                                 options={[
                                     { label: 'ثانوي', value: 'ثانوي' },
@@ -353,7 +353,7 @@ export default function StudentProfile() {
 
                         <div className="grid md:grid-cols-2 gap-8">
                             <EliteInput 
-                                label="طبيعة العمل أو الوظيفة" 
+                                label="العمل / الوظيفة" 
                                 icon={Briefcase}
                                 value={formData.personalInfo.job}
                                 onChange={(val: string) => handleChange('personalInfo', 'job', val)}
@@ -380,24 +380,24 @@ export default function StudentProfile() {
 
                     <div className="grid sm:grid-cols-2 gap-4">
                         <EliteCheckbox 
-                            label="أؤكد توفر اتصال إنترنت ثابت يومياً"
+                            label="توفر الانترنت بشكل مستمر"
                             checked={formData.enrollmentStatus.internetAvailable}
                             onChange={(c: boolean) => handleChange('enrollmentStatus', 'internetAvailable', c)}
                         />
                         <EliteCheckbox 
-                            label="أوافق على المتابعة المرئية/الصوتية"
+                            label="القدرة على الاتصال الصوتي / فيديو"
                             checked={formData.enrollmentStatus.canAttendOnline}
                             onChange={(c: boolean) => handleChange('enrollmentStatus', 'canAttendOnline', c)}
                         />
                         <EliteCheckbox 
-                            label="ألتزم بالحضور في الموعد المحدد للحلقات"
+                            label="عدم التغيب الالتزام بالأوقات"
                             checked={formData.enrollmentStatus.agreesToAttendance}
                             onChange={(c: boolean) => handleChange('enrollmentStatus', 'agreesToAttendance', c)}
                         />
                         <EliteCheckbox 
-                            label="ألتزم بالتفرغ التام لحفظ السنة النبوية"
-                            checked={formData.enrollmentStatus.hasMemorizedSunnah}
-                            onChange={(c: boolean) => handleChange('enrollmentStatus', 'hasMemorizedSunnah', c)}
+                            label="أتممت حفظ القرآن كاملاً"
+                            checked={formData.enrollmentStatus.hasMemorizedQuran}
+                            onChange={(c: boolean) => handleChange('enrollmentStatus', 'hasMemorizedQuran', c)}
                         />
                     </div>
                     
@@ -413,7 +413,7 @@ export default function StudentProfile() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || !formData.enrollmentStatus.internetAvailable || !formData.enrollmentStatus.canAttendOnline || !formData.enrollmentStatus.agreesToAttendance || !formData.enrollmentStatus.hasMemorizedQuran}
                     className="w-full py-6 bg-gradient-to-r from-primary to-purple-600 text-white font-black text-xl rounded-[2.5rem] shadow-2xl shadow-primary/30 transition-all flex items-center justify-center gap-4 disabled:grayscale active:scale-95"
                 >
                     {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
