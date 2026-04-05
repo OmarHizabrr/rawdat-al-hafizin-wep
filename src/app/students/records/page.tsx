@@ -56,7 +56,7 @@ export default function StudentRecords() {
                 }
 
                 // Fetch achievements/certificates
-                const q = query(collection(db, "student_records", user.uid, "achievements"));
+                const q = query(collection(db, "student_records", user.uid, "student_records"));
                 const unsubscribe = onSnapshot(q, (snapshot: any) => {
                     const data = snapshot.docs.map((doc: any) => ({
                         id: doc.id,

@@ -26,7 +26,9 @@ import {
     X,
     Loader2,
     Eye,
-    CheckCircle2
+    CheckCircle2,
+    Lock,
+    Globe
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -44,6 +46,7 @@ interface GroupModel {
         startTime: string;
         endTime: string;
     };
+    visibility?: 'public' | 'private';
 }
 
 interface TeacherModel {
@@ -62,7 +65,8 @@ const initialGroupState: GroupModel = {
         vacationDays: [],
         startTime: "",
         endTime: ""
-    }
+    },
+    visibility: 'public'
 };
 
 const DAYS = [
@@ -244,8 +248,15 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                             transition={{ delay: index * 0.05 }}
                         >
                             <GlassCard className="group relative overflow-hidden transition-all hover:border-primary/30 h-full flex flex-col bg-white/5">
-                                <div className={`absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[10px] uppercase tracking-widest font-bold text-white shadow-lg ${group.gender === 'male' ? 'bg-blue-600' : 'bg-pink-600'}`}>
-                                    {group.gender === 'male' ? 'قسم الرجال' : 'قسم النساء'}
+                                <div className="absolute top-0 right-0 p-0 rounded-bl-2xl overflow-hidden flex shadow-lg">
+                                    <div className={`px-4 py-1.5 text-[10px] uppercase tracking-widest font-bold text-white ${group.gender === 'male' ? 'bg-blue-600' : 'bg-pink-600'}`}>
+                                        {group.gender === 'male' ? 'قسم الرجال' : 'قسم النساء'}
+                                    </div>
+                                    {group.visibility === 'private' && (
+                                        <div className="bg-amber-600 px-3 py-1.5 text-white flex items-center justify-center">
+                                            <Lock className="w-3 h-3" />
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="p-8 space-y-6 flex-1 flex flex-col">
@@ -357,7 +368,7 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
 
                                     <div className="space-y-3">
                                         <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2">نوع وتصنيف الحلقة</label>
-                                        <div className="flex gap-4 p-2 bg-white/5 rounded-2xl w-fit">
+                                        <div className="flex flex-wrap gap-4 p-2 bg-white/5 rounded-2xl w-fit">
                                             <label className={`flex items-center gap-3 px-6 py-3 rounded-xl cursor-pointer transition-all ${currentGroup.gender === 'male' ? 'bg-blue-500 text-white shadow-lg' : 'hover:bg-white/5 opacity-50'}`}>
                                                 <input
                                                     type="radio"
@@ -379,6 +390,33 @@ export function HalaqatDashboard({ readonly = false, supervisorFilter }: Halaqat
                                                     className="hidden"
                                                 />
                                                 <span className="font-bold">قسم النساء</span>
+                                            </label>
+
+                                            <div className="w-px h-10 bg-white/10 mx-2" />
+
+                                            <label className={`flex items-center gap-3 px-6 py-3 rounded-xl cursor-pointer transition-all ${currentGroup.visibility === 'public' ? 'bg-emerald-600 text-white shadow-lg font-bold' : 'hover:bg-white/5 opacity-50'}`}>
+                                                <input
+                                                    type="radio"
+                                                    name="visibility"
+                                                    value="public"
+                                                    checked={currentGroup.visibility === 'public'}
+                                                    onChange={() => setCurrentGroup({ ...currentGroup, visibility: 'public' })}
+                                                    className="hidden"
+                                                />
+                                                <Globe className="w-4 h-4" />
+                                                <span>عامة</span>
+                                            </label>
+                                            <label className={`flex items-center gap-3 px-6 py-3 rounded-xl cursor-pointer transition-all ${currentGroup.visibility === 'private' ? 'bg-amber-600 text-white shadow-lg font-bold' : 'hover:bg-white/5 opacity-50'}`}>
+                                                <input
+                                                    type="radio"
+                                                    name="visibility"
+                                                    value="private"
+                                                    checked={currentGroup.visibility === 'private'}
+                                                    onChange={() => setCurrentGroup({ ...currentGroup, visibility: 'private' })}
+                                                    className="hidden"
+                                                />
+                                                <Lock className="w-4 h-4" />
+                                                <span>خاصة</span>
                                             </label>
                                         </div>
                                     </div>

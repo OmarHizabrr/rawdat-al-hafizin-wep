@@ -8,6 +8,7 @@ const cairo = Cairo({ subsets: ["arabic"], variable: "--font-cairo" });
 
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "روضة الحافظين | برنامج تحفيظ السنة النبوية",
@@ -65,6 +66,7 @@ export default function RootLayout({
                   {children}
                 </div>
               </main>
+              <Toaster position="top-center" richColors closeButton />
             </div>
           </ThemeProvider>
         </AuthProvider>

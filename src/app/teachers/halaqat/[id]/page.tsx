@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, doc, getDoc, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
+import { 
+    collection, query, where, onSnapshot, doc, getDoc, addDoc, 
+    serverTimestamp, orderBy, writeBatch, increment 
+} from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Users, Calendar, ArrowRight, CheckCircle2, XCircle, Search, Save, Loader2, BookOpen } from "lucide-react";
@@ -16,6 +19,7 @@ interface Student {
     email: string;
     phoneNumber?: string;
     photoURL?: string;
+    totalPoints?: number;
 }
 
 interface GroupModel {
@@ -36,6 +40,7 @@ export default function TeacherHalaqaDetails() {
     const [evalType, setEvalType] = useState<"attendance" | "recitation" | "test">("recitation");
     const [evalMark, setEvalMark] = useState("ممتاز");
     const [evalNotes, setEvalNotes] = useState("");
+    const [pointsConfig, setPointsConfig] = useState<any>(null);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -50,8 +55,14 @@ export default function TeacherHalaqaDetails() {
         };
         fetchGroup();
 
+        // Fetch Points Config (Unified Path)
+        const fetchConfig = async () => {
+            const configSnap = await getDoc(doc(db, "points_config", "global", "points_config", "settings"));
+            if (configSnap.exists()) setPointsConfig(configSnap.data());
+        };
+        fetchConfig();
+
         // Fetch Students belonging to this group
-        // Assuming students have a `groupId` field matching this group's id.
         const q = query(collection(db, "users"), where("role", "==", "student"), where("groupId", "==", id));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({
@@ -75,8 +86,43 @@ export default function TeacherHalaqaDetails() {
         if (!selectedStudent) return;
         setSaving(true);
 
+        const batch = writeBatch(db);
+
         try {
-            await addDoc(collection(db, "evaluations", id, "evaluations"), {
+            // 1. Calculate Points based on evaluation (Dynamic from Config)
+            let pointsToGrant = 0;
+            let reason = "";
+
+            const attendancePoints = pointsConfig?.recitationAttend || 5;
+            const recitationMarks: any = { 
+                "ممتاز": pointsConfig?.recitationExcellent || 10, 
+                "جيد جداً": pointsConfig?.recitationVeryGood || 7, 
+                "جيد": pointsConfig?.recitationGood || 5, 
+                "مقبول": pointsConfig?.recitationAcceptable || 3 
+            };
+            const testMarks: any = { 
+                "ممتاز": pointsConfig?.testExcellent || 50, 
+                "جيد جداً": pointsConfig?.testVeryGood || 40, 
+                "جيد": pointsConfig?.testGood || 30, 
+                "مقبول": pointsConfig?.testAcceptable || 20 
+            };
+
+            if (evalType === "attendance") {
+                if (evalMark === "حاضر") { 
+                    pointsToGrant = attendancePoints; 
+                    reason = `حضور الحلقة: ${group?.name}`; 
+                }
+            } else if (evalType === "recitation") {
+                pointsToGrant = recitationMarks[evalMark] || 0;
+                reason = `تسميع في ${group?.name}: ${evalMark}`;
+            } else if (evalType === "test") {
+                pointsToGrant = testMarks[evalMark] || 0;
+                reason = `اختبار نهائي: ${group?.name}`;
+            }
+
+            // 2. Save Evaluation (Standard)
+            const evalRef = doc(collection(db, "evaluations", id, "evaluations"));
+            batch.set(evalRef, {
                 studentId: selectedStudent.id,
                 studentName: selectedStudent.displayName,
                 groupId: id,
@@ -90,18 +136,39 @@ export default function TeacherHalaqaDetails() {
                 createdAt: serverTimestamp()
             });
 
-            // Also save to a global student record for easy fetching in the records page
+            // 3. Grant Points (If applicable)
+            if (pointsToGrant > 0) {
+                // Update User Total Points
+                const userRef = doc(db, "users", selectedStudent.id);
+                batch.update(userRef, {
+                    totalPoints: increment(pointsToGrant)
+                });
+
+                // Add Point Log (Nested Path)
+                const logRef = doc(collection(db, "points_logs", selectedStudent.id, "points_logs"));
+                batch.set(logRef, {
+                    amount: pointsToGrant,
+                    reason: reason,
+                    type: 'reward',
+                    source: 'teacher_evaluation',
+                    timestamp: serverTimestamp()
+                });
+            }
+
+            // 4. Save to global student record if it's a test
             if (evalType === "test") {
-                await addDoc(collection(db, "student_records", selectedStudent.id, "achievements"), {
+                const recordRef = doc(collection(db, "student_records", selectedStudent.id, "student_records"));
+                batch.set(recordRef, {
                     title: `اختبار نهائي: ${group?.name}`,
                     mark: evalMark,
                     date: new Date().toISOString().split('T')[0],
                     type: "certificate",
-                    courseId: id, // or the linked course id
+                    courseId: id,
                     createdAt: serverTimestamp()
                 });
             }
 
+            await batch.commit();
             setSelectedStudent(null);
             setEvalNotes("");
         } catch (error) {
@@ -177,7 +244,14 @@ export default function TeacherHalaqaDetails() {
                             </div>
                             <div>
                                 <h3 className="font-bold text-lg">{student.displayName}</h3>
-                                <p className="text-sm text-muted-foreground">{student.phoneNumber || student.email}</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-[10px] text-muted-foreground">{student.phoneNumber || student.email}</p>
+                                    <div className="w-1 h-1 rounded-full bg-gray-300" />
+                                    <div className="flex items-center gap-1 text-amber-500 font-black text-[10px]">
+                                        <Star className="w-2.5 h-2.5 fill-current" />
+                                        {student.totalPoints || 0} XP
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -329,3 +403,4 @@ export default function TeacherHalaqaDetails() {
         </div>
     );
 }
+import { Star } from "lucide-react";

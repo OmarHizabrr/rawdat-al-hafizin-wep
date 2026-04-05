@@ -387,6 +387,8 @@ function RegistrationSection({ course }: { course: Course }) {
         now > course.registrationStart.toDate() &&
         now < course.registrationEnd.toDate();
 
+    const isStudent = userData?.role === 'student' || userData?.role === 'admin' || userData?.role === 'committee';
+
     if (isRegistered) {
         return (
             <motion.div 
@@ -441,18 +443,23 @@ function RegistrationSection({ course }: { course: Course }) {
 
     return (
         <>
+            {!isStudent && !checking && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px] font-bold text-center mb-4 leading-relaxed">
+                    يجب اعتماد ملفك الشخصي من قبل اللجنة العلمية أولاً لتتمكن من التسجيل في الدورات.
+                </div>
+            )}
             <button
-                disabled={!isRegOpen || registering}
+                disabled={!isRegOpen || registering || !isStudent}
                 onClick={handleRegister}
                 className={cn(
                     "w-full px-8 py-5 rounded-2xl font-bold text-white transition-all shadow-xl flex items-center justify-center gap-3",
-                    isRegOpen 
+                    isRegOpen && isStudent
                         ? "bg-primary hover:bg-primary/90 hover:scale-[1.05] active:scale-95 shadow-primary/20" 
                         : "bg-gray-400 cursor-not-allowed grayscale"
                 )}
             >
                 {registering ? <Loader2 className="w-5 h-5 animate-spin"/> : (isRegOpen ? <Sparkles className="w-5 h-5" /> : <Lock className="w-5 h-5" />)}
-                {isRegOpen ? "التسجيل في الدورة" : "التسجيل مغلق"}
+                {isRegOpen ? (isStudent ? "التسجيل في الدورة" : "في انتظار الاعتماد") : "التسجيل مغلق"}
             </button>
             <EliteDialog 
                 isOpen={dialogConfig.open}

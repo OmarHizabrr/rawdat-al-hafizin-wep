@@ -16,10 +16,12 @@ import {
     Lightbulb,
     ScrollText,
     Award,
-    Bookmark
+    Bookmark,
+    Layout
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 const container = {
     hidden: { opacity: 0 },
@@ -46,12 +48,24 @@ const stages = [
 ];
 
 export default function AboutProgram() {
+    const { user, userData } = useAuth();
+
+    // Determine target dashboard based on role
+    const getDashboardUrl = () => {
+        if (!userData) return "/";
+        const role = userData.role;
+        if (role === 'admin' || role === 'committee') return "/admin";
+        if (role === 'teacher') return "/teachers";
+        if (role === 'student' || role === 'applicant') return "/students";
+        return "/";
+    };
+
     return (
         <motion.div 
             variants={container} 
             initial="hidden" 
             animate="show" 
-            className="space-y-32 pb-32 overflow-hidden bg-background"
+            className="space-y-32 pb-32 overflow-hidden bg-[#030712]"
         >
             {/* Hero Section */}
             <section className="relative text-center pt-24 pb-20 md:pt-32 md:pb-32 px-6">
@@ -65,9 +79,9 @@ export default function AboutProgram() {
                     <span>برنامج السنة النبوية الشامل</span>
                 </motion.div>
 
-                <motion.h1 variants={item} className="text-5xl md:text-8xl font-black tracking-tight mb-8 leading-[1.1] py-2">
-                    التعريف ببرنامج <br />
-                    <span className="bg-gradient-to-r from-primary via-purple-600 to-primary bg-clip-text text-transparent animate-gradient-x">تحفيظ السنة النبوية</span>
+                <motion.h1 variants={item} className="text-5xl md:text-8xl lg:text-9xl font-black tracking-tighter mb-10 leading-[1.05] py-4">
+                    بوابتك لضبط <br />
+                    <span className="bg-gradient-to-r from-primary via-purple-500 to-emerald-500 bg-clip-text text-transparent animate-gradient-x drop-shadow-2xl">ميراث النبوة</span>
                 </motion.h1>
 
                 <motion.p variants={item} className="text-xl md:text-2xl text-muted-foreground max-w-4xl mx-auto mb-16 leading-relaxed font-medium px-4 opacity-80">
@@ -75,15 +89,29 @@ export default function AboutProgram() {
                 </motion.p>
                 
                 <motion.div variants={item} className="flex justify-center flex-wrap gap-6">
-                    <GlassCard className="px-10 py-6 border-primary/20 bg-primary/5 flex items-center gap-5 group hover:scale-[1.02] transition-transform">
-                        <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20 group-hover:scale-110 transition-transform">
-                            <Users className="w-7 h-7 text-primary" />
-                        </div>
-                        <div className="text-right">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">إشراف وجمع</p>
-                            <p className="font-black text-xl">الشيخ يحيى اليحيى</p>
-                        </div>
-                    </GlassCard>
+                    {user ? (
+                        <Link href={getDashboardUrl()}>
+                            <GlassCard className="px-10 py-6 border-primary/20 bg-primary/5 flex items-center gap-5 group hover:scale-[1.05] transition-all cursor-pointer">
+                                <div className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center border border-primary/20 group-hover:bg-primary group-hover:text-white transition-all shadow-lg">
+                                    <Layout className="w-7 h-7" />
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">أهلاً بك مجدداً</p>
+                                    <p className="font-black text-xl">انتقل إلى لوحتك الخاصة</p>
+                                </div>
+                            </GlassCard>
+                        </Link>
+                    ) : (
+                        <GlassCard className="px-10 py-6 border-primary/20 bg-primary/5 flex items-center gap-5 group hover:scale-[1.02] transition-transform">
+                            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20 group-hover:scale-110 transition-transform">
+                                <Users className="w-7 h-7 text-primary" />
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">إشراف وجمع</p>
+                                <p className="font-black text-xl">الشيخ يحيى اليحيى</p>
+                            </div>
+                        </GlassCard>
+                    )}
                 </motion.div>
             </section>
 
@@ -173,6 +201,20 @@ export default function AboutProgram() {
 
             {/* Program Levels / Stages */}
             <section className="max-w-7xl mx-auto px-6 space-y-20">
+                {/* Logo */}
+                <Link href="/" className="flex items-center gap-3 group">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 p-[2px] transition-transform group-hover:scale-110 group-hover:rotate-6">
+                        <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center">
+                            <BookOpen className="h-5 w-5 text-primary" />
+                        </div>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-lg font-black bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent hidden sm:block leading-none">
+                            روضة الحافظين
+                        </span>
+                        <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary hidden sm:block">Sunnah Platform</span>
+                    </div>
+                </Link>
                 <div className="text-center space-y-6">
                     <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent pb-3">مستويات رحلة الحفظ</h2>
                     <p className="text-xl text-muted-foreground font-black uppercase tracking-widest opacity-40">ثمانية مراحل ذهبية لإتقان دواوين السنة</p>

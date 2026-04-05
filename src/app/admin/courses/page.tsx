@@ -17,21 +17,26 @@ import {
 } from "firebase/firestore";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/GlassCard";
-import {
-    Plus,
-    Edit,
-    Trash2,
-    Search,
-    BookOpen,
-    Calendar,
-    DollarSign,
-    Monitor,
-    X,
-    Loader2,
-    ChevronRight,
-    Layers,
-    Eye
+import { 
+    Plus, 
+    Edit, 
+    Trash2, 
+    Search, 
+    BookOpen, 
+    Calendar, 
+    DollarSign, 
+    Monitor, 
+    X, 
+    Loader2, 
+    ChevronRight, 
+    Layers, 
+    Eye, 
+    Lock, 
+    Globe,
+    Library
 } from "lucide-react";
+import { SUNNAH_VOLUMES } from "@/lib/volumes";
+import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 
@@ -48,6 +53,8 @@ interface CourseModel {
     registrationEnd?: Timestamp;
     whatsappLink?: string;
     conditions?: string[];
+    visibility?: 'public' | 'private';
+    folderId?: string;
 }
 
 const initialCourseState: Partial<CourseModel> = {
@@ -57,6 +64,8 @@ const initialCourseState: Partial<CourseModel> = {
     features: [],
     whatsappLink: "",
     conditions: [""],
+    visibility: 'public',
+    folderId: "",
 };
 
 export default function CoursesDashboard() {
@@ -181,7 +190,19 @@ export default function CoursesDashboard() {
                 const membersSnap = await getDocs(collection(db, "members", id, "members"));
                 membersSnap.forEach((doc) => batch.delete(doc.ref));
 
-                // 4. Delete the main course document
+                // 4. Fetch and delete daily_logs: daily_logs/{id}/daily_logs
+                const logsSnap = await getDocs(collection(db, "daily_logs", id, "daily_logs"));
+                logsSnap.forEach((doc) => batch.delete(doc.ref));
+
+                // 5. Fetch and delete exams: exams/{id}/exams
+                const examsSnap = await getDocs(collection(db, "exams", id, "exams"));
+                examsSnap.forEach((doc) => batch.delete(doc.ref));
+
+                // 6. Fetch and delete coursePlans: coursePlans/{id}/coursePlans
+                const plansSnap = await getDocs(collection(db, "coursePlans", id, "coursePlans"));
+                plansSnap.forEach((doc) => batch.delete(doc.ref));
+
+                // 7. Delete the main course document
                 batch.delete(doc(db, "courses", id));
 
                 await batch.commit();
@@ -228,7 +249,14 @@ export default function CoursesDashboard() {
                         <div className="p-6 flex flex-col md:flex-row gap-6">
                             <div className="flex-1 space-y-2">
                                 <div className="flex items-start justify-between">
-                                    <h3 className="text-xl font-bold">{course.title}</h3>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-xl font-bold">{course.title}</h3>
+                                        {course.visibility === 'private' && (
+                                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-black border border-amber-500/20 uppercase tracking-widest">
+                                                <Lock className="w-3 h-3" /> خاص
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex gap-2">
                                         <Link
                                             href={`/admin/courses/${course.id}/members`}
@@ -279,6 +307,12 @@ export default function CoursesDashboard() {
                                         <Monitor className="w-4 h-4" />
                                         <span>{course.mechanism}</span>
                                     </div>
+                                    {course.folderId && (
+                                        <div className="flex items-center gap-1 text-primary font-bold">
+                                            <Library className="w-4 h-4" />
+                                            <span>{SUNNAH_VOLUMES.find(v => v.id === course.folderId)?.title}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -344,6 +378,63 @@ export default function CoursesDashboard() {
                                             onChange={e => setCurrentCourse({ ...currentCourse, description: e.target.value })}
                                             className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20 h-24 resize-none"
                                         />
+                                    </div>
+                                    
+                                    <div className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                                        <label className="text-sm font-bold block mb-2 flex items-center gap-2">
+                                            <Library className="w-4 h-4 text-primary" /> الربط بالمجلد الأكاديمي
+                                        </label>
+                                        <select
+                                            value={currentCourse.folderId || ""}
+                                            onChange={e => setCurrentCourse({ ...currentCourse, folderId: e.target.value })}
+                                            className="w-full p-3 rounded-xl border bg-background focus:ring-2 focus:ring-primary/20 outline-none font-bold text-sm"
+                                        >
+                                            <option value="">-- اختر المجلد المرتبط (اختياري) --</option>
+                                            {SUNNAH_VOLUMES.map(volume => (
+                                                <option key={volume.id} value={volume.id}>
+                                                    {volume.title} ({volume.totalPages} صفحة)
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="text-[10px] text-muted-foreground px-1">سيتم احتساب تقدم الطالب في هذا المجلد بناءً على صفحات هذه الدورة.</p>
+                                    </div>
+
+                                    <div className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                                        <label className="text-sm font-bold block mb-2">إعدادات الرؤية والخصوصية</label>
+                                        <div className="flex gap-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => setCurrentCourse({ ...currentCourse, visibility: 'public' })}
+                                                className={cn(
+                                                    "flex-1 p-4 rounded-xl border flex flex-col items-center gap-2 transition-all",
+                                                    currentCourse.visibility === 'public'
+                                                        ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                                        : "bg-background border-white/10 opacity-60 grayscale"
+                                                )}
+                                            >
+                                                <Globe className="w-5 h-5" />
+                                                <div className="text-center">
+                                                    <p className="text-xs font-black uppercase tracking-widest">دورة عامة</p>
+                                                    <p className="text-[10px] opacity-70">تظهر للجميع للاكتشاف</p>
+                                                </div>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCurrentCourse({ ...currentCourse, visibility: 'private' })}
+                                                className={cn(
+                                                    "flex-1 p-4 rounded-xl border flex flex-col items-center gap-2 transition-all",
+                                                    currentCourse.visibility === 'private'
+                                                        ? "bg-amber-600 text-white border-amber-600 shadow-lg shadow-amber-600/20 scale-105"
+                                                        : "bg-background border-white/10 opacity-60 grayscale"
+                                                )}
+                                            >
+                                                <Lock className="w-5 h-5" />
+                                                <div className="text-center">
+                                                    <p className="text-xs font-black uppercase tracking-widest">دورة خاصة</p>
+                                                    <p className="text-[10px] opacity-70">يتم الإضافة يدوياً فقط</p>
+                                                </div>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">

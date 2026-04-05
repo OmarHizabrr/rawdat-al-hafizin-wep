@@ -15,7 +15,10 @@ import {
   CheckCircle2,
   Trophy,
   Target,
-  User as UserIcon
+  User as UserIcon,
+  Layout, Quote, HelpCircle, Mail, Globe, Search,
+  Lock as LockIcon, Hash, TrendingUp,
+  ArrowUpRight, Clock3, ArrowRight, Settings
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -60,9 +63,16 @@ const container = {
   },
 };
 
+const getLevelInfo = (points: number) => {
+    if (points >= 1500) return { label: 'صاحب إتقان', color: 'text-amber-500', bg: 'bg-amber-500/10', rank: 4 };
+    if (points >= 500) return { label: 'همّة علية', color: 'text-purple-500', bg: 'bg-purple-500/10', rank: 3 };
+    if (points >= 100) return { label: 'طالب بصيرة', color: 'text-blue-500', bg: 'bg-blue-500/10', rank: 2 };
+    return { label: 'بداية النور', color: 'text-emerald-500', bg: 'bg-emerald-500/10', rank: 1 };
+};
+
 const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 },
 };
 
 export default function Home() {
@@ -254,79 +264,162 @@ function FeatureCard({ icon: Icon, title, desc, color, bg }: any) {
 }
 
 function UserDashboard({ userData }: { userData: any }) {
-    return (
-        <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
-            <section className="py-8 border-b border-gray-100 dark:border-white/5 pb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex-1">
-                    <motion.h1 variants={item} className="text-3xl font-extrabold tracking-tight sm:text-5xl bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent py-2">
-                    مرحباً بك، {userData?.displayName || 'يا هلا!'}
-                    </motion.h1>
-                    <motion.p variants={item} className="text-xl text-muted-foreground mt-2 font-medium">
-                    {userData?.role === 'admin' && "لوحة التحكم بانتظارك لإدارة تفاصيل النظام."}
-                    {userData?.role === 'teacher' && "جزاك الله خيراً على جهودك المبذولة في الحلقات العلمية."}
-                    {userData?.role === 'student' && "نرجو لك التوفيق في حفظ ومراجعة سنة النبي الكريم ﷺ."}
-                    {userData?.role === 'pending' && "فضلاً أدخل رمز الوصول لتفعيل حسابك وفتح الصلاحيات."}
-                    {userData?.role === 'committee' && "لجنة الإدارة والاختبارات ترحب بك."}
-                    </motion.p>
-                </div>
+    const greeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return "صباح الخير والبركة";
+        if (hour < 18) return "مساء النور والسرور";
+        return "طبت وطاب مساؤك";
+    };
 
-                <motion.div variants={item} className="flex items-center gap-4">
-                    <Link href="/profile" className="group">
-                        <div className="flex items-center gap-4 p-3 pr-6 rounded-[2.5rem] bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-xl shadow-primary/5 hover:border-primary/50 transition-all hover:scale-105">
-                            <div className="text-right hidden sm:block">
-                                <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">ملفي الشخصي</p>
-                                <p className="font-bold text-sm">بيانات الحساب</p>
-                            </div>
-                            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shadow-inner relative overflow-hidden group-hover:scale-110 transition-transform">
+    const isAdmin = userData?.role === 'admin' || userData?.role === 'committee';
+
+    return (
+        <motion.div variants={container} initial="hidden" animate="show" className="space-y-12">
+            {/* Command Center Header */}
+            <section className="relative overflow-hidden rounded-[3rem] p-8 md:p-12 bg-gradient-to-br from-primary via-primary/90 to-purple-700 text-white shadow-2xl">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+                
+                <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                    <div className="relative group shrink-0">
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-[2.5rem] bg-white/20 p-1 backdrop-blur-md shadow-2xl transition-transform group-hover:scale-105">
+                            <div className="w-full h-full rounded-[2.4rem] bg-background flex items-center justify-center overflow-hidden border-4 border-white/20">
                                 {userData?.photoURL ? (
-                                    <img src={userData.photoURL} alt="Profile" className="w-full h-full object-cover rounded-full" />
+                                    <img src={userData.photoURL} alt="User" className="w-full h-full object-cover" />
                                 ) : (
-                                    <UserIcon className="w-8 h-8" />
+                                    <UserIcon className="w-12 h-12 text-primary opacity-40" />
                                 )}
-                                <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <LogIn className="w-6 h-6 text-white" />
-                                </div>
                             </div>
                         </div>
-                    </Link>
-                </motion.div>
+                        <div className="absolute -bottom-2 -right-2 px-4 py-1.5 bg-amber-500 text-white text-xs font-black rounded-full shadow-lg border-2 border-primary flex items-center gap-1.5 animate-bounce">
+                            <Trophy className="w-3.5 h-3.5" /> {userData?.totalPoints || 0} XP
+                        </div>
+                    </div>
+
+                    <div className="flex-1 text-center md:text-right space-y-4">
+                        <div className="space-y-1">
+                            <p className="text-white/70 font-bold text-lg">{greeting()}،</p>
+                            <h1 className="text-3xl md:text-5xl font-black tracking-tight">
+                                {userData?.displayName || 'يا طالب العلم!'}
+                            </h1>
+                        </div>
+                        <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                            <div className="px-5 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                                {userData?.role === 'admin' ? "مدير النظام" : userData?.role === 'teacher' ? "معلم معتمد" : "طالب علم"}
+                            </div>
+                            {userData?.role === 'student' && (
+                                <div className="px-5 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-cyan-400" />
+                                    مستوى: {getLevelInfo(userData?.totalPoints || 0).label}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="shrink-0 flex gap-4">
+                         <Link href="/profile" className="p-5 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/10 transition-all hover:scale-105 active:scale-95 shadow-xl">
+                            <Settings className="w-6 h-6" />
+                         </Link>
+                    </div>
+                </div>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(userData?.role === 'admin' || userData?.role === 'committee') && (
-                <DashboardCard title="لوحة الإدارة" desc="إدارة المستخدمين والحلقات والصلاحيات" icon={ShieldCheck} href="/admin" color="from-red-500 to-orange-500" />
+            {/* Quick Actions Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {isAdmin && (
+                    <DashboardCard 
+                        title="لوحة الإدارة الشاملة" 
+                        desc="تحكم كامل في المستخدمين، الحلقات، والمنظومة التعليمية" 
+                        icon={ShieldCheck} 
+                        href="/admin" 
+                        color="from-rose-500 to-red-600" 
+                    />
                 )}
                 {userData?.role === 'teacher' && (
-                <DashboardCard title="لوحة المعلم" desc="متابعة الحلقات وتقييم الطلاب" icon={GraduationCap} href="/teachers" color="from-blue-500 to-cyan-500" />
+                    <DashboardCard 
+                        title="لوحة إشراف المعلم" 
+                        desc="إدارة حلقاتك، تقييم الطلاب، ورصد الحضور اليومي" 
+                        icon={GraduationCap} 
+                        href="/teachers" 
+                        color="from-blue-600 to-indigo-700" 
+                    />
                 )}
-                {(userData?.role === 'student' || userData?.role === 'admin') && (
-                <DashboardCard title="بوابة الطالب" desc="متابعة الحفظ وسجلات الدورة" icon={BookOpen} href="/students" color="from-green-500 to-emerald-500" />
+                {(userData?.role === 'student' || isAdmin) && (
+                    <DashboardCard 
+                        title="بوابتي العلمية" 
+                        desc="تابع حفظك، جدولك الدراسي، وإنجازاتك الشخصية" 
+                        icon={BookOpen} 
+                        href="/students" 
+                        color="from-emerald-500 to-teal-600" 
+                    />
                 )}
-                <DashboardCard title="الملف الشخصي" desc="تعديل بياناتك والصورة الشخصية" icon={Users} href="/profile" color="from-purple-500 to-pink-500" />
+                <DashboardCard 
+                    title="سجل الإنجازات" 
+                    desc="الأوسمة المحققة، الشهادات الصادرة، وتاريخ النشاط" 
+                    icon={Trophy} 
+                    href="/records" 
+                    color="from-amber-500 to-orange-600" 
+                />
+                <DashboardCard 
+                    title="الملف الأكاديمي" 
+                    desc="تعديل البيانات الشخصية، الخبرات، وصورة البروفايل" 
+                    icon={UserIcon} 
+                    href="/profile" 
+                    color="from-purple-500 to-pink-600" 
+                />
                 {userData?.role === 'pending' && (
-                <DashboardCard title="تفعيل الحساب" desc="إدخال رمز للوصول للواجهات" icon={Sparkles} href="/access-code" color="from-amber-500 to-yellow-500" />
+                    <DashboardCard 
+                        title="تفعيل العضوية" 
+                        desc="أدخل رمز الوصول لفتح كامل صلاحيات المنصة" 
+                        icon={Sparkles} 
+                        href="/access-code" 
+                        color="from-cyan-500 to-blue-600" 
+                    />
                 )}
             </div>
 
-            <div className="mt-12 pt-8 border-t border-gray-100 dark:border-white/5">
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                <Activity className="w-6 h-6 text-primary" />
-                <span>إشراقة يومية</span>
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <GlassCard className="p-6 flex flex-col items-center justify-center text-center space-y-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-white/5 dark:to-transparent">
-                    <Calendar className="w-10 h-10 text-primary mb-2" />
-                    <h3 className="font-bold text-lg">التاريخ الهجري</h3>
-                    <p className="text-2xl font-mono text-muted-foreground font-bold">1447/06/15</p>
-                </GlassCard>
-                <GlassCard className="p-6 md:col-span-2 flex items-center justify-center bg-primary/5 border-primary/10 relative overflow-hidden group">
-                    <div className="absolute right-0 top-0 w-24 h-full bg-primary/10 -skew-x-12 translate-x-10 group-hover:translate-x-0 transition-transform duration-500" />
-                    <p className="text-2xl font-extrabold text-center leading-loose text-primary/80 z-10 selection:bg-primary/20">
-                    "نَضَّرَ اللَّهُ امْرَأً سَمِعَ مَقَالَتِي فَوَعَاهَا فَأَدَّاهَا كَمَا سَمِعَهَا"
-                    </p>
-                </GlassCard>
+            {/* Daily Inspiration Section */}
+            <section className="relative group">
+                <div className="flex items-center justify-between mb-8 px-2">
+                    <h3 className="text-2xl font-black flex items-center gap-3">
+                        <Sparkles className="w-6 h-6 text-primary animate-pulse" /> إشراقة يومية
+                    </h3>
+                    <div className="h-px flex-1 bg-gradient-to-l from-primary/20 to-transparent mx-6" />
                 </div>
-            </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div className="lg:col-span-4">
+                        <GlassCard className="p-8 bg-gradient-to-br from-white/5 to-transparent border-white/5 h-full flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="w-16 h-16 rounded-[1.5rem] bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                                <Calendar className="w-8 h-8" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">التاريخ اليوم</p>
+                                <p className="text-3xl font-black font-mono">1447/06/15</p>
+                                <p className="text-xs font-bold text-primary">الموافق 2026/01/04 م</p>
+                            </div>
+                        </GlassCard>
+                    </div>
+
+                    <div className="lg:col-span-8">
+                        <GlassCard className="p-10 relative overflow-hidden h-full flex items-center justify-center bg-primary/5 border-primary/20 text-center">
+                            <Quote className="absolute top-6 right-6 w-12 h-12 text-primary/10 -scale-x-100" />
+                            <div className="relative z-10 space-y-6">
+                                <p className="text-3xl md:text-4xl font-black leading-snug !bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent italic selection:bg-primary/30">
+                                    "نَضَّرَ اللَّهُ امْرَأً سَمِعَ مَقَالَتِي فَوَعَاهَا فَأَدَّاهَا كَمَا سَمِعَهَا"
+                                </p>
+                                <div className="flex items-center justify-center gap-4">
+                                    <div className="h-px w-8 bg-primary/30" />
+                                    <p className="text-xs font-black uppercase tracking-widest text-primary">حديث نبوي شريف</p>
+                                    <div className="h-px w-8 bg-primary/30" />
+                                </div>
+                            </div>
+                            <Quote className="absolute bottom-6 left-6 w-12 h-12 text-primary/10" />
+                        </GlassCard>
+                    </div>
+                </div>
+            </section>
         </motion.div>
     );
 }
@@ -353,16 +446,27 @@ function StatCard({ title, value, icon: Icon, color }: any) {
 function DashboardCard({ title, desc, icon: Icon, href, color }: any) {
   return (
     <Link href={href}>
-      <GlassCard className="group h-full hover:border-primary/50 transition-all hover:shadow-lg hover:-translate-y-1 relative overflow-hidden">
-        <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${color}`} />
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{title}</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed font-medium">{desc}</p>
-          </div>
-          <div className={`p-3 rounded-xl bg-gradient-to-br ${color} opacity-80 text-white shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-transform`}>
-            <Icon className="w-6 h-6" />
-          </div>
+      <GlassCard className="group h-full hover:border-primary/50 transition-all hover:shadow-2xl hover:-translate-y-2 relative overflow-hidden bg-white/[0.02]">
+        <div className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${color} transition-transform origin-right group-hover:scale-x-110`} />
+        
+        <div className="p-8 flex flex-col h-full space-y-6">
+            <div className="flex items-center justify-between">
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${color} opacity-90 text-white shadow-xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500`}>
+                    <Icon className="w-7 h-7" />
+                </div>
+                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+                </div>
+            </div>
+            
+            <div className="space-y-2 flex-1">
+                <h3 className="text-2xl font-black group-hover:text-primary transition-colors">{title}</h3>
+                <p className="text-muted-foreground leading-relaxed font-medium text-sm">{desc}</p>
+            </div>
+            
+            <div className="pt-4 border-t border-white/5 flex items-center justify-end">
+                <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity translate-x-4 group-hover:translate-x-0 transition-transform">دخول الآن</span>
+            </div>
         </div>
       </GlassCard>
     </Link>

@@ -178,9 +178,7 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         setLoadingLogs(true);
         try {
             const q = query(
-                collection(db, "daily_logs"),
-                where("userId", "==", student.id),
-                where("courseId", "==", groupId),
+                collection(db, "daily_logs", student.id, "daily_logs"),
                 orderBy("date", "desc"),
                 limit(14)
             );
@@ -189,9 +187,8 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
 
             // Fetch Exams
             const eq = query(
-                collection(db, "exams"),
+                collection(db, "exams", groupId, "exams"),
                 where("userId", "==", student.id),
-                where("courseId", "==", groupId),
                 orderBy("date", "desc")
             );
             const esnap = await getDocs(eq);
@@ -207,7 +204,7 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
         if (!selectedStudent || !examForm.title || !examForm.mark) return;
         setIsSavingExam(true);
         try {
-            const examRef = doc(collection(db, "exams"));
+            const examRef = doc(collection(db, "exams", groupId, "exams"));
             const examData = {
                 ...examForm,
                 userId: selectedStudent.id,

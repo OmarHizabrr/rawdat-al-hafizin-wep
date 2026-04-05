@@ -9,7 +9,8 @@ import {
     updateDoc,
     deleteDoc,
     getDoc,
-    arrayRemove
+    arrayRemove,
+    collectionGroup
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
@@ -70,7 +71,7 @@ export default function TestimonialsDashboard() {
     });
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(collection(db, "testimonials"), (snapshot) => {
+        const unsubscribe = onSnapshot(collectionGroup(db, "testimonials"), (snapshot) => {
             const data = snapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
@@ -92,7 +93,7 @@ export default function TestimonialsDashboard() {
 
     const toggleVisibility = async (id: string, currentStatus: boolean) => {
         try {
-            await updateDoc(doc(db, "testimonials", id), {
+            await updateDoc(doc(db, "testimonials", "global", "testimonials", id), {
                 isVisible: !currentStatus
             });
         } catch (e) {
@@ -104,7 +105,7 @@ export default function TestimonialsDashboard() {
     const handleDelete = async (id: string) => {
         showDialog('danger', 'تأكيد الحذف', 'هل أنت متأكد من حذف هذا الانطباع نهائياً؟', async () => {
             try {
-                await deleteDoc(doc(db, "testimonials", id));
+                await deleteDoc(doc(db, "testimonials", "global", "testimonials", id));
             } catch (e) {
                 console.error(e);
                 showDialog('danger', 'فشل الحذف', 'حدث خطأ أثناء محاولة حذف الانطباع.');
@@ -122,7 +123,7 @@ export default function TestimonialsDashboard() {
         if (!currentTestimonial) return;
         setSaving(true);
         try {
-            await updateDoc(doc(db, "testimonials", currentTestimonial.id), {
+            await updateDoc(doc(db, "testimonials", "global", "testimonials", currentTestimonial.id), {
                 content: editedContent
             });
             setEditModalOpen(false);
@@ -161,7 +162,7 @@ export default function TestimonialsDashboard() {
     const handleRemoveLike = async (userUid: string) => {
         if (!currentTestimonial) return;
         try {
-            await updateDoc(doc(db, "testimonials", currentTestimonial.id), {
+            await updateDoc(doc(db, "testimonials", "global", "testimonials", currentTestimonial.id), {
                 likes: arrayRemove(userUid)
             });
             setLikedByUsers(prev => prev.filter(u => u.uid !== userUid));

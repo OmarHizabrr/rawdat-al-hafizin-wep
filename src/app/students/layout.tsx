@@ -20,17 +20,23 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                     return;
                 }
 
-                // Allow students, admins, and committee
-                // Teachers might not have access to student portal actions
-                const allowedRoles = ['student', 'admin', 'committee'];
+                // Allow students, admins, committee, and applicants
+                const allowedRoles = ['student', 'admin', 'committee', 'applicant'];
                 if (!allowedRoles.includes(userData.role)) {
                     router.push("/"); // Redirect unauthorized roles
+                    return;
+                }
+
+                // If applicant, force profile completion
+                const pathname = window.location.pathname;
+                if (userData.role === 'applicant' && pathname !== '/students/profile') {
+                    router.push("/students/profile");
                 }
             }
         }
     }, [user, userData, loading, router]);
 
-    if (loading || !userData || !['student', 'admin', 'committee'].includes(userData.role)) {
+    if (loading || !userData || !['student', 'admin', 'committee', 'applicant'].includes(userData.role)) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <Loader2 className="w-10 h-10 animate-spin text-primary" />

@@ -6,9 +6,10 @@ import { collection, query, where, onSnapshot, getDocs } from "firebase/firestor
 import { useAuth } from "@/lib/auth-context";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Users, Calendar, Clock, ChevronRight, Loader2, BookOpen, TrendingUp } from "lucide-react";
+import { Users, Calendar, Clock, ChevronRight, Loader2, BookOpen, TrendingUp, Radio } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { Monitor } from "lucide-react";
 
 interface GroupModel {
     id: string;
@@ -97,6 +98,30 @@ export default function TeacherDashboard() {
                 <StatCard label="إجمالي الطلاب" value={stats.totalStudents} icon={Users} color="bg-blue-500" />
                 <StatCard label="عدد الحلقات" value={myGroups.length} icon={BookOpen} color="bg-orange-500" />
                 <StatCard label="تقدير عام" value="ممتاز" icon={TrendingUp} color="bg-green-500" />
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Link href="/teachers/recitation">
+                    <GlassCard className="p-8 border-red-500/30 bg-red-500/5 hover:bg-red-500/10 transition-all group relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-3xl rounded-full -mr-16 -mt-16" />
+                        <div className="flex items-center justify-between relative z-10">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-red-500 font-black text-xs uppercase tracking-widest">
+                                    <Radio className="w-4 h-4 animate-pulse" /> البث المباشر والتسميع
+                                </div>
+                                <h3 className="text-2xl font-black">غرفة التسميع الافتراضية</h3>
+                                <p className="text-sm text-muted-foreground font-medium">ابدأ جلسة تسميع حية أو صوتية لطلابك الآن.</p>
+                            </div>
+                            <div className="w-16 h-16 rounded-2xl bg-red-500 text-white flex items-center justify-center shadow-2xl shadow-red-500/20 group-hover:scale-110 transition-transform">
+                                <Monitor className="w-8 h-8" />
+                            </div>
+                        </div>
+                    </GlassCard>
+                </Link>
+                <div className="p-8 border-dashed border-2 rounded-3xl flex items-center justify-center text-muted-foreground opacity-30 font-bold italic">
+                    ميزة إضافية قادمة...
+                </div>
             </div>
 
             <div className="space-y-6">

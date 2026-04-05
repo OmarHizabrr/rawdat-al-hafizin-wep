@@ -64,7 +64,7 @@ export default function AppUpdatesDashboard() {
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const docRef = doc(db, "app_config", "update_config");
+                const docRef = doc(db, "updates", "app", "updates", "config");
                 const snapshot = await getDoc(docRef);
                 if (snapshot.exists()) {
                     setConfig({ ...defaultConfig, ...snapshot.data() } as UpdateConfig);
@@ -88,7 +88,7 @@ export default function AppUpdatesDashboard() {
         showDialog('warning', 'تحديث إجباري', 'حفظ هذه الإعدادات سيفعل نظام التحديث الإجباري لجميع المستخدمين الذين يملكون نسخة أقدم. هل تود المتابعة؟', async () => {
             setSaving(true);
             try {
-                const docRef = doc(db, "app_config", "update_config");
+                const docRef = doc(db, "updates", "app", "updates", "config");
                 await setDoc(docRef, {
                     ...config,
                     updatedAt: serverTimestamp()

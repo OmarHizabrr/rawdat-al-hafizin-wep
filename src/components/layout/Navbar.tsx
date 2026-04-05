@@ -67,11 +67,19 @@ export function Navbar() {
         <nav className="fixed left-4 right-4 top-4 z-50 mx-auto max-w-7xl rounded-2xl border border-white/20 bg-white/70 px-6 py-3 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-black/60 transition-all">
             <div className="flex items-center justify-between flex-row-reverse md:flex-row">
                 {/* Logo - On the left on mobile (end of RTL row), on the right on desktop (start of RTL row) */}
-                <Link href="/" className="flex items-center gap-2">
-                    <BookOpen className="h-6 w-6 text-primary" />
-                    <span className="text-xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent hidden sm:block">
-                        روضة الحافظين
-                    </span>
+                {/* Logo */}
+                <Link href="/" className="flex items-center gap-3 group">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 p-[2px] transition-transform group-hover:scale-110 group-hover:rotate-6 shadow-lg shadow-primary/20">
+                        <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center">
+                            <BookOpen className="h-5 w-5 text-primary" />
+                        </div>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-lg font-black bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent hidden sm:block leading-none">
+                            روضة الحافظين
+                        </span>
+                        <span className="text-[8px] font-black uppercase tracking-[0.3em] text-muted-foreground hidden sm:block">Sunnah Platform</span>
+                    </div>
                 </Link>
 
                 {/* Desktop Menu - Normal RTL flow */}
@@ -103,28 +111,33 @@ export function Navbar() {
                     <div className="h-6 w-px bg-gray-200 dark:bg-white/10 mx-2" />
 
                     {user ? (
-                        <div className="flex items-center gap-3">
-                            <Link href="/profile">
-                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold border border-primary/20 hover:bg-primary hover:text-white transition-colors">
+                        <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-1.5 rounded-2xl">
+                            <Link href="/profile" className="flex items-center gap-3 pr-2">
+                                <div className="hidden lg:block text-right">
+                                    <p className="text-[10px] font-black text-muted-foreground leading-tight uppercase tracking-wider">الملف الشخصي</p>
+                                    <p className="text-sm font-bold text-foreground leading-tight truncate max-w-[100px]">{userData?.displayName || "طالب العلم"}</p>
+                                </div>
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-black border border-primary/20 hover:scale-105 transition-all shadow-lg overflow-hidden shrink-0">
                                     {userData?.photoURL ? (
-                                        <img src={userData.photoURL} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                                        <img src={userData.photoURL} alt="Profile" className="w-full h-full object-cover" />
                                     ) : (
                                         (userData?.displayName?.[0] || "U").toUpperCase()
                                     )}
                                 </div>
                             </Link>
+                            <div className="w-px h-6 bg-white/10" />
                             <button
                                 onClick={handleLogout}
-                                className="p-2 hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 rounded-full transition-colors"
+                                className="p-2.5 hover:bg-red-500/10 text-red-500 rounded-xl transition-all group"
                                 title="تسجيل الخروج"
                             >
-                                <LogOut className="w-5 h-5" />
+                                <LogOut className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
                             </button>
                         </div>
                     ) : (
                         <Link
                             href="/login"
-                            className="px-5 py-2 rounded-full bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
+                            className="px-8 py-2.5 rounded-xl bg-primary text-white font-black text-sm shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all border border-primary/20"
                         >
                             تسجيل الدخول
                         </Link>

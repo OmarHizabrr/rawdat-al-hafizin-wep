@@ -54,7 +54,7 @@ export default function AccessCodesManagement() {
     useEffect(() => {
         const fetchCodes = async () => {
             try {
-                const docRef = doc(db, "system_config", "access_codes");
+                const docRef = doc(db, "access_codes", "security", "access_codes", "config");
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
                     const data = snap.data();
@@ -114,7 +114,7 @@ export default function AccessCodesManagement() {
 
         setSaving(true);
         try {
-            const docRef = doc(db, "system_config", "access_codes");
+            const docRef = doc(db, "access_codes", "security", "access_codes", "config");
             await setDoc(docRef, {
                 admin: codes.admin,
                 teacher: codes.teacher,
