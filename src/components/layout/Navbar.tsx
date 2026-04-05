@@ -64,7 +64,11 @@ export function Navbar() {
     }
 
     return (
-        <nav className="fixed left-4 right-4 top-4 z-50 mx-auto max-w-7xl rounded-2xl border border-white/20 bg-white/70 px-6 py-3 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-black/60 transition-all">
+        <>
+            <nav className={cn(
+                "fixed left-4 right-4 top-4 z-50 mx-auto max-w-7xl rounded-2xl border border-white/20 bg-white/70 px-6 py-3 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-black/60 transition-all",
+                user ? "hidden md:block" : "block"
+            )}>
             <div className="flex items-center justify-between flex-row-reverse md:flex-row">
                 {/* Logo - On the left on mobile (end of RTL row), on the right on desktop (start of RTL row) */}
                 {/* Logo */}
@@ -266,10 +270,12 @@ export function Navbar() {
                 )}
             </AnimatePresence>
 
+            </nav>
+
             {/* Mobile Bottom Navigation for Students */}
             {user && (
-                <div className="fixed bottom-6 left-4 right-4 z-50 md:hidden">
-                    <div className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-3xl shadow-2xl p-2 flex items-center justify-around">
+                <div className="fixed bottom-6 left-4 right-4 z-[60] md:hidden">
+                    <div className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] p-2 flex items-center justify-around">
                         <MobileNavItem 
                             href="/" 
                             icon={Home} 
@@ -277,15 +283,15 @@ export function Navbar() {
                             isActive={pathname === "/"} 
                         />
                         <MobileNavItem 
-                            href="/students" 
-                            icon={LayoutDashboard} 
-                            label="إنجازي" 
-                            isActive={pathname === "/students"} 
+                            href={userData?.role === 'admin' ? "/admin" : userData?.role === 'teacher' ? "/teachers" : "/students"} 
+                            icon={userData?.role === 'admin' ? ShieldCheck : userData?.role === 'teacher' ? GraduationCap : LayoutDashboard} 
+                            label="لوحتى" 
+                            isActive={pathname.startsWith("/students") || pathname.startsWith("/admin") || pathname.startsWith("/teachers")} 
                         />
                         <div className="relative -top-6">
-                            <Link href="/students">
-                                <div className="w-14 h-14 bg-primary rounded-2xl shadow-xl shadow-primary/40 flex items-center justify-center text-white rotate-45 group hover:scale-110 transition-transform">
-                                    <div className="-rotate-45">
+                            <Link href={userData?.role === 'admin' ? "/admin" : userData?.role === 'teacher' ? "/teachers" : "/students"}>
+                                <div className="w-14 h-14 bg-gradient-to-tr from-primary to-purple-600 rounded-2xl shadow-xl shadow-primary/40 flex items-center justify-center text-white rotate-45 group hover:scale-110 hover:rotate-90 transition-all duration-500">
+                                    <div className="-rotate-45 group-hover:-rotate-90 transition-transform duration-500">
                                         <Sparkles className="w-6 h-6" />
                                     </div>
                                 </div>
@@ -299,15 +305,15 @@ export function Navbar() {
                         />
                         <button 
                             onClick={() => setIsOpen(true)}
-                            className="flex flex-col items-center gap-1 p-2 rounded-2xl text-muted-foreground"
+                            className="flex flex-col items-center gap-1 p-2 rounded-2xl transition-all text-muted-foreground hover:text-primary active:scale-95"
                         >
                             <Menu className="w-5 h-5" />
-                            <span className="text-[10px] font-bold">المزيد</span>
+                            <span className="text-[10px] font-black">المزيد</span>
                         </button>
                     </div>
                 </div>
             )}
-        </nav>
+        </>
     );
 }
 

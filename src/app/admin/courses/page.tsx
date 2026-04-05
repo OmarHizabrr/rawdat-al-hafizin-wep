@@ -34,7 +34,8 @@ import {
     Lock, 
     Globe,
     Library,
-    Info
+    Info,
+    CheckCircle2
 } from "lucide-react";
 import { SUNNAH_VOLUMES } from "@/lib/volumes";
 import { cn } from "@/lib/utils";
@@ -444,21 +445,37 @@ export default function CoursesDashboard() {
                                                 )}
                                             </div>
                                             
-                                            <select 
-                                                multiple
-                                                value={currentCourse.selectedVolumeIds || []}
-                                                onChange={e => {
-                                                    const values = Array.from(e.target.selectedOptions, option => option.value);
-                                                    setCurrentCourse({ ...currentCourse, selectedVolumeIds: values });
-                                                }}
-                                                className="w-full mt-2 p-3 bg-black/20 border border-white/5 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 outline-none h-40"
-                                            >
-                                                {SUNNAH_VOLUMES.map(vol => (
-                                                    <option key={vol.id} value={vol.id} className="p-2 checked:bg-primary/20 checked:text-primary">
-                                                        {vol.title} ({vol.totalPages} صفحة)
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-black/20 border border-white/5 rounded-xl custom-scrollbar">
+                                                {SUNNAH_VOLUMES.map(vol => {
+                                                    const isSelected = currentCourse.selectedVolumeIds?.includes(vol.id) || false;
+                                                    return (
+                                                        <button
+                                                            key={vol.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const selected = currentCourse.selectedVolumeIds || [];
+                                                                if (isSelected) {
+                                                                    setCurrentCourse({ ...currentCourse, selectedVolumeIds: selected.filter(id => id !== vol.id) });
+                                                                } else {
+                                                                    setCurrentCourse({ ...currentCourse, selectedVolumeIds: [...selected, vol.id] });
+                                                                }
+                                                            }}
+                                                            className={cn(
+                                                                "flex items-center gap-2 p-2 rounded-lg text-right transition-all",
+                                                                isSelected ? "bg-primary/20 text-primary border border-primary/30" : "bg-white/5 text-muted-foreground border border-transparent hover:bg-white/10"
+                                                            )}
+                                                        >
+                                                            <div className={cn("w-4 h-4 rounded border flex items-center justify-center shrink-0", isSelected ? "border-primary bg-primary text-white" : "border-white/20")}>
+                                                                {isSelected && <CheckCircle2 className="w-3 h-3" />}
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-bold">{vol.title}</span>
+                                                                <span className="text-[10px] opacity-60">{vol.totalPages} صفحة</span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                         <p className="text-[10px] text-muted-foreground px-1">سيتم احتساب تقدم الطالب في المجلدات المختارة بناءً على محتوى هذه الدورة.</p>
                                     </div>

@@ -13,7 +13,9 @@ import {
     LogOut,
     Menu,
     X,
-    Loader2
+    Loader2,
+    BookOpen,
+    Layers
 } from "lucide-react";
 // import { ThemeToggle } from "@/components/theme-toggle";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -60,6 +62,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const navItems = [
         { href: "/admin", label: "لوحة التحكم", icon: LayoutDashboard },
+        { href: "/admin/courses", label: "إدارة الدورات", icon: BookOpen },
+        { href: "/admin/plans", label: "قوالب الخطط", icon: Layers },
         { href: "/admin/users", label: "المستخدمين", icon: Users },
         { href: "/admin/access-codes", label: "رموز الوصول", icon: Key },
         { href: "/admin/statistics", label: "الإحصائيات", icon: BarChart3 },
