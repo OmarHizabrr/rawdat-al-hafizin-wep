@@ -16,9 +16,12 @@ import {
     limit,
     serverTimestamp,
     writeBatch,
+    increment,
     orderBy
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { PlanTemplate, PlanDay, TierTask } from "@/types/plan";
+import { SUNNAH_VOLUMES } from "@/lib/volumes";
 import {
     Search,
     UserPlus,
@@ -49,6 +52,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { EliteDialog } from "@/components/ui/EliteDialog";
 import { cn } from "@/lib/utils";
+
+interface CourseModel {
+    id: string;
+    title: string;
+    startDate: any;
+    folderId?: string;
+    selectedVolumeIds?: string[];
+    planTemplateId?: string;
+}
 
 interface MemberModel {
     id: string; // userId
@@ -110,6 +122,13 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [examForm, setExamForm] = useState({ title: '', mark: '', date: new Date().toISOString().split('T')[0] });
     const [isSavingExam, setIsSavingExam] = useState(false);
+    const [isLoggingDaily, setIsLoggingDaily] = useState(false);
+    
+    const [courseInfo, setCourseInfo] = useState<CourseModel | null>(null);
+    const [todayPlan, setTodayPlan] = useState<PlanDay | null>(null);
+    const [activeTemplate, setActiveTemplate] = useState<PlanTemplate | null>(null);
+    const [todayLog, setTodayLog] = useState<any>(null);
+    const todayStr = new Date().toISOString().split('T')[0];
 
     // 1. Fetch Group Info & Current Members
     useEffect(() => {
@@ -122,6 +141,9 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
             if (snap.exists()) {
                 const data = snap.data();
                 setGroupName(data.title || data.name || "مجموعة بدون اسم");
+                if (groupType === 'course') {
+                    setCourseInfo({ id: snap.id, ...data } as CourseModel);
+                }
             }
         };
         fetchGroup();
@@ -193,10 +215,136 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
             );
             const esnap = await getDocs(eq);
             setStudentExams(esnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+            // Fetch Today's log for the student
+            const tLogRef = doc(db, "daily_logs", student.id, "daily_logs", todayStr);
+            const tLogSnap = await getDoc(tLogRef);
+            setTodayLog(tLogSnap.exists() ? tLogSnap.data() : null);
+
+            // Fetch Course Plan for today
+            if (groupType === 'course' && courseInfo?.startDate) {
+                const start = courseInfo.startDate.toDate();
+                const today = new Date();
+                const dayNum = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                
+                if (dayNum > 0) {
+                    const pq = query(collection(db, "course_plans", groupId, "course_plans"), where("dayIndex", "==", dayNum));
+                    const psnap = await getDocs(pq);
+                    if (!psnap.empty) setTodayPlan(psnap.docs[0].data() as PlanDay);
+                    else setTodayPlan(null);
+                }
+
+                // Fetch Template
+                if (courseInfo.planTemplateId) {
+                    const tSnap = await getDoc(doc(db, "plan_templates", courseInfo.planTemplateId));
+                    if (tSnap.exists()) setActiveTemplate({ id: tSnap.id, ...tSnap.data() } as PlanTemplate);
+                }
+            }
         } catch (error) {
             console.error("Error fetching logs:", error);
         } finally {
             setLoadingLogs(false);
+        }
+    };
+
+    const handleToggleStudentTask = async (taskData: string | TierTask, isCompleted: boolean) => {
+        if (!selectedStudent || !groupId || !todayPlan || !courseInfo) return;
+        setIsLoggingDaily(true);
+        try {
+            const taskLabel = typeof taskData === 'string' ? taskData : taskData.label;
+            const logRef = doc(db, "daily_logs", selectedStudent.id, "daily_logs", todayStr);
+            const batch = writeBatch(db);
+            
+            let currentLog = todayLog;
+            if (!currentLog) {
+                currentLog = {
+                    userId: selectedStudent.id,
+                    courseId: groupId,
+                    date: todayStr,
+                    pages: 0,
+                    completedTasks: [],
+                    completed: false
+                };
+                batch.set(logRef, { ...currentLog, createdAt: serverTimestamp(), createdBy: 'teacher' });
+            }
+
+            const newTasks = isCompleted 
+                ? [...(currentLog.completedTasks || []), taskLabel]
+                : (currentLog.completedTasks || []).filter((t: string) => t !== taskLabel);
+
+            const isDayCompleted = newTasks.length === (todayPlan?.tasks?.length || 0);
+            
+            batch.update(logRef, {
+                completedTasks: newTasks,
+                completed: isDayCompleted,
+                updatedAt: serverTimestamp(),
+                updatedBy: 'teacher'
+            });
+
+            // Reward Points
+            const userRef = doc(db, "users", selectedStudent.id);
+            const rewardPoints = 5; // Default
+
+            if (isCompleted) {
+                batch.update(userRef, {
+                    totalPoints: increment(rewardPoints),
+                    lastActiveDate: serverTimestamp()
+                });
+
+                const pointLogRef = doc(collection(db, "points_logs", selectedStudent.id, "points_logs"));
+                batch.set(pointLogRef, {
+                    amount: rewardPoints,
+                    reason: `إنجاز مهمة يومية (بواسطة المعلم): ${taskLabel}`,
+                    timestamp: serverTimestamp(),
+                    type: 'reward'
+                });
+
+                // Identify target volume
+                let targetVolumeId = courseInfo.selectedVolumeIds?.[0] || courseInfo.folderId;
+                if (typeof taskData !== 'string' && activeTemplate) {
+                    const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
+                    if (tier?.selectedVolumeIds?.length) targetVolumeId = tier.selectedVolumeIds[0];
+                }
+
+                if (targetVolumeId) {
+                    const volRef = doc(db, "volume_progress", selectedStudent.id, "volume_progress", targetVolumeId);
+                    batch.set(volRef, {
+                        volumeId: targetVolumeId,
+                        completedPages: increment(1),
+                        lastUpdated: serverTimestamp()
+                    }, { merge: true });
+                }
+            } else {
+                batch.update(userRef, { totalPoints: increment(-rewardPoints) });
+                
+                let targetVolumeId = courseInfo.selectedVolumeIds?.[0] || courseInfo.folderId;
+                if (typeof taskData !== 'string' && activeTemplate) {
+                    const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
+                    if (tier?.selectedVolumeIds?.length) targetVolumeId = tier.selectedVolumeIds[0];
+                }
+
+                if (targetVolumeId) {
+                    const volRef = doc(db, "volume_progress", selectedStudent.id, "volume_progress", targetVolumeId);
+                    batch.set(volRef, {
+                        completedPages: increment(-1),
+                        lastUpdated: serverTimestamp()
+                    }, { merge: true });
+                }
+            }
+
+            await batch.commit();
+            setTodayLog({ ...currentLog, completedTasks: newTasks, completed: isDayCompleted });
+            
+            // Refresh student logs in list
+            setStudentLogs(prev => prev.map(l => l.date === todayStr ? { ...l, completedTasks: newTasks, completed: isDayCompleted } : l));
+            if (!studentLogs.some(l => l.date === todayStr)) {
+                setStudentLogs([{ date: todayStr, completedTasks: newTasks, completed: isDayCompleted }, ...studentLogs]);
+            }
+
+        } catch (error) {
+            console.error("Error toggling student task:", error);
+        } finally {
+            setIsLoggingDaily(false);
         }
     };
 
@@ -644,6 +792,58 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                                     </div>
                                 ) : (
                                     <div className="space-y-10">
+                                        {/* Log Achievement for Today */}
+                                        {groupType === 'course' && todayPlan && (
+                                            <div className="p-6 rounded-3xl border border-blue-500/20 bg-blue-500/5 space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <h3 className="text-sm font-bold flex items-center gap-2 text-blue-500">
+                                                        <CheckSquare className="w-4 h-4" />
+                                                        تسجيل إنجاز اليوم ({todayStr})
+                                                    </h3>
+                                                    {isLoggingDaily && <Loader2 className="w-4 h-4 animate-spin opacity-40" />}
+                                                </div>
+                                                
+                                                <div className="grid gap-3">
+                                                    {todayPlan.tasks.map((task, idx) => {
+                                                        const label = typeof task === 'string' ? task : task.label;
+                                                        const isDone = todayLog?.completedTasks?.includes(label);
+                                                        
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                disabled={isLoggingDaily}
+                                                                onClick={() => handleToggleStudentTask(task, !isDone)}
+                                                                className={cn(
+                                                                    "w-full p-4 rounded-xl border flex items-center justify-between transition-all group",
+                                                                    isDone 
+                                                                        ? "bg-green-500 text-white border-green-600 shadow-lg shadow-green-500/20" 
+                                                                        : "bg-background border-white/10 hover:border-blue-500/30"
+                                                                )}
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={cn(
+                                                                        "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                                                                        isDone ? "bg-white/20" : "bg-gray-100 dark:bg-white/5"
+                                                                    )}>
+                                                                        {isDone ? <CheckCircle2 className="w-4 h-4" /> : <div className="w-2 h-2 rounded-full bg-gray-300" />}
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className="font-bold text-xs">{label}</p>
+                                                                        {typeof task !== 'string' && task.start && (
+                                                                            <p className={cn("text-[8px] font-black uppercase tracking-widest opacity-60", isDone ? "text-white" : "text-primary")}>
+                                                                                {task.start} {task.end ? `- ${task.end}` : ''}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <ChevronDown className={cn("w-4 h-4 transition-transform", isDone ? "rotate-90" : "opacity-20")} />
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Exam Recording Form */}
                                         <div className="p-6 rounded-3xl border border-primary/20 bg-primary/5 space-y-4">
                                             <h3 className="text-sm font-bold flex items-center gap-2 text-primary">

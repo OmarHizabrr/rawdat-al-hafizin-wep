@@ -41,6 +41,7 @@ interface Course {
     registrationEnd: any;
     visibility?: 'public' | 'private';
     folderId?: string;
+    selectedVolumeIds?: string[];
     planTemplateId?: string;
 }
 
@@ -141,6 +142,7 @@ export default function StudentsDashboard() {
     const [pointsLogs, setPointsLogs] = useState<any[]>([]);
     const [isCheckingBadges, setIsCheckingBadges] = useState(false);
     const [activeTemplate, setActiveTemplate] = useState<PlanTemplate | null>(null);
+    const [celebratedVolume, setCelebratedVolume] = useState<SunnahVolume | null>(null);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -301,6 +303,18 @@ export default function StudentsDashboard() {
                     aggProgress[doc.id] = Number(doc.data().completedPages || 0);
                 });
                 
+                // Detect newly completed volumes
+                Object.entries(aggProgress).forEach(([vid, completed]) => {
+                    const vol = SUNNAH_VOLUMES.find(v => v.id === vid);
+                    if (vol && completed >= vol.totalPages && !volumeProgress[vid]) {
+                        // Only celebrate if it was previously not complete or not in state yet
+                        // To avoid repeat popups on load, we can compare with previous state if it exists
+                        if (volumeProgress[vid] !== undefined) {
+                             setCelebratedVolume(vol);
+                        }
+                    }
+                });
+
                 setVolumeProgress(aggProgress);
             } catch (error) {
                 console.error("Error fetching volumes progress:", error);
@@ -428,7 +442,7 @@ export default function StudentsDashboard() {
                 else if (lastDate !== todayStr) batch.update(userRef, { streak: 1 });
                 
                 // Identify target volume
-                let targetVolumeId = activeCourse.folderId;
+                let targetVolumeId = activeCourse.selectedVolumeIds?.[0] || activeCourse.folderId;
                 if (typeof taskData !== 'string' && activeTemplate) {
                     const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
                     if (tier?.selectedVolumeIds?.length) targetVolumeId = tier.selectedVolumeIds[0];
@@ -443,7 +457,7 @@ export default function StudentsDashboard() {
                     }, { merge: true });
                 }
             } else {
-                let targetVolumeId = activeCourse.folderId;
+                let targetVolumeId = activeCourse.selectedVolumeIds?.[0] || activeCourse.folderId;
                 if (typeof taskData !== 'string' && activeTemplate) {
                     const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
                     if (tier?.selectedVolumeIds?.length) targetVolumeId = tier.selectedVolumeIds[0];
@@ -734,10 +748,10 @@ export default function StudentsDashboard() {
                                         animate={{ 
                                             strokeDashoffset: 176 - (176 * Math.min(
                                                 (Object.entries(volumeProgress)
-                                                    .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                                    .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
                                                     .reduce((acc, [, val]) => acc + val, 0) / 
                                                 (SUNNAH_VOLUMES
-                                                    .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                                    .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
                                                     .reduce((acc, v) => acc + v.totalPages, 0) || 1)
                                                 ), 1)
                                             ) 
@@ -747,10 +761,10 @@ export default function StudentsDashboard() {
                                 </svg>
                                 <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black">
                                     {Math.round((Object.entries(volumeProgress)
-                                        .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                        .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
                                         .reduce((acc, [, val]) => acc + val, 0) / 
                                     (SUNNAH_VOLUMES
-                                        .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                        .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
                                         .reduce((acc, v) => acc + v.totalPages, 0) || 1)) * 100)}%
                                 </div>
                             </div>
@@ -759,10 +773,10 @@ export default function StudentsDashboard() {
                                 <div className="text-xl font-black flex items-baseline gap-2">
                                     <span className="text-3xl tracking-tighter">
                                         { (SUNNAH_VOLUMES
-                                            .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                            .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
                                             .reduce((acc, v) => acc + v.totalPages, 0)) - 
                                           (Object.entries(volumeProgress)
-                                            .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                            .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
                                             .reduce((acc, [, val]) => acc + val, 0)) }
                                     </span>
                                     <span className="text-xs opacity-50">صفحة متبقية</span>
@@ -775,7 +789,7 @@ export default function StudentsDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {SUNNAH_VOLUMES
                         .filter(volume => {
-                            const isTarget = activeTemplate?.selectedVolumeIds?.includes(volume.id) || activeCourse?.folderId === volume.id;
+                            const isTarget = activeTemplate?.selectedVolumeIds?.includes(volume.id) || activeCourse?.selectedVolumeIds?.includes(volume.id) || activeCourse?.folderId === volume.id;
                             return isTarget;
                         })
                         .map(volume => {
@@ -979,6 +993,62 @@ export default function StudentsDashboard() {
                     <button onClick={handleSubmitTestimonial} disabled={isSubmittingTestimonial || !newTestimonialContent.trim()} className="w-full mt-6 py-4 bg-primary text-white font-black rounded-2xl flex items-center justify-center gap-2">{isSubmittingTestimonial ? <Loader2 className="animate-spin" /> : <Sparkles />} نشر الآن</button>
                 </DialogContent>
             </Dialog>
+
+            {/* Achievement Celebration Modal */}
+            <AnimatePresence>
+                {celebratedVolume && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setCelebratedVolume(null)} className="absolute inset-0 bg-black/80 backdrop-blur-3xl" />
+                        <motion.div initial={{ scale: 0.8, opacity: 0, y: 50 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.8, opacity: 0, y: 50 }} className="relative bg-background border border-amber-500/30 rounded-[3.5rem] p-12 shadow-2xl max-w-lg w-full text-center space-y-10 overflow-hidden group">
+                           {/* Decorative Elements */}
+                            <div className="absolute top-0 inset-x-0 h-3 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-50" />
+                            <div className="absolute -top-24 -right-24 w-64 h-64 bg-amber-500/10 blur-[80px] rounded-full group-hover:scale-125 transition-transform duration-1000" />
+                            
+                            <div className="relative">
+                                <motion.div initial={{ rotate: -15, scale: 0.5 }} animate={{ rotate: 0, scale: 1 }} transition={{ type: "spring", damping: 12 }} className="w-32 h-32 bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl relative z-10">
+                                    <Trophy className="w-16 h-16 text-white drop-shadow-lg" />
+                                </motion.div>
+                                <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 2, repeat: Infinity }} className="absolute inset-0 bg-amber-500 blur-3xl opacity-30 rounded-full" />
+                            </div>
+
+                            <div className="space-y-6 relative z-10">
+                                <h2 className="text-4xl md:text-5xl font-black tracking-tight text-amber-500 mb-2">مبارك الإتمام! ✨</h2>
+                                <p className="text-xl font-medium opacity-90 leading-relaxed">
+                                    هنيئاً لك يا <span className="text-primary font-black underline decoration-amber-500/30 underline-offset-8 decoration-4">{user?.displayName || "طالب العلم"}</span> 
+                                    <br /> 
+                                    إنجازك التام لـ <span className="text-amber-500 font-black">{celebratedVolume.title}</span>
+                                </p>
+                                
+                                <div className="flex justify-center gap-3 py-6">
+                                    {[1, 2, 3, 4, 5].map((i) => (
+                                        <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.1 }}>
+                                            <Star className="w-8 h-8 text-amber-500 fill-current drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+                                        </motion.div>
+                                    ))}
+                                </div>
+
+                                <div className="p-8 rounded-[2.5rem] bg-amber-500/5 border border-amber-500/20 flex items-center justify-between shadow-inner">
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-black uppercase text-amber-500 tracking-[0.2em] mb-1">إجمالي الصفحات التي ضُبطت</p>
+                                        <p className="text-3xl font-black tracking-tighter">{celebratedVolume.totalPages} صفحة</p>
+                                    </div>
+                                    <div className="w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 shadow-xl">
+                                        <FileCheck className="w-8 h-8" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 pt-4">
+                                <button onClick={() => setCelebratedVolume(null)} className="w-full py-6 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-[2rem] font-black shadow-2xl shadow-amber-500/40 hover:scale-[1.03] active:scale-95 transition-all text-xl flex items-center justify-center gap-3">
+                                    <Sparkles className="w-6 h-6 animate-pulse" />
+                                    تابِع مسير البركة
+                                </button>
+                                <p className="text-sm opacity-50 font-black tracking-wide italic">"فإذا فرغت فانصب وإلى ربك فارغب"</p>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

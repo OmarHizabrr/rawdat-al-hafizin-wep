@@ -53,10 +53,11 @@ interface CourseModel {
     endDate?: Timestamp;
     registrationStart?: Timestamp;
     registrationEnd?: Timestamp;
-    whatsappLink?: string;
+    socialLinks?: { type: 'whatsapp' | 'telegram' | 'facebook' | 'other', url: string, label?: string }[];
     conditions?: string[];
     visibility?: 'public' | 'private';
-    folderId?: string;
+    folderId?: string; // Legacy field for compatibility
+    selectedVolumeIds?: string[];
     planTemplateId?: string;
 }
 
@@ -65,10 +66,10 @@ const initialCourseState: Partial<CourseModel> = {
     description: "",
     mechanism: "",
     features: [],
-    whatsappLink: "",
+    socialLinks: [{ type: 'whatsapp', url: '', label: 'مجموعة الواتساب' }],
     conditions: [""],
     visibility: 'public',
-    folderId: "",
+    selectedVolumeIds: [],
 };
 
 export default function CoursesDashboard() {
@@ -85,6 +86,7 @@ export default function CoursesDashboard() {
     // Temporary state for inputs
     const [featuresInput, setFeaturesInput] = useState<string[]>([""]);
     const [conditionsInput, setConditionsInput] = useState<string[]>([""]);
+    const [socialLinksInput, setSocialLinksInput] = useState<CourseModel['socialLinks']>([]);
 
     useEffect(() => {
         const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
@@ -113,6 +115,9 @@ export default function CoursesDashboard() {
         }
         if (currentCourse.conditions) {
             setConditionsInput(currentCourse.conditions.length > 0 ? currentCourse.conditions : [""]);
+        }
+        if (currentCourse.socialLinks) {
+            setSocialLinksInput(currentCourse.socialLinks.length > 0 ? currentCourse.socialLinks : [{ type: 'whatsapp', url: '', label: 'مجموعة الواتساب' }]);
         }
     }, [currentCourse]);
 
@@ -169,6 +174,7 @@ export default function CoursesDashboard() {
                 ...currentCourse,
                 features: validFeatures,
                 conditions: conditionsInput.filter(c => c.trim().length > 0),
+                socialLinks: socialLinksInput?.filter(s => s.url.trim().length > 0),
                 updatedAt: serverTimestamp()
             };
 
@@ -320,10 +326,15 @@ export default function CoursesDashboard() {
                                         <Monitor className="w-4 h-4" />
                                         <span>{course.mechanism}</span>
                                     </div>
-                                    {course.folderId && (
+                                    {((course.selectedVolumeIds || []).length > 0 || course.folderId) && (
                                         <div className="flex items-center gap-1 text-primary font-bold">
                                             <Library className="w-4 h-4" />
-                                            <span>{SUNNAH_VOLUMES.find(v => v.id === course.folderId)?.title}</span>
+                                            <span>
+                                                {course.selectedVolumeIds?.length 
+                                                    ? `${course.selectedVolumeIds.length} مجلدات مرتبطة`
+                                                    : SUNNAH_VOLUMES.find(v => v.id === course.folderId)?.title
+                                                }
+                                            </span>
                                         </div>
                                     )}
                                 </div>
@@ -403,21 +414,53 @@ export default function CoursesDashboard() {
                                     
                                     <div className="space-y-4 p-6 bg-primary/5 rounded-3xl border border-primary/10">
                                         <label className="text-sm font-bold flex items-center gap-2">
-                                            <Library className="w-4 h-4 text-primary" /> الربط بالمجلد الأكاديمي
+                                            <Library className="w-4 h-4 text-primary" /> الربط بالمجلدات الأكاديمية (دراسة متعددة)
                                         </label>
-                                        <select
-                                            value={currentCourse.folderId || ""}
-                                            onChange={e => setCurrentCourse({ ...currentCourse, folderId: e.target.value })}
-                                            className="w-full p-4 bg-black/20 border border-white/5 rounded-2xl focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold text-sm"
-                                        >
-                                            <option value="">-- اختر المجلد المرتبط (اختياري) --</option>
-                                            {SUNNAH_VOLUMES.map(volume => (
-                                                <option key={volume.id} value={volume.id}>
-                                                    {volume.title} ({volume.totalPages} صفحة)
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <p className="text-[10px] text-muted-foreground px-1">سيتم احتساب تقدم الطالب في هذا المجلد بناءً على صفحات هذه الدورة.</p>
+                                        
+                                        <div className="relative group/multiselect">
+                                            <div className="flex flex-wrap gap-2 p-3 bg-black/40 border border-white/10 rounded-2xl min-h-[56px] focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                                                {(currentCourse.selectedVolumeIds || []).length ? (
+                                                    (currentCourse.selectedVolumeIds || []).map(vId => {
+                                                        const vol = SUNNAH_VOLUMES.find(v => v.id === vId);
+                                                        return (
+                                                            <div key={vId} className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-bold">
+                                                                <div className={cn("w-1.5 h-1.5 rounded-full bg-gradient-to-r", vol?.color)} />
+                                                                <span>{vol?.title}</span>
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const next = (currentCourse.selectedVolumeIds || []).filter(id => id !== vId);
+                                                                        setCurrentCourse({ ...currentCourse, selectedVolumeIds: next });
+                                                                    }}
+                                                                    className="hover:text-red-500 transition-colors"
+                                                                >
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground/50 self-center px-1">اختر المجلدات المستهدفة...</span>
+                                                )}
+                                            </div>
+                                            
+                                            <select 
+                                                multiple
+                                                value={currentCourse.selectedVolumeIds || []}
+                                                onChange={e => {
+                                                    const values = Array.from(e.target.selectedOptions, option => option.value);
+                                                    setCurrentCourse({ ...currentCourse, selectedVolumeIds: values });
+                                                }}
+                                                className="w-full mt-2 p-3 bg-black/20 border border-white/5 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 outline-none h-40"
+                                            >
+                                                {SUNNAH_VOLUMES.map(vol => (
+                                                    <option key={vol.id} value={vol.id} className="p-2 checked:bg-primary/20 checked:text-primary">
+                                                        {vol.title} ({vol.totalPages} صفحة)
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground px-1">سيتم احتساب تقدم الطالب في المجلدات المختارة بناءً على محتوى هذه الدورة.</p>
                                     </div>
 
                                     {/* Plan Template Link */}
@@ -555,15 +598,68 @@ export default function CoursesDashboard() {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-1 border-t pt-4">
-                                        <label className="text-sm font-medium">رابط مجموعة الواتساب</label>
-                                        <input
-                                            type="url"
-                                            value={currentCourse.whatsappLink || ""}
-                                            onChange={e => setCurrentCourse({ ...currentCourse, whatsappLink: e.target.value })}
-                                            className="w-full p-2 rounded-lg border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20"
-                                            placeholder="https://chat.whatsapp.com/..."
-                                        />
+                                    <div className="space-y-4 border-t pt-4">
+                                        <label className="text-sm font-bold flex items-center gap-2">
+                                            <Globe className="w-4 h-4 text-primary" /> روابط التواصل الاجتماعي
+                                        </label>
+                                        <div className="space-y-3">
+                                            {socialLinksInput?.map((link, index) => (
+                                                <div key={index} className="p-4 bg-white/5 border border-white/5 rounded-2xl space-y-3 relative group/link">
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setSocialLinksInput(socialLinksInput.filter((_, i) => i !== index))}
+                                                        className="absolute top-2 left-2 p-1.5 text-red-500 opacity-0 group-hover/link:opacity-100 transition-opacity"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <select
+                                                            value={link.type}
+                                                            onChange={e => {
+                                                                const update = [...(socialLinksInput || [])];
+                                                                update[index].type = e.target.value as any;
+                                                                setSocialLinksInput(update);
+                                                            }}
+                                                            className="p-2 rounded-lg border bg-black/20 text-xs font-bold"
+                                                        >
+                                                            <option value="whatsapp">واتساب</option>
+                                                            <option value="telegram">تلجرام</option>
+                                                            <option value="facebook">فيسبوك</option>
+                                                            <option value="other">رابط آخر</option>
+                                                        </select>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="تسمية الرابط (مثلاً: المجموعة الرسمية)"
+                                                            value={link.label || ""}
+                                                            onChange={e => {
+                                                                const update = [...(socialLinksInput || [])];
+                                                                update[index].label = e.target.value;
+                                                                setSocialLinksInput(update);
+                                                            }}
+                                                            className="p-2 rounded-lg border bg-black/20 text-xs font-bold"
+                                                        />
+                                                    </div>
+                                                    <input
+                                                        type="url"
+                                                        placeholder="رابط URL..."
+                                                        value={link.url}
+                                                        onChange={e => {
+                                                            const update = [...(socialLinksInput || [])];
+                                                            update[index].url = e.target.value;
+                                                            setSocialLinksInput(update);
+                                                        }}
+                                                        className="w-full p-2 rounded-lg border bg-black/20 text-xs font-bold font-mono"
+                                                    />
+                                                </div>
+                                            ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => setSocialLinksInput([...(socialLinksInput || []), { type: 'whatsapp', url: '', label: '' }])}
+                                                className="text-xs text-primary hover:underline flex items-center gap-1 font-bold"
+                                            >
+                                                <Plus className="w-4 h-4" /> إضافة رابط تواصل جديد
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="space-y-2 border-t pt-4">
