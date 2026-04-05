@@ -20,9 +20,11 @@ import {
     Layout, Quote, HelpCircle, Mail, Globe, Search,
     Lock as LockIcon, Hash, BookOpen, TrendingUp,
     GraduationCap, ArrowUpRight, Clock3, Trophy, ScrollText as ScrollTextIcon,
-    Library, Radio, Zap, Shield, Coins, Flame
+    Library, Radio, Zap, Shield, Coins, Flame,
+    ArrowLeftRight, FileCheck, Layers as LayersIcon
 } from "lucide-react";
 import { SUNNAH_VOLUMES, SunnahVolume } from "@/lib/volumes";
+import { PlanTemplate, PlanTierDefinition, TierTask } from "@/types/plan";
 import { logSessionAttendance } from "@/lib/recitation-service";
 import { useRouter } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -39,6 +41,7 @@ interface Course {
     registrationEnd: any;
     visibility?: 'public' | 'private';
     folderId?: string;
+    planTemplateId?: string;
 }
 
 interface Group {
@@ -62,8 +65,9 @@ interface Testimonial {
 }
 
 interface PlanDay {
+    id?: string;
     dayIndex: number;
-    tasks: string[];
+    tasks: (string | TierTask)[];
 }
 
 const getLevelInfo = (points: number) => {
@@ -136,6 +140,7 @@ export default function StudentsDashboard() {
     const [myBadges, setMyBadges] = useState<any[]>([]);
     const [pointsLogs, setPointsLogs] = useState<any[]>([]);
     const [isCheckingBadges, setIsCheckingBadges] = useState(false);
+    const [activeTemplate, setActiveTemplate] = useState<PlanTemplate | null>(null);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -305,6 +310,21 @@ export default function StudentsDashboard() {
         };
         fetchVolumesProgress();
 
+        // Fetch Template Logic
+        const fetchTemplate = async () => {
+            if (!activeCourse?.planTemplateId) {
+                setActiveTemplate(null);
+                return;
+            }
+            const tSnap = await getDoc(doc(db, "plan_templates", activeCourse.planTemplateId));
+            if (tSnap.exists()) {
+                setActiveTemplate({ id: tSnap.id, ...tSnap.data() } as PlanTemplate);
+            } else {
+                setActiveTemplate(null);
+            }
+        };
+        fetchTemplate();
+
         // Fetch Points Settings (Unified Path)
         const fetchPointsConfig = async () => {
             const docRef = doc(db, "points_config", "global", "points_config", "settings");
@@ -349,12 +369,13 @@ export default function StudentsDashboard() {
         setLastRank(currentRank);
     }, [userData?.totalPoints]);
 
-    const handleToggleTask = async (task: string, isCompleted: boolean) => {
-        if (!user || !activeCourse || isLoggingDaily) return;
+    const handleToggleTask = async (taskData: string | TierTask, isCompleted: boolean) => {
+        if (!user || !activeCourse || !todayPlan) return;
         setIsLoggingDaily(true);
         try {
-            const batch = writeBatch(db);
+            const taskLabel = typeof taskData === 'string' ? taskData : taskData.label;
             const logRef = doc(db, "daily_logs", user.uid, "daily_logs", todayStr);
+            const batch = writeBatch(db);
             
             let currentLog = dailyLog;
             if (!currentLog) {
@@ -370,8 +391,8 @@ export default function StudentsDashboard() {
             }
 
             const newTasks = isCompleted 
-                ? [...(currentLog.completedTasks || []), task]
-                : (currentLog.completedTasks || []).filter(t => t !== task);
+                ? [...(currentLog.completedTasks || []), taskLabel]
+                : (currentLog.completedTasks || []).filter(t => t !== taskLabel);
 
             const isDayCompleted = newTasks.length === (todayPlan?.tasks?.length || 0);
             
@@ -392,11 +413,12 @@ export default function StudentsDashboard() {
                 const pointLogRef = doc(collection(db, "points_logs", user.uid, "points_logs"));
                 batch.set(pointLogRef, {
                     amount: rewardPoints,
-                    reason: `إنجاز مهمة يومية: ${task}`,
+                    reason: `إنجاز مهمة يومية: ${taskLabel}`,
                     timestamp: serverTimestamp(),
                     type: 'reward'
                 });
-                
+
+                // Streak Correction
                 const lastDate = userData?.lastActiveDate?.toDate()?.toISOString()?.split('T')[0];
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
@@ -404,18 +426,31 @@ export default function StudentsDashboard() {
 
                 if (lastDate === yesterdayStr) batch.update(userRef, { streak: increment(1) });
                 else if (lastDate !== todayStr) batch.update(userRef, { streak: 1 });
+                
+                // Identify target volume
+                let targetVolumeId = activeCourse.folderId;
+                if (typeof taskData !== 'string' && activeTemplate) {
+                    const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
+                    if (tier?.selectedVolumeIds?.length) targetVolumeId = tier.selectedVolumeIds[0];
+                }
 
-                if (activeCourse.folderId) {
-                    const volRef = doc(db, "volume_progress", user.uid, "volume_progress", activeCourse.folderId);
+                if (targetVolumeId) {
+                    const volRef = doc(db, "volume_progress", user.uid, "volume_progress", targetVolumeId);
                     batch.set(volRef, {
-                        volumeId: activeCourse.folderId,
+                        volumeId: targetVolumeId,
                         completedPages: increment(1),
                         lastUpdated: serverTimestamp()
                     }, { merge: true });
                 }
             } else {
-                if (activeCourse.folderId) {
-                    const volRef = doc(db, "volume_progress", user.uid, "volume_progress", activeCourse.folderId);
+                let targetVolumeId = activeCourse.folderId;
+                if (typeof taskData !== 'string' && activeTemplate) {
+                    const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
+                    if (tier?.selectedVolumeIds?.length) targetVolumeId = tier.selectedVolumeIds[0];
+                }
+
+                if (targetVolumeId) {
+                    const volRef = doc(db, "volume_progress", user.uid, "volume_progress", targetVolumeId);
                     batch.set(volRef, {
                         completedPages: increment(-1),
                         lastUpdated: serverTimestamp()
@@ -678,25 +713,107 @@ export default function StudentsDashboard() {
 
             {/* Volumes Progress */}
             <section className="space-y-8 pt-6">
-                <h3 className="text-2xl font-black flex items-center gap-3 px-4"><Library className="w-6 h-6 text-primary" /> مسار إنجاز المجلدات</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {SUNNAH_VOLUMES.map(volume => {
-                        const completed = volumeProgress[volume.id] || 0;
-                        const percent = Math.min(Math.round((completed / volume.totalPages) * 100), 100);
-                        return (
-                            <GlassCard key={volume.id} className={cn("p-6 hover:-translate-y-1 transition-all duration-500", percent >= 100 ? "border-emerald-500/30 bg-emerald-500/5 transition-all duration-500" : "bg-white/[0.01]")}>
-                                <div className="space-y-6">
-                                    <div className="flex items-start justify-between">
-                                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center text-white bg-gradient-to-br", volume.color)}>{percent >= 100 ? <Trophy /> : <BookOpen />}</div>
-                                        <div className="text-left"><p className="text-2xl font-black">{percent}%</p></div>
-                                    </div>
-                                    <h4 className="font-black text-lg">{volume.title}</h4>
-                                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden shadow-inner"><motion.div initial={{ width: 0 }} animate={{ width: `${percent}%` }} className={cn("h-full", percent >= 100 ? "bg-emerald-500" : "bg-gradient-to-r " + volume.color)} /></div>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
+                    <div className="space-y-2">
+                        <h3 className="text-2xl font-black flex items-center gap-3 text-primary"><Library className="w-6 h-6" /> مسار إنجاز المجلدات المطلوبة</h3>
+                        <p className="text-muted-foreground text-sm font-medium italic">"وخيرُ العلم ما ضُبطت أصولُه.."</p>
+                    </div>
+                    
+                    {/* Aggregated Progress Card */}
+                    {(activeTemplate || activeCourse?.folderId) && (
+                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-primary/10 border border-primary/20 rounded-[2rem] p-6 flex items-center gap-6 shadow-2xl backdrop-blur-md relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
+                            <div className="relative w-16 h-16">
+                                <svg className="w-full h-full transform -rotate-90">
+                                    <circle cx="32" cy="32" r="28" fill="transparent" stroke="currentColor" strokeWidth="4" className="text-white/5" />
+                                    <motion.circle 
+                                        cx="32" cy="32" r="28" fill="transparent" stroke="currentColor" strokeWidth="4" 
+                                        className="text-primary"
+                                        strokeDasharray={176}
+                                        initial={{ strokeDashoffset: 176 }}
+                                        animate={{ 
+                                            strokeDashoffset: 176 - (176 * Math.min(
+                                                (Object.entries(volumeProgress)
+                                                    .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                                    .reduce((acc, [, val]) => acc + val, 0) / 
+                                                (SUNNAH_VOLUMES
+                                                    .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                                    .reduce((acc, v) => acc + v.totalPages, 0) || 1)
+                                                ), 1)
+                                            ) 
+                                        }}
+                                        transition={{ duration: 1.5, ease: "easeOut" }}
+                                    />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black">
+                                    {Math.round((Object.entries(volumeProgress)
+                                        .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                        .reduce((acc, [, val]) => acc + val, 0) / 
+                                    (SUNNAH_VOLUMES
+                                        .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                        .reduce((acc, v) => acc + v.totalPages, 0) || 1)) * 100)}%
                                 </div>
-                            </GlassCard>
-                        );
+                            </div>
+                            <div className="space-y-1 relative z-10">
+                                <div className="text-[10px] font-black text-primary uppercase tracking-widest opacity-70">الإنجاز الكلي للمسار</div>
+                                <div className="text-xl font-black flex items-baseline gap-2">
+                                    <span className="text-3xl tracking-tighter">
+                                        { (SUNNAH_VOLUMES
+                                            .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                            .reduce((acc, v) => acc + v.totalPages, 0)) - 
+                                          (Object.entries(volumeProgress)
+                                            .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                            .reduce((acc, [, val]) => acc + val, 0)) }
+                                    </span>
+                                    <span className="text-xs opacity-50">صفحة متبقية</span>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {SUNNAH_VOLUMES
+                        .filter(volume => {
+                            const isTarget = activeTemplate?.selectedVolumeIds?.includes(volume.id) || activeCourse?.folderId === volume.id;
+                            return isTarget;
+                        })
+                        .map(volume => {
+                            const completed = volumeProgress[volume.id] || 0;
+                            const percent = Math.min(Math.round((completed / volume.totalPages) * 100), 100);
+                            return (
+                                <GlassCard key={volume.id} className={cn("p-6 hover:-translate-y-2 transition-all duration-500 overflow-hidden relative group", percent >= 100 ? "border-emerald-500/30 bg-emerald-500/5 shadow-emerald-500/10" : "bg-white/[0.01]")}>
+                                    <div className={cn("absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-20 transition-all duration-700 group-hover:scale-150", "bg-gradient-to-br " + volume.color)} />
+                                    <div className="space-y-6 relative z-10">
+                                        <div className="flex items-start justify-between">
+                                            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white bg-gradient-to-br shadow-xl transform group-hover:rotate-12 transition-transform", volume.color)}>{percent >= 100 ? <Trophy className="w-6 h-6" /> : <BookOpen className="w-6 h-6" />}</div>
+                                            <div className="text-left"><p className="text-3xl font-black tracking-tighter">{percent}%</p></div>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-black text-lg mb-1">{volume.title}</h4>
+                                            <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{completed} / {volume.totalPages} صفحة</p>
+                                        </div>
+                                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden shadow-inner relative">
+                                            <motion.div 
+                                                initial={{ width: 0 }} 
+                                                animate={{ width: `${percent}%` }} 
+                                                className={cn("h-full relative", percent >= 100 ? "bg-emerald-500" : "bg-gradient-to-r " + volume.color)}
+                                            >
+                                                {percent < 100 && percent > 0 && <div className="absolute top-0 right-0 h-full w-4 bg-white/20 blur-sm animate-pulse" />}
+                                            </motion.div>
+                                        </div>
+                                    </div>
+                                </GlassCard>
+                            );
                     })}
                 </div>
+                
+                {SUNNAH_VOLUMES.filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id).length === 0 && (
+                    <div className="py-24 text-center border-2 border-dashed border-white/5 rounded-[3rem] opacity-20 flex flex-col items-center gap-4">
+                        <LayersIcon className="w-12 h-12" />
+                        <p className="font-bold">لم يتم رصد مجلدات مطلوبة في خطتك الحالية بعد.</p>
+                    </div>
+                )}
             </section>
 
             {/* Daily ورد */}
@@ -710,19 +827,43 @@ export default function StudentsDashboard() {
                         {dailyLog?.completed && <div className="px-6 py-3 bg-emerald-500 text-white font-black rounded-2xl">تم الإنجاز بنجاح ✨</div>}
                     </div>
                     <div className="grid md:grid-cols-2 gap-6">
-                        {todayPlan.tasks.map((task, idx) => {
-                            const isDone = dailyLog?.completedTasks?.includes(task);
+                        {todayPlan.tasks.map((taskData, idx) => {
+                            const taskLabel = typeof taskData === 'string' ? taskData : taskData.label;
+                            const isDone = dailyLog?.completedTasks?.includes(taskLabel);
+                            
+                            // Get Tier color if Task
+                            let accentColor = "bg-primary";
+                            if (typeof taskData !== 'string' && activeTemplate) {
+                                const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
+                                if (tier?.color) accentColor = tier.color;
+                            }
+
                             return (
-                                <GlassCard key={idx} className={cn("p-8 cursor-pointer transition-all", isDone ? "bg-emerald-500/5 opacity-80" : "bg-white/[0.02] hover:bg-white/[0.04]")} onClick={() => handleToggleTask(task, !isDone)}>
+                                <GlassCard key={idx} className={cn("p-8 cursor-pointer transition-all border-l-4 group relative", isDone ? "border-emerald-500 bg-emerald-500/5 opacity-80" : `border-transparent bg-white/[0.02] hover:bg-white/[0.04] flex flex-col`)} onClick={() => handleToggleTask(taskData, !isDone)}>
                                     <div className="flex items-center gap-6">
-                                        <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center", isDone ? "bg-emerald-500 text-white" : "bg-white/5 text-muted-foreground")}>
+                                        <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500", isDone ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20" : "bg-white/5 text-muted-foreground")}>
                                             {isLoggingDaily ? <Loader2 className="animate-spin" /> : isDone ? <CheckCircle /> : <div className="w-4 h-4 rounded-full border-2 border-current opacity-30" />}
                                         </div>
                                         <div className="flex-1 space-y-1">
-                                            <p className={cn("text-xl font-black", isDone && "line-through opacity-50")}>{task}</p>
-                                            <div className="flex items-center gap-2"><div className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[10px] font-black rounded">+5 XP</div></div>
+                                            <div className="flex items-center gap-2">
+                                                {typeof taskData !== 'string' && <div className={cn("w-2 h-2 rounded-full", accentColor)} />}
+                                                <p className={cn("text-xl font-black transition-all", isDone && "line-through opacity-50")}>{taskLabel}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[10px] font-black rounded uppercase tracking-widest">+5 XP</div>
+                                                {typeof taskData !== 'string' && taskData.type === 'hadiths' && <span className="text-[10px] opacity-40 font-bold uppercase tracking-widest flex items-center gap-1"><Hash className="w-3 h-3" /> أحاديث</span>}
+                                                {typeof taskData !== 'string' && taskData.type === 'pages' && <span className="text-[10px] opacity-40 font-bold uppercase tracking-widest flex items-center gap-1"><BookOpen className="w-3 h-3" /> صفحات</span>}
+                                            </div>
                                         </div>
                                     </div>
+                                    {!isDone && typeof taskData !== 'string' && (taskData.start || taskData.end) && (
+                                        <div className="mt-4 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-1">
+                                            <p className="text-sm font-bold opacity-60 flex items-center gap-2">
+                                                <Target className="w-4 h-4 text-primary" />
+                                                نطاق المهمة: {taskData.start} {taskData.end ? `إلى ${taskData.end}` : ''}
+                                            </p>
+                                        </div>
+                                    )}
                                 </GlassCard>
                             );
                         })}

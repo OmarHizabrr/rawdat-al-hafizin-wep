@@ -33,12 +33,14 @@ import {
     Eye, 
     Lock, 
     Globe,
-    Library
+    Library,
+    Info
 } from "lucide-react";
 import { SUNNAH_VOLUMES } from "@/lib/volumes";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { PlanTemplate } from "@/types/plan";
 
 interface CourseModel {
     id: string;
@@ -55,6 +57,7 @@ interface CourseModel {
     conditions?: string[];
     visibility?: 'public' | 'private';
     folderId?: string;
+    planTemplateId?: string;
 }
 
 const initialCourseState: Partial<CourseModel> = {
@@ -74,6 +77,7 @@ export default function CoursesDashboard() {
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentCourse, setCurrentCourse] = useState<Partial<CourseModel>>(initialCourseState);
+    const [templates, setTemplates] = useState<PlanTemplate[]>([]);
     const [isEditing, setIsEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const router = useRouter();
@@ -91,7 +95,16 @@ export default function CoursesDashboard() {
             setCourses(coursesData);
             setLoading(false);
         });
-        return () => unsubscribe();
+
+        // Fetch Plan Templates
+        const unsubTemplates = onSnapshot(collection(db, "plan_templates"), (snap) => {
+            setTemplates(snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanTemplate[]);
+        });
+
+        return () => {
+            unsubscribe();
+            unsubTemplates();
+        };
     }, []);
 
     useEffect(() => {
@@ -351,14 +364,22 @@ export default function CoursesDashboard() {
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="bg-background rounded-2xl shadow-xl w-full max-w-2xl relative z-10 overflow-hidden max-h-[90vh] flex flex-col"
+                            className="bg-background border border-white/10 rounded-[2.5rem] shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden max-h-[90vh] flex flex-col"
                         >
-                            <div className="flex items-center justify-between p-6 border-b">
-                                <h2 className="text-xl font-bold">{isEditing ? 'تعديل الدورة' : 'إضافة دورة جديدة'}</h2>
-                                <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6" /></button>
+                            <div className="flex items-center justify-between p-8 border-b border-white/5 bg-primary/5">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
+                                        <Layers className="w-6 h-6 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold">{isEditing ? 'تعديل الدورة' : 'إضافة دورة جديدة'}</h2>
+                                        <p className="text-xs text-muted-foreground font-medium">تحديد خصائص وبنية المسار التعليمي</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white/10 rounded-xl transition-all"><X className="w-6 h-6" /></button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            <div className="flex-1 overflow-y-auto p-8 space-y-8">
                                 <form id="courseForm" onSubmit={handleSave} className="space-y-6">
                                     <div className="space-y-1">
                                         <label className="text-sm font-medium">عنوان الدورة</label>
@@ -380,14 +401,14 @@ export default function CoursesDashboard() {
                                         />
                                     </div>
                                     
-                                    <div className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                                        <label className="text-sm font-bold block mb-2 flex items-center gap-2">
+                                    <div className="space-y-4 p-6 bg-primary/5 rounded-3xl border border-primary/10">
+                                        <label className="text-sm font-bold flex items-center gap-2">
                                             <Library className="w-4 h-4 text-primary" /> الربط بالمجلد الأكاديمي
                                         </label>
                                         <select
                                             value={currentCourse.folderId || ""}
                                             onChange={e => setCurrentCourse({ ...currentCourse, folderId: e.target.value })}
-                                            className="w-full p-3 rounded-xl border bg-background focus:ring-2 focus:ring-primary/20 outline-none font-bold text-sm"
+                                            className="w-full p-4 bg-black/20 border border-white/5 rounded-2xl focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold text-sm"
                                         >
                                             <option value="">-- اختر المجلد المرتبط (اختياري) --</option>
                                             {SUNNAH_VOLUMES.map(volume => (
@@ -397,6 +418,34 @@ export default function CoursesDashboard() {
                                             ))}
                                         </select>
                                         <p className="text-[10px] text-muted-foreground px-1">سيتم احتساب تقدم الطالب في هذا المجلد بناءً على صفحات هذه الدورة.</p>
+                                    </div>
+
+                                    {/* Plan Template Link */}
+                                    <div className="space-y-4 p-6 bg-amber-500/5 rounded-3xl border border-amber-500/10">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-bold flex items-center gap-2">
+                                                <Calendar className="w-4 h-4 text-amber-500" /> ربط قالب الخطة (Plan Template)
+                                            </label>
+                                            {currentCourse.planTemplateId && (
+                                                <div className="px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black rounded-lg uppercase tracking-tighter animate-pulse">مُفعل</div>
+                                            )}
+                                        </div>
+                                        <select
+                                            value={currentCourse.planTemplateId || ""}
+                                            onChange={e => setCurrentCourse({ ...currentCourse, planTemplateId: e.target.value })}
+                                            className="w-full p-4 bg-black/20 border border-white/5 rounded-2xl focus:ring-4 focus:ring-amber-500/10 outline-none transition-all font-bold text-sm"
+                                        >
+                                            <option value="">-- اختر قالب الخطة الذهبية (اختياري) --</option>
+                                            {templates.map(tpl => (
+                                                <option key={tpl.id} value={tpl.id}>
+                                                    {tpl.name} ({tpl.tiers.length} طبقات)
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="text-[10px] text-amber-600/80 font-medium px-1 flex items-center gap-2">
+                                            <Info className="w-3 h-3" />
+                                            اختيار القالب يسهل عليك إضافة المهام اليومية بضغطة زر واحدة.
+                                        </p>
                                     </div>
 
                                     <div className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">

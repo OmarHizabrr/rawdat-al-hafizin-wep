@@ -42,6 +42,7 @@ interface CoursePlanManagerProps {
 
 export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps) {
     const [courseName, setCourseName] = useState("");
+    const [associatedTemplateId, setAssociatedTemplateId] = useState<string | null>(null);
     const [plans, setPlans] = useState<PlanDay[]>([]);
     const [templates, setTemplates] = useState<PlanTemplate[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,7 +66,11 @@ export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps)
         if (!courseId) return;
         const fetchCourse = async () => {
             const snap = await getDoc(doc(db, "courses", courseId));
-            if (snap.exists()) setCourseName(snap.data().title || "دورة بدون اسم");
+            if (snap.exists()) {
+                const data = snap.data();
+                setCourseName(data.title || "دورة بدون اسم");
+                setAssociatedTemplateId(data.planTemplateId || null);
+            }
         };
         fetchCourse();
 
@@ -99,10 +104,26 @@ export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps)
             if (lastPlan.dayIndex < 7) { nextWeek = lastPlan.weekIndex; nextDay = lastPlan.dayIndex + 1; }
             else { nextWeek = lastPlan.weekIndex + 1; nextDay = 1; }
         }
+
+        let initialTasks: TierTask[] = [{ tierId: 'new', label: 'حفظ جديد', type: 'hadiths', start: "", end: "", notes: [] }];
+        
+        if (associatedTemplateId) {
+            const template = templates.find(t => t.id === associatedTemplateId);
+            if (template && template.tiers.length > 0) {
+                initialTasks = template.tiers.map(tier => ({
+                    tierId: tier.id,
+                    label: tier.label,
+                    type: tier.targetType,
+                    start: "",
+                    end: ""
+                }));
+            }
+        }
+
         setCurrentPlan({
             weekIndex: nextWeek,
             dayIndex: nextDay,
-            tasks: [{ tierId: 'new', label: 'حفظ جديد', type: 'hadiths', start: "", end: "", notes: [] }]
+            tasks: initialTasks
         });
         setIsEditing(false);
         setIsModalOpen(true);
@@ -197,19 +218,28 @@ export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps)
                                 <div className="space-y-6 pt-6 border-t border-white/5">
                                     <div className="flex items-center justify-between"><h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2"><Target className="w-4 h-4" /> مهام اليوم</h3><button type="button" onClick={() => setCurrentPlan({...currentPlan, tasks: [...(currentPlan.tasks || []), { tierId: 'custom', label: 'مهمة إضافية', type: 'hadiths', start: "", end: "" }]})} className="text-[10px] bg-primary/10 text-primary px-4 py-2 rounded-xl font-black">+ إضافة مهمة</button></div>
                                     <div className="space-y-4">
-                                        {currentPlan.tasks?.map((task, idx) => (
-                                            <div key={idx} className="p-6 bg-white/5 border border-white/5 rounded-3xl space-y-4 relative group/task">
-                                                <button type="button" onClick={() => setCurrentPlan({...currentPlan, tasks: currentPlan.tasks?.filter((_, i) => i !== idx)})} className="absolute top-4 left-4 p-2 text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-2"><label className="text-[10px] font-bold text-muted-foreground/50 px-1">عنوان المهمة</label><input type="text" value={task.label} onChange={e => { const nt = [...(currentPlan.tasks || [])]; nt[idx].label = e.target.value; setCurrentPlan({...currentPlan, tasks: nt}); }} className="w-full p-3 bg-black/20 border border-white/5 rounded-xl font-bold text-sm" /></div>
-                                                    <div className="space-y-2"><label className="text-[10px] font-bold text-muted-foreground/50 px-1">النوع</label><select value={task.type} onChange={e => { const nt = [...(currentPlan.tasks || [])]; nt[idx].type = e.target.value as any; setCurrentPlan({...currentPlan, tasks: nt}); }} className="w-full p-3 bg-black/20 border border-white/5 rounded-xl text-xs font-bold"><option value="hadiths">أحاديث</option><option value="pages">صفحات</option><option value="volumes">مجلدات</option></select></div>
+                                        {currentPlan.tasks?.map((task, idx) => {
+                                            const template = associatedTemplateId ? templates.find(t => t.id === associatedTemplateId) : null;
+                                            const tierConfig = template?.tiers.find(t => t.id === task.tierId);
+                                            
+                                            return (
+                                                <div key={idx} className="p-6 bg-white/5 border border-white/5 rounded-3xl space-y-4 relative group/task">
+                                                    <button type="button" onClick={() => setCurrentPlan({...currentPlan, tasks: currentPlan.tasks?.filter((_, i) => i !== idx)})} className="absolute top-4 left-4 p-2 text-red-500 opacity-0 group-hover/task:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tierConfig?.color || '#3b82f6' }} />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">خصائص المهمة</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-2"><label className="text-[10px] font-bold text-muted-foreground/50 px-1">عنوان المهمة</label><input type="text" value={task.label} onChange={e => { const nt = [...(currentPlan.tasks || [])]; nt[idx].label = e.target.value; setCurrentPlan({...currentPlan, tasks: nt}); }} className="w-full p-3 bg-black/20 border border-white/5 rounded-xl font-bold text-sm" /></div>
+                                                        <div className="space-y-2"><label className="text-[10px] font-bold text-muted-foreground/50 px-1">النوع</label><select value={task.type} onChange={e => { const nt = [...(currentPlan.tasks || [])]; nt[idx].type = e.target.value as any; setCurrentPlan({...currentPlan, tasks: nt}); }} className="w-full p-3 bg-black/20 border border-white/5 rounded-xl text-xs font-bold"><option value="hadiths">أحاديث</option><option value="pages">صفحات</option><option value="volumes">مجلدات</option></select></div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-2"><label className="text-[10px] font-bold text-muted-foreground/50 px-1">من (البداية)</label><input required type="text" value={task.start} onChange={e => { const nt = [...(currentPlan.tasks || [])]; nt[idx].start = e.target.value; setCurrentPlan({...currentPlan, tasks: nt}); }} className="w-full p-3 bg-black/20 border border-white/5 rounded-xl font-bold text-sm" /></div>
+                                                        <div className="space-y-2"><label className="text-[10px] font-bold text-muted-foreground/50 px-1">إلى (اختياري)</label><input type="text" value={task.end} onChange={e => { const nt = [...(currentPlan.tasks || [])]; nt[idx].end = e.target.value; setCurrentPlan({...currentPlan, tasks: nt}); }} className="w-full p-3 bg-black/20 border border-white/5 rounded-xl font-bold text-sm" /></div>
+                                                    </div>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-2"><label className="text-[10px] font-bold text-muted-foreground/50 px-1">من (البداية)</label><input required type="text" value={task.start} onChange={e => { const nt = [...(currentPlan.tasks || [])]; nt[idx].start = e.target.value; setCurrentPlan({...currentPlan, tasks: nt}); }} className="w-full p-3 bg-black/20 border border-white/5 rounded-xl font-bold text-sm" /></div>
-                                                    <div className="space-y-2"><label className="text-[10px] font-bold text-muted-foreground/50 px-1">إلى (اختياري)</label><input type="text" value={task.end} onChange={e => { const nt = [...(currentPlan.tasks || [])]; nt[idx].end = e.target.value; setCurrentPlan({...currentPlan, tasks: nt}); }} className="w-full p-3 bg-black/20 border border-white/5 rounded-xl font-bold text-sm" /></div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>

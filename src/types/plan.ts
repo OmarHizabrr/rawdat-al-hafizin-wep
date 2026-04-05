@@ -7,6 +7,7 @@ export interface PlanTierDefinition {
     label: string;
     color: string;
     targetType: PlanTargetType;
+    selectedVolumeIds?: string[];
     icon?: string;
 }
 
@@ -16,6 +17,7 @@ export interface PlanTemplate {
     description: string;
     category: 'memorization' | 'revision' | 'mixed';
     tiers: PlanTierDefinition[];
+    selectedVolumeIds?: string[];
     createdBy: string;
     createdAt: Timestamp;
     updatedAt: Timestamp;

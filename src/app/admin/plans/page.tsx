@@ -14,8 +14,9 @@ import {
     X, Layout, Sparkles, Target, Layers, 
     ChevronRight, Info, CheckCircle2, 
     Settings2, BookOpen, Hash, Book,
-    AlertCircle
+    AlertCircle, ChevronDown
 } from "lucide-react";
+import { SUNNAH_VOLUMES } from "@/lib/volumes";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { EliteDialog } from "@/components/ui/EliteDialog";
 import { cn } from "@/lib/utils";
@@ -335,6 +336,77 @@ export default function PlansDashboard() {
                                                             </div>
                                                         </div>
                                                     </div>
+
+                                                    {/* Volume Selection UI */}
+                                                    {tier.targetType === 'volumes' && (
+                                                        <div className="space-y-4 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2">
+                                                            <div className="space-y-2">
+                                                                <label className="text-[10px] font-black uppercase text-muted-foreground/50 tracking-widest px-1">المجلدات المستهدفة (دراسة متعددة)</label>
+                                                                <div className="relative group/select">
+                                                                    <div className="flex flex-wrap gap-2 p-3 bg-black/40 border border-white/10 rounded-2xl min-h-[56px] focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                                                                        {tier.selectedVolumeIds?.length ? (
+                                                                            tier.selectedVolumeIds.map(vId => {
+                                                                                const vol = SUNNAH_VOLUMES.find(v => v.id === vId);
+                                                                                return (
+                                                                                    <div key={vId} className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-bold">
+                                                                                        <div className={cn("w-1.5 h-1.5 rounded-full bg-gradient-to-r", vol?.color)} />
+                                                                                        <span>{vol?.title}</span>
+                                                                                        <button 
+                                                                                            type="button"
+                                                                                            onClick={() => {
+                                                                                                const next = [...(currentTemplate.tiers || [])];
+                                                                                                next[idx].selectedVolumeIds = next[idx].selectedVolumeIds?.filter(id => id !== vId);
+                                                                                                setCurrentTemplate({ ...currentTemplate, tiers: next });
+                                                                                            }}
+                                                                                            className="hover:text-red-500 transition-colors"
+                                                                                        >
+                                                                                            <X className="w-3 h-3" />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                );
+                                                                            })
+                                                                        ) : (
+                                                                            <span className="text-xs text-muted-foreground/50 self-center px-1">اختر المجلدات من القائمة أدناه...</span>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    <select 
+                                                                        multiple
+                                                                        value={tier.selectedVolumeIds || []}
+                                                                        onChange={e => {
+                                                                            const values = Array.from(e.target.selectedOptions, option => option.value);
+                                                                            const next = [...(currentTemplate.tiers || [])];
+                                                                            next[idx].selectedVolumeIds = values;
+                                                                            setCurrentTemplate({ ...currentTemplate, tiers: next });
+                                                                        }}
+                                                                        className="w-full mt-2 p-3 bg-black/20 border border-white/5 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 outline-none h-40"
+                                                                    >
+                                                                        {SUNNAH_VOLUMES.map(vol => (
+                                                                            <option key={vol.id} value={vol.id} className="p-2 checked:bg-primary/20 checked:text-primary">
+                                                                                {vol.title} ({vol.totalPages} صفحة)
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Pages Summary */}
+                                                            <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl flex items-center justify-between">
+                                                                <div className="flex items-center gap-3">
+                                                                    <Book className="w-5 h-5 text-primary" />
+                                                                    <div className="space-y-0.5">
+                                                                        <p className="text-[10px] font-black uppercase text-primary/60 tracking-widest leading-none">إجمالي النطاق العلمي</p>
+                                                                        <p className="text-sm font-black">
+                                                                            {(tier.selectedVolumeIds || []).reduce((acc, vId) => acc + (SUNNAH_VOLUMES.find(v => v.id === vId)?.totalPages || 0), 0)} صفحة
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-muted-foreground">
+                                                                    {tier.selectedVolumeIds?.length || 0} مجلدات
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
