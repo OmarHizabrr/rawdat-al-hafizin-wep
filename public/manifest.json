@@ -1,0 +1,19 @@
+{
+  "name": "روضة الحافظين",
+  "short_name": "روضة الحافظين",
+  "description": "منصة روضة الحافظين لمتابعة حفظ السنة النبوية",
+  "theme_color": "#1a0f2e",
+  "background_color": "#020817",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "id": "rawdat-al-hafizin",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192 384x384 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

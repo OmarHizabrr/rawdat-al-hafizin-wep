@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { InstallPWA } from "@/components/InstallPWA";
 
 export function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
@@ -246,6 +247,9 @@ export function Navbar() {
                                         </Link>
                                     </>
                                 )}
+                                
+                                {/* PWA Install Prompt - Only shows if installable */}
+                                <InstallPWA />
                             </div>
 
                             {user ? (

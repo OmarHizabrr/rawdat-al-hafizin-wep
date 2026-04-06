@@ -10,9 +10,24 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 
+import type { Viewport } from "next";
+
+export const viewport: Viewport = {
+  themeColor: "#1a0f2e",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "روضة الحافظين | برنامج تحفيظ السنة النبوية",
   description: "برنامج علمي متكامل يُعنى بحفظ أحاديث السنة النبوية بجمع الشيخ يحيى اليحيى، وفق منهجٍ متدرّج يبدأ بأصح كتب السنة.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "روضة الحافظين",
+    statusBarStyle: "black-translucent",
+  },
   icons: {
     icon: "/logo.png",
     shortcut: "/logo.png",
