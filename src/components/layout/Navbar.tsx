@@ -156,6 +156,7 @@ export function Navbar() {
                     {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
                 </button>
             </div>
+            </nav>
 
             {/* Mobile Sidebar (Drawer) */}
             <AnimatePresence>
@@ -269,8 +270,6 @@ export function Navbar() {
                     </>
                 )}
             </AnimatePresence>
-
-            </nav>
 
             {/* Mobile Bottom Navigation for Students */}
             {user && (
