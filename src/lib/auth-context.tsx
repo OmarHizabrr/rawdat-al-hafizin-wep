@@ -29,11 +29,13 @@ import {
     updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { sha256Hex, verifyPhonePassword } from "@/lib/password-hash";
+import type { UserDocument } from "@/lib/user-document";
 
 const PHONE_SESSION_KEY = "rawdat_user_uid";
 
 /** جلسة هاتف+كلمة مرور (متوافقة مع تطبيق Flutter) — ليست جلسة Firebase Auth كاملة */
-function phoneSessionUser(uid: string, data: Record<string, unknown>): User {
+function phoneSessionUser(uid: string, data: UserDocument): User {
     return {
         uid,
         displayName: (data.displayName as string) || null,
@@ -63,7 +65,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
-    const [userData, setUserData] = useState<any>(null);
+    const [userData, setUserData] = useState<UserDocument | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -76,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
                 if (cancelled) return;
                 setUser(firebaseUser);
-                setUserData(userDoc.exists() ? userDoc.data() : null);
+                setUserData(userDoc.exists() ? (userDoc.data() as UserDocument) : null);
                 if (typeof window !== "undefined") {
                     localStorage.removeItem(PHONE_SESSION_KEY);
                 }
@@ -90,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const userDoc = await getDoc(doc(db, "users", storedUid));
                 if (cancelled) return;
                 if (userDoc.exists()) {
-                    const data = userDoc.data();
+                    const data = userDoc.data() as UserDocument;
                     setUser(phoneSessionUser(storedUid, data));
                     setUserData(data);
                     setLoading(false);
@@ -148,13 +150,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const result = await createUserWithEmailAndPassword(auth, email, password);
             const u = result.user;
             const userRef = doc(db, "users", u.uid);
+            const passwordHash = await sha256Hex(password);
             await setDoc(userRef, {
                 uid: u.uid,
                 email: u.email,
                 displayName,
                 photoURL: "",
                 phoneNumber: phoneNumber || "",
-                password,
+                passwordHash,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 isActive: true,
@@ -184,9 +187,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             const userDoc = querySnapshot.docs[0];
-            const data = userDoc.data();
+            const data = userDoc.data() as UserDocument;
 
-            if (!data.password || data.password !== password) {
+            const ok = await verifyPhonePassword(data.password, data.passwordHash, password);
+            if (!ok) {
                 throw new Error("كلمة المرور غير صحيحة");
             }
 
