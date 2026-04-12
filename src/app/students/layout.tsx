@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+
+const STUDENT_AREA_ROLES = new Set(["student", "admin", "committee", "applicant"]);
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
     const { user, userData, loading } = useAuth();
@@ -21,8 +23,8 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                 }
 
                 // Allow students, admins, committee, and applicants
-                const allowedRoles = ['student', 'admin', 'committee', 'applicant'];
-                if (!allowedRoles.includes(userData.role)) {
+                const role = userData.role;
+                if (!role || !STUDENT_AREA_ROLES.has(role)) {
                     router.push("/"); // Redirect unauthorized roles
                     return;
                 }
@@ -36,7 +38,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         }
     }, [user, userData, loading, router]);
 
-    if (loading || !userData || !['student', 'admin', 'committee', 'applicant'].includes(userData.role)) {
+    if (loading || !userData?.role || !STUDENT_AREA_ROLES.has(userData.role)) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <Loader2 className="w-10 h-10 animate-spin text-primary" />

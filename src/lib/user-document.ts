@@ -19,5 +19,6 @@ export interface UserDocument {
     totalPoints?: number;
     groupId?: string;
     accessCode?: string;
+    bio?: string;
     [key: string]: unknown;
 }

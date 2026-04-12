@@ -58,7 +58,7 @@ interface AuthContextType {
     ) => Promise<void>;
     signInWithPhonePassword: (phone: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
-    userData: any;
+    userData: UserDocument | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
