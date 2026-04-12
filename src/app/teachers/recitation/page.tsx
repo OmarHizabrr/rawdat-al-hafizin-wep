@@ -43,11 +43,13 @@ export default function TeacherRecitationManagement() {
     const [title, setTitle] = useState("");
     const [url, setUrl] = useState("");
     const [type, setType] = useState<'video' | 'audio'>('video');
-    const [targetGroup, setTargetGroup] = useState("");
     const [targetType, setTargetType] = useState<'group' | 'individual'>('group');
+    const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+    
     const [groupStudents, setGroupStudents] = useState<any[]>([]);
     const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
+    const [studentSearchQ, setStudentSearchQ] = useState("");
     
     // Attendance Report State
     const [reportSession, setReportSession] = useState<RecitationSession | null>(null);
@@ -80,40 +82,49 @@ export default function TeacherRecitationManagement() {
         return () => unsubscribe();
     }, [user]);
 
-    // Fetch Students when group changes
+    // Fetch Students of ALL Teacher's Groups
     useEffect(() => {
-        if (!targetGroup) {
+        if (targetType !== 'individual' || myGroups.length === 0) {
             setGroupStudents([]);
             return;
         }
         
         const fetchStudents = async () => {
             setLoadingStudents(true);
-            const q = query(collection(db, "users"), where("groupId", "==", targetGroup), where("role", "==", "student"));
-            const snap = await getDocs(q);
-            setGroupStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const myGroupIds = myGroups.map(g => g.id).slice(0, 10); // Firestore max 10 for 'in'
+            if (myGroupIds.length > 0) {
+                const q = query(collection(db, "users"), where("groupId", "in", myGroupIds), where("role", "==", "student"));
+                const snap = await getDocs(q);
+                setGroupStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            }
             setLoadingStudents(false);
         };
         fetchStudents();
-    }, [targetGroup]);
+    }, [targetType, myGroups]);
+
+    const filteredStudents = groupStudents.filter(s => 
+        (s.displayName || "").toLowerCase().includes(studentSearchQ.toLowerCase())
+    ).slice(0, 50);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !title || !url || !targetGroup) return;
+        if (!user || !title || !url) return;
         setSaving(true);
         try {
+            const selectedTargets: {id: string, type: 'group'|'course'|'individual'}[] = [];
+            if (targetType === 'group') selectedGroupIds.forEach(id => selectedTargets.push({id, type: 'group'}));
+            if (targetType === 'individual') selectedStudentIds.forEach(id => selectedTargets.push({id, type: 'individual'}));
+
             await createRecitationSession({
                 title,
                 url,
                 type,
                 creatorId: user.uid,
                 creatorName: user.displayName || "معلم",
-                targetType: targetType,
-                targetId: targetGroup,
-                targetStudentIds: targetType === 'individual' ? selectedStudentIds : []
-            });
+                targetType: targetType
+            }, selectedTargets);
             setIsModalOpen(false);
-            setTitle(""); setUrl(""); setTargetGroup(""); setSelectedStudentIds([]); setTargetType('group');
+            setTitle(""); setUrl(""); setSelectedGroupIds([]); setSelectedStudentIds([]); setTargetType('group'); setStudentSearchQ("");
         } catch (error) {
             console.error(error);
         } finally {
@@ -148,22 +159,22 @@ export default function TeacherRecitationManagement() {
     return (
         <div className="space-y-10 pb-24">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/5 p-4 md:p-8 rounded-[1.5rem] md:rounded-2xl border border-white/10 shadow-xl backdrop-blur-md">
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-primary mb-2">
-                        <Link href="/teachers" className="p-2 hover:bg-primary/10 rounded-full transition-colors"><ChevronLeft className="w-5 h-5" /></Link>
-                        <span className="text-xs font-black uppercase tracking-widest opacity-60">النظام الذكي للتسميع</span>
+                    <div className="flex items-center gap-2 text-primary mb-1 md:mb-2">
+                        <Link href="/teachers" className="p-1.5 md:p-2 hover:bg-primary/10 rounded-full transition-colors"><ChevronLeft className="w-4 h-4 md:w-5 md:h-5" /></Link>
+                        <span className="text-[10px] md:text-xs font-black uppercase tracking-widest opacity-60">النظام الذكي للتسميع</span>
                     </div>
-                    <h1 className="text-4xl font-black tracking-tight flex items-center gap-4">
+                    <h1 className="text-2xl md:text-4xl font-black tracking-tight flex items-center gap-3 md:gap-4">
                         إدارة التسميع المباشر
-                        <span className="px-4 py-1 bg-red-500/10 text-red-500 text-[10px] font-black rounded-full border border-red-500/20 animate-pulse">BETA LIVE</span>
+                        <span className="px-3 py-0.5 md:px-4 md:py-1 bg-red-500/10 text-red-500 text-[8px] md:text-[10px] font-black rounded-full border border-red-500/20 animate-pulse">BETA LIVE</span>
                     </h1>
                 </div>
                 <button 
                     onClick={() => setIsModalOpen(true)}
-                    className="px-8 py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 flex items-center gap-3 hover:scale-105 active:scale-95 transition-all"
+                    className="px-6 py-3 md:px-8 md:py-4 bg-primary text-white text-sm md:text-base font-black rounded-xl md:rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center gap-2 md:gap-3 hover:scale-105 active:scale-95 transition-all"
                 >
-                    <Plus className="w-6 h-6" />
+                    <Plus className="w-5 h-5 md:w-6 md:h-6" />
                     إنشاء جلسة جديدة
                 </button>
             </div>
@@ -204,30 +215,30 @@ export default function TeacherRecitationManagement() {
                             <table className="w-full text-right">
                                 <thead className="bg-white/5 border-b border-white/5">
                                     <tr>
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest opacity-40">عنوان الجلسة</th>
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest opacity-40">المجموعة المستهدفة</th>
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest opacity-40">التاريخ والوقت</th>
-                                        <th className="p-4 text-xs font-black uppercase tracking-widest opacity-40">الإجراءات</th>
+                                        <th className="p-3 md:p-4 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">عنوان الجلسة</th>
+                                        <th className="p-3 md:p-4 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">المستهدف</th>
+                                        <th className="p-3 md:p-4 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">التاريخ</th>
+                                        <th className="p-3 md:p-4 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">الإجراءات</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
                                     {pastSessions.map(session => (
                                         <tr key={session.id} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="p-4 font-bold">{session.title}</td>
-                                            <td className="p-4">
-                                                <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg border border-primary/20">
-                                                    {myGroups.find(g => g.id === session.targetId)?.name || session.targetType}
+                                            <td className="p-3 md:p-4 font-bold text-sm md:text-base">{session.title}</td>
+                                            <td className="p-3 md:p-4">
+                                                <span className="px-2 py-0.5 md:px-3 md:py-1 bg-primary/10 text-primary text-[8px] md:text-[10px] font-black rounded-md md:rounded-lg border border-primary/20">
+                                                    {session.targetType === 'individual' ? 'طلاب' : `حلقات`}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-sm font-medium opacity-60">
-                                                {session.createdAt.toDate().toLocaleString('ar-EG')}
+                                            <td className="p-3 md:p-4 text-[10px] md:text-sm font-medium opacity-60">
+                                                {session.createdAt.toDate().toLocaleDateString('ar-EG')}
                                             </td>
-                                            <td className="p-4">
+                                            <td className="p-3 md:p-4">
                                                 <button 
                                                     onClick={() => handleViewReport(session)}
-                                                    className="flex items-center gap-2 text-primary font-bold text-sm hover:underline"
+                                                    className="flex items-center gap-1.5 md:gap-2 text-primary font-bold text-[10px] md:text-sm hover:underline"
                                                 >
-                                                    <Users className="w-4 h-4" /> عرض سجل المشاركة
+                                                    <Users className="w-3.5 h-3.5 md:w-4 md:h-4" /> السجل
                                                 </button>
                                             </td>
                                         </tr>
@@ -248,15 +259,15 @@ export default function TeacherRecitationManagement() {
                             onClick={() => setIsModalOpen(false)}
                             className="absolute inset-0 bg-black/60 backdrop-blur-md"
                         />
-                        <motion.div 
-                            initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                            className="bg-background rounded-[2.5rem] border border-white/10 shadow-2xl w-full max-w-xl relative z-10 overflow-hidden"
-                        >
-                            <div className="p-8 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                                <h3 className="text-2xl font-black flex items-center gap-3"><Radio className="w-6 h-6 text-red-500" /> إنشاء جلسة تسميع حية</h3>
-                                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-6 h-6" /></button>
-                            </div>
-                            <form onSubmit={handleCreate} className="p-8 space-y-6">
+                         <motion.div 
+                             initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                             className="bg-background rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl w-full max-w-xl relative z-10 overflow-hidden"
+                         >
+                             <div className="p-5 md:p-8 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                                 <h3 className="text-xl md:text-2xl font-black flex items-center gap-2 md:gap-3"><Radio className="w-5 h-5 md:w-6 md:h-6 text-red-500" /> إنشاء جلسة تسميع</h3>
+                                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
+                             </div>
+                             <form onSubmit={handleCreate} className="p-5 md:p-8 space-y-5 md:space-y-6">
                                 <div className="space-y-2">
                                     <label className="text-sm font-black opacity-60 px-1">عنوان الجلسة</label>
                                     <input 
@@ -294,43 +305,61 @@ export default function TeacherRecitationManagement() {
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-black opacity-60 px-1">الحلقة المستهدفة</label>
-                                        <select 
-                                            required value={targetGroup} onChange={e => setTargetGroup(e.target.value)}
-                                            className="w-full p-4 rounded-2xl border bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none font-bold"
-                                        >
-                                            <option value="">-- اختر الحلقة --</option>
-                                            {myGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-black opacity-60 px-1">طريقة التوجيه</label>
-                                        <div className="flex gap-2">
-                                            <button 
-                                                type="button" onClick={() => setTargetType('group')}
-                                                className={cn("flex-1 p-3 rounded-xl border font-bold transition-all", targetType === 'group' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}
-                                            >
-                                                جميع طلاب الحلقة
-                                            </button>
-                                            <button 
-                                                type="button" onClick={() => setTargetType('individual')}
-                                                className={cn("flex-1 p-3 rounded-xl border font-bold transition-all", targetType === 'individual' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}
-                                            >
-                                                طلاب محددون
-                                            </button>
+                                </div>
+
+                                {targetType === 'group' && (
+                                    <div className="space-y-3 p-6 bg-white/5 rounded-3xl border border-white/10">
+                                        <label className="text-xs font-black opacity-60 uppercase flex justify-between">
+                                            <span>استهداف حلقات محددة</span>
+                                            <span>المحدد: {selectedGroupIds.length}</span>
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                                            {myGroups.map(group => (
+                                                <button
+                                                    key={group.id} type="button"
+                                                    onClick={() => setSelectedGroupIds(prev => prev.includes(group.id) ? prev.filter(id => id !== group.id) : [...prev, group.id])}
+                                                    className={cn("p-4 rounded-2xl border flex items-center justify-between text-xs font-bold transition-all", selectedGroupIds.includes(group.id) ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10 hover:border-white/30")}
+                                                >
+                                                    <span className="truncate">{group.name}</span>
+                                                    {selectedGroupIds.includes(group.id) && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+                                                </button>
+                                            ))}
                                         </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-3">
+                                    <label className="text-sm font-black opacity-60 px-1">طريقة التوجيه</label>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            type="button" onClick={() => { setTargetType('group'); setSelectedGroupIds([]); setSelectedStudentIds([]); }}
+                                            className={cn("flex-1 p-3 rounded-xl border font-bold transition-all", targetType === 'group' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}
+                                        >
+                                            طلاب حلقات معينة
+                                        </button>
+                                        <button 
+                                            type="button" onClick={() => { setTargetType('individual'); setSelectedGroupIds([]); setSelectedStudentIds([]); setStudentSearchQ(""); }}
+                                            className={cn("flex-1 p-3 rounded-xl border font-bold transition-all", targetType === 'individual' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}
+                                        >
+                                            طلاب محددون
+                                        </button>
                                     </div>
                                 </div>
 
-                                {targetType === 'individual' && targetGroup && (
-                                    <div className="space-y-3 p-4 bg-white/5 rounded-[2rem] border border-white/5">
-                                        <label className="text-sm font-black opacity-60 px-1 block mb-2">اختر الطلاب ({selectedStudentIds.length})</label>
+                                {targetType === 'individual' && (
+                                    <div className="space-y-4 p-6 bg-white/5 rounded-[2rem] border border-white/5">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
+                                            <label className="text-sm font-black opacity-60 px-1 block">اختر الطلاب ({selectedStudentIds.length})</label>
+                                            <input 
+                                                type="text" placeholder="ابحث عن أسمائهم..." value={studentSearchQ} onChange={e => setStudentSearchQ(e.target.value)}
+                                                className="w-full sm:w-auto flex-1 p-2 px-4 rounded-xl border bg-black/10 focus:ring-2 focus:ring-primary/20 outline-none font-bold text-xs"
+                                            />
+                                        </div>
                                         {loadingStudents ? (
                                             <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin" /></div>
                                         ) : (
                                             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                                                {groupStudents.map(student => (
+                                                {filteredStudents.map(student => (
                                                     <button
                                                         key={student.id}
                                                         type="button"
@@ -342,18 +371,19 @@ export default function TeacherRecitationManagement() {
                                                             )
                                                         }}
                                                         className={cn(
-                                                            "p-3 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all group/btn",
+                                                            "p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition-all group/btn",
                                                             selectedStudentIds.includes(student.id) 
-                                                                ? "bg-primary/20 border-primary text-primary" 
+                                                                ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
                                                                 : "bg-white/5 border-white/10 hover:border-white/30"
                                                         )}
                                                     >
-                                                        <div className={cn("w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px]", selectedStudentIds.includes(student.id) ? "bg-primary text-white" : "bg-white/10 opacity-40")}>
-                                                            {selectedStudentIds.includes(student.id) ? <CheckCircle2 className="w-3 h-3" /> : student.displayName?.[0]}
-                                                        </div>
                                                         <span className="truncate">{student.displayName}</span>
+                                                        {selectedStudentIds.includes(student.id) && <CheckCircle2 className="w-4 h-4 shrink-0" />}
                                                     </button>
                                                 ))}
+                                                {filteredStudents.length === 0 && (
+                                                    <p className="col-span-full py-6 text-center text-xs opacity-40 font-bold">لم يتم العثور على طالب يطابق البحث.</p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -384,22 +414,22 @@ export default function TeacherRecitationManagement() {
                             initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
                             className="bg-background rounded-[2.5rem] border border-white/10 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden"
                         >
-                            <div className="p-8 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <h3 className="text-2xl font-black">تقرير المشاركة والحضور</h3>
-                                    <p className="text-sm text-primary font-bold">{reportSession.title}</p>
-                                </div>
-                                <button onClick={() => setReportSession(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-6 h-6" /></button>
-                            </div>
-                            <div className="p-8 max-h-[60vh] overflow-y-auto">
-                                {loadingReport ? (
-                                    <div className="py-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto opacity-20" /></div>
-                                ) : attendance.length > 0 ? (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-4 bg-primary/10 rounded-2xl border border-primary/20 mb-6">
-                                            <span className="font-bold flex items-center gap-2"><Users className="w-5 h-5" /> إجمالي المشاركين</span>
-                                            <span className="text-2xl font-black">{attendance.length}</span>
-                                        </div>
+                             <div className="p-5 md:p-8 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                                 <div className="space-y-0.5 md:space-y-1">
+                                     <h3 className="text-xl md:text-2xl font-black">تقرير المشاركة والحضور</h3>
+                                     <p className="text-xs md:text-sm text-primary font-bold">{reportSession.title}</p>
+                                 </div>
+                                 <button onClick={() => setReportSession(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
+                             </div>
+                             <div className="p-5 md:p-8 max-h-[60vh] overflow-y-auto">
+                                 {loadingReport ? (
+                                     <div className="py-16 md:py-20 text-center"><Loader2 className="w-8 h-8 md:w-10 md:h-10 animate-spin mx-auto opacity-20" /></div>
+                                 ) : attendance.length > 0 ? (
+                                     <div className="space-y-4">
+                                         <div className="flex items-center justify-between p-4 bg-primary/10 rounded-xl md:rounded-2xl border border-primary/20 mb-4 md:mb-6">
+                                             <span className="font-bold text-sm md:text-base flex items-center gap-2"><Users className="w-4 h-4 md:w-5 md:h-5" /> إجمالي المشاركين</span>
+                                             <span className="text-xl md:text-2xl font-black">{attendance.length}</span>
+                                         </div>
                                         <div className="grid gap-3">
                                             {attendance.map((log, idx) => (
                                                 <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
@@ -432,23 +462,23 @@ export default function TeacherRecitationManagement() {
     );
 }
 
-function SessionCard({ session, onEnd, onReport, isActive }: { session: RecitationSession, onEnd?: () => void, onReport?: () => void, isActive?: boolean }) {
-    return (
-        <GlassCard className={cn(
-            "p-8 space-y-6 group transition-all relative overflow-hidden",
-            isActive ? "border-red-500/30 bg-red-500/5" : "border-white/5"
-        )}>
+ function SessionCard({ session, onEnd, onReport, isActive }: { session: RecitationSession, onEnd?: () => void, onReport?: () => void, isActive?: boolean }) {
+     return (
+         <GlassCard className={cn(
+             "p-5 md:p-8 space-y-5 md:space-y-6 group transition-all relative overflow-hidden",
+             isActive ? "border-red-500/30 bg-red-500/5" : "border-white/5"
+         )}>
             {isActive && (
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-3xl rounded-full -mr-16 -mt-16" />
             )}
             
-            <div className="flex items-start justify-between relative z-10">
-                <div className={cn(
-                    "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg",
-                    session.type === 'video' ? "bg-blue-500/20 text-blue-500" : "bg-purple-500/20 text-purple-500"
-                )}>
-                    {session.type === 'video' ? <Video className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
-                </div>
+             <div className="flex items-start justify-between relative z-10">
+                 <div className={cn(
+                     "w-12 h-12 md:w-14 md:h-14 rounded-[1.25rem] md:rounded-2xl flex items-center justify-center shadow-lg",
+                     session.type === 'video' ? "bg-blue-500/20 text-blue-500" : "bg-purple-500/20 text-purple-500"
+                 )}>
+                     {session.type === 'video' ? <Video className="w-6 h-6 md:w-7 md:h-7" /> : <Mic className="w-6 h-6 md:w-7 md:h-7" />}
+                 </div>
                 <div className="text-left">
                     <span className={cn(
                         "px-3 py-1 text-[10px] font-black rounded-full border tracking-widest uppercase",

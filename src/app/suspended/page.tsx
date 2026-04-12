@@ -15,7 +15,7 @@ function SuspendedContent() {
 
     return (
         <div className="min-h-[80vh] flex items-center justify-center p-4">
-            <GlassCard className="max-w-lg w-full text-center space-y-8 p-8 border-red-200 dark:border-red-900/50">
+            <GlassCard className="w-full max-w-lg space-y-8 border-destructive/30 p-8 text-center">
                 <div className="relative">
                     <div className="absolute inset-0 flex items-center justify-center animate-ping opacity-20">
                         <div className="w-24 h-24 bg-red-500 rounded-full" />

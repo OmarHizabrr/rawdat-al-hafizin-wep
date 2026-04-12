@@ -9,10 +9,11 @@ import {
     LogOut,
     Menu,
     X,
-    Loader2
+    Loader2,
+    GraduationCap,
+    Bell,
+    Search
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/GlassCard";
-
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
     const { user, userData, loading, signOut } = useAuth();
     const router = useRouter();
@@ -58,96 +59,109 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
     ];
 
     return (
-        <div className="min-h-screen flex bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 text-foreground dir-rtl">
-            {/* Sidebar */}
+        <div className="flex min-h-screen bg-muted/30 text-foreground dir-rtl">
             <aside
-                className={`fixed inset-y-0 right-0 z-50 w-64 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-l border-white/20 shadow-2xl transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "translate-x-full"
+                className={`fixed inset-y-0 right-0 z-50 w-72 border-l border-border bg-card shadow-sm transition-transform duration-200 ease-out dark:bg-card ${isSidebarOpen ? "translate-x-0" : "translate-x-full"
                     } ${isMobile ? "" : "lg:static lg:translate-x-0"}`}
             >
-                <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-800 bg-white/50 backdrop-blur-md">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                        لوحة المعلم
-                    </h1>
+                <div className="flex items-center justify-between border-b border-border p-6">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                            <GraduationCap className="h-6 w-6" />
+                        </div>
+                        <h1 className="text-lg font-semibold tracking-tight text-foreground">بوابة المعلم</h1>
+                    </div>
                     {isMobile && (
-                        <button onClick={() => setIsSidebarOpen(false)}>
-                            <X className="w-6 h-6" />
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted"
+                        >
+                            <X className="h-5 w-5" />
                         </button>
                     )}
                 </div>
 
-                <nav className="p-4 space-y-2">
+                <nav className="space-y-1 p-4">
+                    <p className="px-3 py-2 text-xs font-medium text-muted-foreground">القائمة</p>
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isActive
-                                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                    : "hover:bg-gray-100 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground"
+                                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
+                                    ? "bg-primary text-primary-foreground shadow-sm"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                     }`}
                             >
-                                <item.icon className="w-5 h-5" />
-                                <span className="font-medium">{item.label}</span>
+                                <item.icon className="h-5 w-5 shrink-0 opacity-80" />
+                                <span>{item.label}</span>
                             </Link>
                         );
                     })}
 
                     <button
+                        type="button"
                         onClick={() => signOut()}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 hover:text-red-600 transition-colors mt-8"
+                        className="mt-6 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
                     >
-                        <LogOut className="w-5 h-5" />
-                        <span className="font-medium">تسجيل الخروج</span>
+                        <LogOut className="h-5 w-5" />
+                        تسجيل الخروج
                     </button>
                 </nav>
             </aside>
 
-            {/* Overlay */}
             {isMobile && isSidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+                    className="fixed inset-0 z-40 bg-black/40"
                     onClick={() => setIsSidebarOpen(false)}
+                    aria-hidden
                 />
             )}
 
-            {/* Main Content */}
-            <main className="flex-1 min-w-0 transition-all duration-300">
-                {/* Header */}
-                <header className="sticky top-0 z-30 flex items-center justify-between p-4 bg-white/50 dark:bg-black/50 backdrop-blur-xl border-b border-white/10">
-                    <button
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className="p-2 rounded-lg hover:bg-white/10 lg:hidden"
-                    >
-                        <Menu className="w-6 h-6" />
-                    </button>
+            <main className="flex min-h-screen flex-1 flex-col overflow-hidden bg-background">
+                <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-card px-4 shadow-sm md:px-8">
+                    <div className="flex items-center gap-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background transition-colors hover:bg-muted"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </button>
 
-                    <div className="flex items-center gap-4 mr-auto">
-                        <div className="flex items-center gap-3">
-                            <div className="text-left hidden md:block">
-                                <p className="text-sm font-bold">{userData.displayName || "المعلم"}</p>
-                                <p className="text-xs text-muted-foreground capitalize">{userData.role}</p>
+                        <div className="hidden items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 sm:flex">
+                            <span className="text-xs text-muted-foreground">بحث الحلقات</span>
+                            <Search className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                            <Bell className="h-5 w-5" />
+                        </button>
+
+                        <div className="hidden h-6 w-px bg-border md:block" />
+
+                        <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 py-1.5 ps-3 pe-1.5">
+                            <div className="hidden text-right md:block">
+                                <p className="text-xs text-muted-foreground">معلم</p>
+                                <p className="max-w-[140px] truncate text-sm font-medium text-foreground">
+                                    {userData.displayName || "المعلم"}
+                                </p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-purple-600 p-[2px]">
-                                <div className="w-full h-full rounded-full bg-background overflow-hidden relative">
-                                    {userData.photoURL ? (
-                                        <img
-                                            src={userData.photoURL}
-                                            alt={userData.displayName || "User"}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold text-lg">
-                                            {userData.displayName?.[0]?.toUpperCase() || "T"}
-                                        </div>
-                                    )}
-                                </div>
+                            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/15 text-sm font-semibold text-primary">
+                                {(userData.displayName?.[0] || "T").toUpperCase()}
                             </div>
                         </div>
                     </div>
                 </header>
 
-                <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+                <div className="mx-auto max-w-7xl space-y-8 p-4 md:p-8">
                     {children}
                 </div>
             </main>

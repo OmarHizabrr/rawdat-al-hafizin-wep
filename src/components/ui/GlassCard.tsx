@@ -6,32 +6,37 @@ import { cn } from "@/lib/utils";
 interface GlassCardProps extends HTMLMotionProps<"div"> {
     children: React.ReactNode;
     className?: string;
+    /** @deprecated Use default surface. Glass = blur + strong shadow (legacy marketing style). */
+    variant?: "surface" | "glass";
     gradient?: boolean;
 }
 
 export function GlassCard({
     children,
     className,
+    variant = "surface",
     gradient = false,
     ...props
 }: GlassCardProps) {
+    const isGlass = variant === "glass";
+
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            initial={isGlass ? { opacity: 0, scale: 0.98, y: 10 } : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: isGlass ? 0.35 : 0.2, ease: "easeOut" }}
             className={cn(
-                "relative overflow-hidden rounded-2xl border border-white/20 bg-white/10 p-6 shadow-xl backdrop-blur-xl",
-                "dark:border-white/10 dark:bg-black/20",
+                "relative overflow-hidden text-card-foreground",
+                isGlass
+                    ? "rounded-[1rem] md:rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-4 md:p-5 shadow-2xl backdrop-blur-xl transition-all duration-300 dark:border-white/5 dark:bg-black/40 card-shine"
+                    : "rounded-2xl border border-border bg-card p-4 md:p-5 shadow-sm",
                 gradient &&
-                "bg-gradient-to-br from-white/10 via-white/5 to-transparent dark:from-white/5 dark:via-white/0",
+                    isGlass &&
+                    "bg-gradient-to-br from-white/[0.08] via-transparent to-transparent",
                 className
             )}
             {...props}
         >
-            {/* Dynamic Shine Effect */}
-            <div className="pointer-events-none absolute -inset-[100%] z-0 block h-[200%] w-[200%] rotate-45 bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100 dark:via-white/5" />
-
             <div className="relative z-10">{children}</div>
         </motion.div>
     );

@@ -170,48 +170,50 @@ export default function ApplicantsManagement() {
     return (
         <div className="space-y-8 pb-24">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 shadow-2xl backdrop-blur-md relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full -mr-16 -mt-16" />
-                <div className="relative z-10">
-                    <h1 className="text-3xl font-black tracking-tight flex items-center gap-4">
-                        <Users className="w-8 h-8 text-primary" />
-                        إدارة طلبات الالتحاق
-                    </h1>
-                    <p className="text-muted-foreground mt-1 font-medium">مراجعة بيانات المتقدمين الجدد واعتماد عضوياتهم</p>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white/5 p-4 md:p-6 rounded-2xl border border-white/10 shadow-xl backdrop-blur-xl relative overflow-hidden card-shine">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[80px] rounded-full -mr-16 -mt-16" />
+                <div className="relative z-10 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center border border-white/10 shadow-inner">
+                        <Users className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl md:text-2xl font-black tracking-tight text-elite-gradient">طلبات الحافظين الجدد</h1>
+                        <p className="text-[10px] md:text-xs text-muted-foreground font-medium opacity-60">مراجعة وفحص بيانات المتقدمين للانضمام للبرنامج</p>
+                    </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 relative z-10">
-                    <div className="relative group">
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <div className="relative group min-w-[300px]">
+                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 group-focus-within:text-primary transition-all duration-300" />
                         <input
                             type="text"
-                            placeholder="بحث بالاسم أو الدولة..."
+                            placeholder="بحث بالاسم أو الدولة أو الهاتف..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-4 pr-10 py-3 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none w-full sm:w-64 transition-all text-sm font-bold"
+                            className="w-full pl-6 pr-11 py-2.5 rounded-xl border border-white/10 bg-white/5 focus:ring-4 focus:ring-primary/5 outline-none transition-all font-bold text-[11px] md:text-xs"
                         />
                     </div>
                 </div>
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex gap-2 p-1.5 bg-white/5 border border-white/10 rounded-2xl w-fit">
+            <div className="flex gap-1.5 p-1 bg-white/5 border border-white/10 rounded-xl w-fit">
                 <button
                     onClick={() => setStatusFilter('pending')}
-                    className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${statusFilter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}
+                    className={`px-5 py-1.5 rounded-lg text-[11px] md:text-xs font-black transition-all ${statusFilter === 'pending' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}
                 >
                     طلبات معلقة ({applicants.filter(a => !a.enrollmentStatus.isAccepted).length})
                 </button>
                 <button
                     onClick={() => setStatusFilter('accepted')}
-                    className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${statusFilter === 'accepted' ? 'bg-green-600 text-white shadow-lg shadow-green-600/20' : 'text-muted-foreground hover:bg-white/5'}`}
+                    className={`px-5 py-1.5 rounded-lg text-[11px] md:text-xs font-black transition-all ${statusFilter === 'accepted' ? 'bg-green-600 text-white shadow-lg shadow-green-600/20' : 'text-muted-foreground hover:bg-white/5'}`}
                 >
                     مقبولون ({applicants.filter(a => a.enrollmentStatus.isAccepted).length})
                 </button>
             </div>
 
             {/* Applicants Grid */}
-            <div className="grid gap-6">
+            <div className="grid gap-4 md:gap-6">
                 <AnimatePresence mode="popLayout">
                     {filteredApplicants.map((app, index) => (
                         <motion.div
@@ -219,29 +221,32 @@ export default function ApplicantsManagement() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ delay: index * 0.05 }}
+                            transition={{ delay: index * 0.03 }}
                         >
-                            <GlassCard className="p-0 overflow-hidden group hover:border-primary/30 transition-all border-white/5">
-                                <div className="p-6 md:p-8 flex flex-col lg:flex-row gap-8">
+                            <GlassCard className="p-0 overflow-hidden group hover:border-primary/30 transition-all border-white/5 rounded-2xl">
+                                <div className="p-4 md:p-6 flex flex-col lg:flex-row gap-6 md:gap-8">
                                     {/* User Branding */}
-                                    <div className="flex flex-col items-center gap-4 lg:w-48 shrink-0">
-                                        <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-primary/20 to-purple-600/10 flex items-center justify-center border border-white/10 shadow-inner group-hover:scale-110 transition-transform">
-                                            <User className="w-10 h-10 text-primary opacity-50" />
+                                    <div className="flex flex-col items-center gap-4 lg:w-40 shrink-0 border-b lg:border-b-0 lg:border-l border-white/5 pb-4 lg:pb-0">
+                                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 via-purple-600/10 to-transparent flex items-center justify-center border border-white/5 shadow-xl relative group-hover:scale-105 transition-all">
+                                            <User className="w-10 h-10 text-primary opacity-40" />
+                                            <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#0a0a0a] border border-white/5 rounded-lg flex items-center justify-center shadow-xl">
+                                                <div className={`w-2 h-2 rounded-full ${app.enrollmentStatus.isAccepted ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
+                                            </div>
                                         </div>
-                                        <div className="text-center">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-40">تاريخ الطلب</p>
-                                            <p className="text-xs font-bold mt-1">
+                                        <div className="text-center font-black">
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground opacity-30 mb-0.5">تاريخ التقديم</p>
+                                            <p className="text-[11px] bg-white/5 px-3 py-1 rounded-full border border-white/5 opacity-60">
                                                 {app.updatedAt ? new Date(app.updatedAt.seconds * 1000).toLocaleDateString('ar-SA') : 'قيد المراجعة'}
                                             </p>
                                         </div>
                                     </div>
 
                                     {/* Content Info */}
-                                    <div className="flex-1 grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                        <div className="space-y-4">
+                                    <div className="flex-1 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        <div className="space-y-3">
                                             <div>
-                                                <h3 className="text-xl font-black">{app.personalInfo.fullName}</h3>
-                                                <p className="text-xs font-bold text-primary flex items-center gap-1 mt-1">
+                                                <h3 className="text-lg font-black group-hover:text-primary transition-colors">{app.personalInfo.fullName}</h3>
+                                                <p className="text-[11px] font-bold text-primary/80 flex items-center gap-1 mt-0.5">
                                                     <Globe className="w-3 h-3" />
                                                     {app.personalInfo.nationality} | {app.personalInfo.country}
                                                 </p>
@@ -268,15 +273,15 @@ export default function ApplicantsManagement() {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             <div className="space-y-1">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-40">التخصص والعمل</p>
-                                                <p className="text-sm font-bold">{app.personalInfo.major || 'غير محدد'}</p>
-                                                <p className="text-xs opacity-60">{app.personalInfo.job || 'طالب'}</p>
+                                                <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground opacity-30">تخصص الطالب</p>
+                                                <p className="text-xs font-black">{app.personalInfo.major || 'غير محدد'}</p>
+                                                <p className="text-[10px] opacity-50 font-medium">{app.personalInfo.job || 'طالب'}</p>
                                             </div>
-                                            <div className="pt-2">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-40">رقم الواتساب</p>
-                                                <a href={`https://wa.me/${app.personalInfo.phonePrefix}${app.personalInfo.phone}`} target="_blank" className="text-sm font-bold text-green-600 hover:underline dir-ltr inline-block mt-1">
+                                            <div className="pt-1.5 border-t border-white/5">
+                                                <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground opacity-30">واتساب</p>
+                                                <a href={`https://wa.me/${app.personalInfo.phonePrefix}${app.personalInfo.phone}`} target="_blank" className="text-[11px] font-black text-emerald-500 hover:text-emerald-400 dir-ltr inline-block mt-0.5 transition-colors">
                                                     {app.personalInfo.phonePrefix} {app.personalInfo.phone}
                                                 </a>
                                             </div>
@@ -284,30 +289,36 @@ export default function ApplicantsManagement() {
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="flex flex-row lg:flex-col items-center justify-center gap-3 lg:w-40 shrink-0 bg-white/5 rounded-[2rem] p-4 border border-white/5">
+                                    <div className="flex flex-row lg:flex-col items-center justify-center gap-2 lg:w-40 shrink-0 bg-white/5 rounded-xl md:rounded-2xl p-4 border border-white/5">
                                         {!app.enrollmentStatus.isAccepted ? (
                                             <>
                                                 <button
                                                     onClick={() => handleAccept(app)}
                                                     disabled={!!processing}
-                                                    className="w-full py-3 bg-primary text-white rounded-2xl font-black text-xs hover:shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                                                    className="w-full py-2.5 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-lg font-black text-[11px] flex items-center justify-center gap-2 transition-all active:scale-95"
                                                 >
-                                                    {processing === app.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-                                                    اعتماد وقبول
+                                                    {processing === app.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
+                                                    <span>اعتماد القبول</span>
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(app)}
-                                                    className="w-full py-3 bg-red-500/10 text-red-500 rounded-2xl font-black text-xs hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2"
+                                                    className="w-full py-2.5 bg-red-500/5 text-red-500/60 hover:text-red-500 rounded-lg font-black text-[11px] hover:bg-red-500/10 transition-all flex items-center justify-center gap-2 border border-red-500/5 active:scale-95"
                                                 >
-                                                    <UserX className="w-4 h-4" />
-                                                    رفض الطلب
+                                                    <UserX className="w-3.5 h-3.5" />
+                                                    <span>رفض الطلب</span>
                                                 </button>
                                             </>
                                         ) : (
-                                            <div className="flex flex-col items-center gap-2 text-green-500">
-                                                <CheckCircle2 className="w-8 h-8" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">تم القبول</span>
-                                            </div>
+                                            <motion.div 
+                                                initial={{ scale: 0 }} 
+                                                animate={{ scale: 1 }} 
+                                                className="flex flex-col items-center gap-2 text-green-500"
+                                            >
+                                                <div className="w-12 h-12 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                                                    <ShieldCheck className="w-7 h-7" />
+                                                </div>
+                                                <span className="text-[9px] font-black uppercase tracking-widest opacity-60">عضو معتمد</span>
+                                            </motion.div>
                                         )}
                                     </div>
                                 </div>

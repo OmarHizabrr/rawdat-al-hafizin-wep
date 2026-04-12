@@ -11,7 +11,9 @@ import {
     updateDoc,
     serverTimestamp,
     Timestamp,
-    getDoc
+    getDoc,
+    writeBatch,
+    getDocs
 } from "firebase/firestore";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -125,7 +127,7 @@ export default function CourseDetailsManagement() {
             const levelId = doc(collection(db, "levels", id, "levels")).id;
             await setDoc(doc(db, "levels", id, "levels", levelId), {
                 ...currentLevel,
-                resources: []
+                createdAt: serverTimestamp()
             });
             setIsLevelModalOpen(false);
             setCurrentLevel({ name: "" });
@@ -141,7 +143,17 @@ export default function CourseDetailsManagement() {
     const handleDeleteLevel = async (levelId: string, name: string) => {
         showDialog('danger', 'حذف المستوى', `هل أنت متأكد من حذف مستوى "${name}"؟ سيتم حذف جميع الموارد التعليمية بداخله.`, async () => {
             try {
-                await deleteDoc(doc(db, "levels", id, "levels", levelId));
+                const batch = writeBatch(db);
+                
+                // 1. Fetch and delete resources: levels/{courseId}/levels/{levelId}/resources
+                const resSnap = await getDocs(collection(db, "levels", id, "levels", levelId, "resources"));
+                resSnap.forEach((res: any) => batch.delete(res.ref));
+                
+                // 2. Delete level doc
+                batch.delete(doc(db, "levels", id, "levels", levelId));
+                
+                await batch.commit();
+                showDialog('success', 'تم الحذف', `تم حذف المستوى "${name}" وكافة موارده بنجاح.`);
             } catch (e) {
                 console.error(e);
                 showDialog('danger', 'فشل الحذف', 'حدث خطأ أثناء محاولة حذف المستوى.');
@@ -161,22 +173,15 @@ export default function CourseDetailsManagement() {
         setSaving(true);
 
         try {
-            const levelRef = doc(db, "levels", id, "levels", selectedLevelId);
-            const levelDoc = levels.find(l => l.id === selectedLevelId);
-            if (!levelDoc) return;
-
-            const newResource = {
-                id: Date.now().toString(),
+            const resourceId = doc(collection(db, "levels", id, "levels", selectedLevelId, "resources")).id;
+            const resRef = doc(db, "levels", id, "levels", selectedLevelId, "resources", resourceId);
+            
+            await setDoc(resRef, {
+                id: resourceId,
                 title: currentResource.title,
                 url: currentResource.url,
                 type: currentResource.type,
-                addedAt: new Date().toISOString()
-            };
-
-            const updatedResources = [...(levelDoc.resources || []), newResource];
-
-            await updateDoc(levelRef, {
-                resources: updatedResources
+                addedAt: serverTimestamp()
             });
 
             setIsResourceModalOpen(false);
@@ -192,12 +197,8 @@ export default function CourseDetailsManagement() {
     const handleDeleteResource = async (levelId: string, resourceId: string, title: string) => {
         showDialog('warning', 'حذف المورد', `هل تريد حذف المورد "${title}"؟`, async () => {
             try {
-                const levelRef = doc(db, "levels", id, "levels", levelId);
-                const levelDoc = levels.find(l => l.id === levelId);
-                if (!levelDoc) return;
-
-                const updatedResources = levelDoc.resources.filter(r => r.id !== resourceId);
-                await updateDoc(levelRef, { resources: updatedResources });
+                const resRef = doc(db, "levels", id, "levels", levelId, "resources", resourceId);
+                await deleteDoc(resRef);
             } catch (e) {
                 console.error(e);
             }
@@ -286,52 +287,13 @@ export default function CourseDetailsManagement() {
                                             <Trash2 className="w-5 h-5" />
                                         </button>
                                     </div>
-
                                     {/* Resources Section */}
-                                    <div className="p-8 bg-white/[0.01] space-y-6">
-                                        <div className="grid sm:grid-cols-2 gap-4">
-                                            {level.resources?.map(resource => {
-                                                const Icon = iconMap[resource.type || 'link'];
-                                                return (
-                                                    <motion.div 
-                                                        key={resource.id}
-                                                        initial={{ opacity: 0, scale: 0.95 }}
-                                                        animate={{ opacity: 1, scale: 1 }}
-                                                        className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group/res hover:border-primary/20 transition-all"
-                                                    >
-                                                        <div className="flex items-center gap-4 overflow-hidden">
-                                                            <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-primary/10 text-primary shadow-inner border border-primary/10">
-                                                                <Icon className="w-6 h-6" />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="font-bold text-sm truncate">{resource.title}</p>
-                                                                <Link href={resource.url} target="_blank" className="text-[10px] text-blue-500 hover:underline flex items-center gap-1 font-mono tracking-tighter opacity-70 group-hover/res:opacity-100 transition-opacity">
-                                                                    <ExternalLink className="w-3 h-3" />
-                                                                    {resource.url.length > 30 ? resource.url.substring(0, 30) + '...' : resource.url}
-                                                                </Link>
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => handleDeleteResource(level.id, resource.id, resource.title)}
-                                                            className="opacity-0 group-hover/res:opacity-100 p-2.5 text-red-500 hover:bg-red-500/10 rounded-xl transition-all hover:scale-110"
-                                                        >
-                                                            <X className="w-5 h-5" />
-                                                        </button>
-                                                    </motion.div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <button
-                                            onClick={() => handleOpenResourceModal(level.id)}
-                                            className="w-full py-5 border-2 border-dashed border-white/10 rounded-[2rem] flex items-center justify-center gap-3 text-muted-foreground/60 hover:border-primary/40 hover:text-primary transition-all hover:bg-primary/5 font-bold"
-                                        >
-                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                                <Plus className="w-4 h-4" />
-                                            </div>
-                                            إضافة مورد تعليمي جديد (ملف، فيديو، صوت)
-                                        </button>
-                                    </div>
+                                    <LevelResources 
+                                        courseId={id} 
+                                        levelId={level.id} 
+                                        handleDeleteResource={handleDeleteResource}
+                                        handleOpenResourceModal={handleOpenResourceModal}
+                                    />
                                 </GlassCard>
                             </motion.div>
                         ))}
@@ -475,6 +437,76 @@ export default function CourseDetailsManagement() {
                 type={dialogConfig.type as any}
                 confirmText={dialogConfig.onConfirm ? "نعم، متأكد" : "حسناً"}
             />
+        </div>
+    );
+}
+
+function LevelResources({ courseId, levelId, handleDeleteResource, handleOpenResourceModal }: { 
+    courseId: string, 
+    levelId: string, 
+    handleDeleteResource: (lId: string, rId: string, t: string) => void,
+    handleOpenResourceModal: (lId: string) => void
+}) {
+    const [resources, setResources] = useState<Resource[]>([]);
+    
+    useEffect(() => {
+        const unsubscribe = onSnapshot(collection(db, "levels", courseId, "levels", levelId, "resources"), (snap) => {
+            setResources(snap.docs.map(d => ({ id: d.id, ...d.data() } as Resource)));
+        });
+        return () => unsubscribe();
+    }, [courseId, levelId]);
+
+    const iconMap = {
+        pdf: FileText,
+        video: Video,
+        audio: Mic,
+        link: LinkIcon
+    };
+
+    return (
+        <div className="p-8 bg-white/[0.01] space-y-6">
+            <div className="grid sm:grid-cols-2 gap-4">
+                {resources.map(resource => {
+                    const Icon = iconMap[resource.type || 'link'];
+                    return (
+                        <motion.div 
+                            key={resource.id}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group/res hover:border-primary/20 transition-all"
+                        >
+                            <div className="flex items-center gap-4 overflow-hidden">
+                                <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-primary/10 text-primary shadow-inner border border-primary/10">
+                                    <Icon className="w-6 h-6" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="font-bold text-sm truncate">{resource.title}</p>
+                                    <Link href={resource.url} target="_blank" className="text-[10px] text-blue-500 hover:underline flex items-center gap-1 font-mono tracking-tighter opacity-70 group-hover/res:opacity-100 transition-opacity">
+                                        <ExternalLink className="w-3 h-3" />
+                                        {resource.url.length > 30 ? resource.url.substring(0, 30) + '...' : resource.url}
+                                    </Link>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => handleDeleteResource(levelId, resource.id, resource.title)}
+                                className="opacity-0 group-hover/res:opacity-100 p-2.5 text-red-500 hover:bg-red-500/10 rounded-xl transition-all hover:scale-110"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </motion.div>
+                    );
+                })}
+            </div>
+
+            <button
+                onClick={() => handleOpenResourceModal(levelId)}
+                className="w-full py-5 border-2 border-dashed border-white/10 rounded-[2rem] flex items-center justify-center gap-3 text-muted-foreground/60 hover:border-primary/40 hover:text-primary transition-all hover:bg-primary/5 font-bold"
+            >
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Plus className="w-4 h-4" />
+                </div>
+                إضافة مورد تعليمي جديد (ملف، فيديو، صوت)
+            </button>
         </div>
     );
 }

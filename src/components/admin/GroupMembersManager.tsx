@@ -142,7 +142,10 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                 const data = snap.data();
                 setGroupName(data.title || data.name || "مجموعة بدون اسم");
                 if (groupType === 'course') {
-                    setCourseInfo({ id: snap.id, ...data } as CourseModel);
+                    // Fetch nested volumes too
+                    const volsSnap = await getDocs(collection(db, "course_volumes", groupId, "course_volumes"));
+                    const vols = volsSnap.docs.map(d => d.data().volumeId);
+                    setCourseInfo({ id: snap.id, ...data, selectedVolumeIds: vols } as CourseModel);
                 }
             }
         };
@@ -234,10 +237,15 @@ export function GroupMembersManager({ groupId, groupType, backUrl }: GroupMember
                     else setTodayPlan(null);
                 }
 
-                // Fetch Template
+                // Fetch Template and its volumes
                 if (courseInfo.planTemplateId) {
                     const tSnap = await getDoc(doc(db, "plan_templates", courseInfo.planTemplateId));
-                    if (tSnap.exists()) setActiveTemplate({ id: tSnap.id, ...tSnap.data() } as PlanTemplate);
+                    if (tSnap.exists()) {
+                        const tData = tSnap.data();
+                        const vSnap = await getDocs(collection(db, "template_volumes", tSnap.id, "template_volumes"));
+                        const vIds = vSnap.docs.map(d => d.data().volumeId);
+                        setActiveTemplate({ id: tSnap.id, ...tData, selectedVolumeIds: vIds } as PlanTemplate);
+                    }
                 }
             }
         } catch (error) {

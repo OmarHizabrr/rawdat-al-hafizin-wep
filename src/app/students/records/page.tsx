@@ -45,33 +45,38 @@ export default function StudentRecords() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const loadData = async () => {
-            if (!user) return;
+        if (!user) {
+            setLoading(false);
+            return;
+        }
+
+        let unsubscribeAchievements: (() => void) | undefined;
+
+        (async () => {
             try {
-                // Fetch student profile info
                 const docRef = doc(db, "applicants", user.uid, "applicants", user.uid);
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
                     setStudentData(snap.data() as StudentData);
                 }
 
-                // Fetch achievements/certificates
                 const q = query(collection(db, "student_records", user.uid, "student_records"));
-                const unsubscribe = onSnapshot(q, (snapshot: any) => {
-                    const data = snapshot.docs.map((doc: any) => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    setAchievements(data);
+                unsubscribeAchievements = onSnapshot(q, (snapshot) => {
+                    setAchievements(
+                        snapshot.docs.map((d) => ({
+                            id: d.id,
+                            ...d.data(),
+                        }))
+                    );
                 });
-                return () => unsubscribe();
             } catch (error) {
                 console.error("Error loading student records:", error);
             } finally {
                 setLoading(false);
             }
-        };
-        loadData();
+        })();
+
+        return () => unsubscribeAchievements?.();
     }, [user]);
 
     if (loading) {

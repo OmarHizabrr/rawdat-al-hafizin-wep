@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { 
     collection, query, onSnapshot, doc, setDoc, 
-    serverTimestamp, updateDoc, increment, arrayUnion, 
+    serverTimestamp, updateDoc, increment, 
     getDocs, where, writeBatch, getDoc, orderBy, limit,
-    collectionGroup, addDoc
+    collectionGroup, addDoc, deleteDoc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
@@ -29,7 +29,8 @@ import { logSessionAttendance } from "@/lib/recitation-service";
 import { useRouter } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ActivityChart } from "../../components/students/ActivityChart";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
+import { EliteModal } from "@/components/ui/EliteModal";
+import { EliteDialog } from "@/components/ui/EliteDialog";
 import { cn } from "@/lib/utils";
 
 interface Course {
@@ -61,7 +62,7 @@ interface Testimonial {
     id: string;
     studentName: string;
     content: string;
-    likes: string[];
+    likesCount?: number;
     photoURL?: string;
 }
 
@@ -107,6 +108,7 @@ export default function StudentsDashboard() {
     const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
     const [newTestimonialContent, setNewTestimonialContent] = useState("");
     const [isSubmittingTestimonial, setIsSubmittingTestimonial] = useState(false);
+    const [myLikedPostIds, setMyLikedPostIds] = useState<Set<string>>(new Set());
 
     const [dailyLog, setDailyLog] = useState<{ userId: string, courseId: string, date: string, pages: number, completedTasks: string[], completed: boolean } | null>(null);
     const [lastWeekLogs, setLastWeekLogs] = useState<any[]>([]);
@@ -142,6 +144,8 @@ export default function StudentsDashboard() {
     const [pointsLogs, setPointsLogs] = useState<any[]>([]);
     const [isCheckingBadges, setIsCheckingBadges] = useState(false);
     const [activeTemplate, setActiveTemplate] = useState<PlanTemplate | null>(null);
+    const [templateVolumes, setTemplateVolumes] = useState<{volumeId: string, tierId?: string}[]>([]);
+    const [courseVolumes, setCourseVolumes] = useState<string[]>([]);
     const [celebratedVolume, setCelebratedVolume] = useState<SunnahVolume | null>(null);
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -199,12 +203,23 @@ export default function StudentsDashboard() {
 
     // Fetch Testimonials
     useEffect(() => {
-        const q = query(collection(db, "testimonials"));
+        const q = query(collection(db, "testimonials"), where("isVisible", "==", true));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setTestimonials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Testimonial[]);
         });
         return () => unsubscribe();
     }, []);
+
+    // Fetch My Likes for Testimonials
+    useEffect(() => {
+        if (!user) return;
+        const q = query(collectionGroup(db, "testimonial_likes"), where("userId", "==", user.uid));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const likedIds = new Set(snapshot.docs.map(doc => doc.data().testimonialId));
+            setMyLikedPostIds(likedIds);
+        });
+        return () => unsubscribe();
+    }, [user]);
 
     // Dashboard Data Effect
     useEffect(() => {
@@ -281,11 +296,30 @@ export default function StudentsDashboard() {
             const today = new Date();
             const dayNum = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
             
-            if (dayNum > 0) {
+            try {
                 const q = query(collection(db, "course_plans", activeCourse.id, "course_plans"), where("dayIndex", "==", dayNum));
                 const snap = await getDocs(q);
                 if (!snap.empty) setTodayPlan(snap.docs[0].data() as PlanDay);
                 else setTodayPlan(null);
+
+                // Fetch Course Volumes
+                const cvSnap = await getDocs(collection(db, "course_volumes", activeCourse.id, "course_volumes"));
+                setCourseVolumes(cvSnap.docs.map(d => d.data().volumeId));
+
+                // Fetch Template and its volumes
+                if (activeCourse.planTemplateId) {
+                    const tSnap = await getDoc(doc(db, "plan_templates", activeCourse.planTemplateId));
+                    if (tSnap.exists()) {
+                        setActiveTemplate({ id: tSnap.id, ...tSnap.data() } as PlanTemplate);
+                        const tvSnap = await getDocs(collection(db, "template_volumes", tSnap.id, "template_volumes"));
+                        setTemplateVolumes(tvSnap.docs.map(d => ({ 
+                            volumeId: d.data().volumeId, 
+                            tierId: d.data().tierId 
+                        })));
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching plan/volumes:", error);
             }
         };
         fetchPlan();
@@ -349,15 +383,28 @@ export default function StudentsDashboard() {
 
         // Listen for Live Recitation Sessions using nested path collection group
         const qLive = query(collectionGroup(db, "recitation_sessions"), where("status", "==", "active"));
-        const unsubscribeLive = onSnapshot(qLive, (snapshot) => {
+        const unsubscribeLive = onSnapshot(qLive, async (snapshot) => {
             const sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-            const mySessions = sessions.filter(s => {
-                const isMyGroup = s.targetType === 'group' && s.targetId === userData?.groupId;
-                const isMyCourse = s.targetType === 'course' && joinedCourseIds.has(s.targetId);
-                const isMe = s.targetType === 'individual' && s.targetStudentIds?.includes(user.uid);
-                const isAll = s.targetType === 'all';
-                return isMyGroup || isMyCourse || isMe || isAll;
-            });
+            
+            const mySessions: any[] = [];
+            for (const s of sessions) {
+                if (s.targetType === 'all') {
+                    mySessions.push(s);
+                    continue;
+                }
+                
+                // Fetch junction linked targets for this session
+                const targetsSnap = await getDocs(collection(db, "session_targets", s.id, "session_targets"));
+                const targetIds = targetsSnap.docs.map(d => d.data()?.targetId).filter(Boolean);
+
+                const isMyGroup = s.targetType === 'group' && (s.targetId === userData?.groupId || targetIds.includes(userData?.groupId || ""));
+                const isMyCourse = s.targetType === 'course' && (joinedCourseIds.has(s.targetId) || targetIds.some(id => joinedCourseIds.has(id)));
+                const isMe = s.targetType === 'individual' && targetIds.includes(user.uid);
+
+                if (isMyGroup || isMyCourse || isMe) {
+                    mySessions.push(s);
+                }
+            }
             setActiveSessions(mySessions);
         });
 
@@ -441,11 +488,17 @@ export default function StudentsDashboard() {
                 if (lastDate === yesterdayStr) batch.update(userRef, { streak: increment(1) });
                 else if (lastDate !== todayStr) batch.update(userRef, { streak: 1 });
                 
-                // Identify target volume
-                let targetVolumeId = activeCourse.selectedVolumeIds?.[0] || activeCourse.folderId;
+                // Identify target volume (Standardized Subcollection Logic)
+                let targetVolumeId = courseVolumes[0] || activeCourse.folderId;
                 if (typeof taskData !== 'string' && activeTemplate) {
-                    const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
-                    if (tier?.selectedVolumeIds?.length) targetVolumeId = tier.selectedVolumeIds[0];
+                    // Try to find volume associated with this specific tier
+                    const tierVol = templateVolumes.find(v => v.tierId === taskData.tierId);
+                    if (tierVol) targetVolumeId = tierVol.volumeId;
+                    else if (templateVolumes.length > 0) {
+                        // Fallback to template-level volume (no tierId)
+                        const templateLevelVol = templateVolumes.find(v => !v.tierId);
+                        if (templateLevelVol) targetVolumeId = templateLevelVol.volumeId;
+                    }
                 }
 
                 if (targetVolumeId) {
@@ -457,10 +510,14 @@ export default function StudentsDashboard() {
                     }, { merge: true });
                 }
             } else {
-                let targetVolumeId = activeCourse.selectedVolumeIds?.[0] || activeCourse.folderId;
+                let targetVolumeId = courseVolumes[0] || activeCourse.folderId;
                 if (typeof taskData !== 'string' && activeTemplate) {
-                    const tier = activeTemplate.tiers.find(t => t.id === taskData.tierId);
-                    if (tier?.selectedVolumeIds?.length) targetVolumeId = tier.selectedVolumeIds[0];
+                    const tierVol = templateVolumes.find(v => v.tierId === taskData.tierId);
+                    if (tierVol) targetVolumeId = tierVol.volumeId;
+                    else if (templateVolumes.length > 0) {
+                        const templateLevelVol = templateVolumes.find(v => !v.tierId);
+                        if (templateLevelVol) targetVolumeId = templateLevelVol.volumeId;
+                    }
                 }
 
                 if (targetVolumeId) {
@@ -521,7 +578,7 @@ export default function StudentsDashboard() {
                 status: 'active'
             });
 
-            const memberRef = doc(db, "courses", targetCourse.id, "members", user.uid);
+            const memberRef = doc(db, "members", targetCourse.id, "members", user.uid);
             batch.set(memberRef, {
                 userId: user.uid,
                 displayName: user.displayName || userData?.displayName || "طالب العلم",
@@ -550,13 +607,27 @@ export default function StudentsDashboard() {
         }
     };
 
-    const handleToggleLike = async (tid: string, likes: string[]) => {
+    const handleToggleLike = async (tid: string) => {
         if (!user) return;
-        const ref = doc(db, "testimonials", tid);
-        const isLiked = likes.includes(user.uid);
-        await updateDoc(ref, {
-            likes: isLiked ? likes.filter(id => id !== user.uid) : arrayUnion(user.uid)
-        });
+        const likeRef = doc(db, "testimonial_likes", tid, "testimonial_likes", user.uid);
+        const testimonialRef = doc(db, "testimonials", tid);
+        const isLiked = myLikedPostIds.has(tid);
+
+        try {
+            if (isLiked) {
+                await deleteDoc(likeRef);
+                await updateDoc(testimonialRef, { likesCount: increment(-1) });
+            } else {
+                await setDoc(likeRef, { 
+                    testimonialId: tid,
+                    userId: user.uid, 
+                    createdAt: serverTimestamp() 
+                });
+                await updateDoc(testimonialRef, { likesCount: increment(1) });
+            }
+        } catch (error) {
+            console.error("Error toggling like:", error);
+        }
     };
 
     const handleSubmitTestimonial = async () => {
@@ -568,7 +639,6 @@ export default function StudentsDashboard() {
                 studentName: user.displayName || userData?.displayName || "طالب العلم",
                 photoURL: user.photoURL || userData?.photoURL || "",
                 content: newTestimonialContent,
-                likes: [],
                 isVisible: true,
                 createdAt: serverTimestamp()
             });
@@ -632,49 +702,92 @@ export default function StudentsDashboard() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-12 pb-32" dir="rtl">
+        <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-12 pb-32 font-arabic" dir="rtl">
             {/* Motivation Header */}
-            <motion.div initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col lg:flex-row items-center justify-between gap-8 md:gap-10 bg-white/[0.02] border border-white/5 p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] backdrop-blur-xl shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] rounded-full -mr-20 -mt-20" />
-                <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 relative z-10 w-full lg:w-auto">
+            <motion.div 
+                initial={{ opacity: 0, y: -30 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className="flex flex-col lg:flex-row items-center justify-between gap-6 md:gap-8 bg-white/5 border border-white/10 p-3 md:p-4 rounded-2xl md:rounded-3xl backdrop-blur-2xl shadow-2xl relative overflow-hidden card-shine"
+            >
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[100px] rounded-full -mr-32 -mt-32" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/5 blur-[80px] rounded-full -ml-32 -mb-32" />
+                
+                <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 relative z-10 w-full lg:w-auto">
                     <div className="relative group mx-auto md:mx-0">
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-[2rem] md:rounded-[2.5rem] bg-gradient-to-br from-primary via-primary/80 to-purple-600 p-[3px] shadow-2xl shadow-primary/20 group-hover:scale-105 group-hover:rotate-3 transition-all duration-500">
-                            <div className="w-full h-full rounded-[1.8rem] md:rounded-[2.3rem] bg-background flex items-center justify-center overflow-hidden border-4 border-background">
-                                {user?.photoURL ? <img src={user.photoURL} alt="User" className="w-full h-full object-cover" /> : <UserIcon className="w-10 h-10 md:w-12 md:h-12 text-primary opacity-40" />}
+                        <motion.div 
+                            whileHover={{ scale: 1.05, rotate: 5 }}
+                            className="w-16 h-16 md:w-20 md:h-20 rounded-2xl md:rounded-[1.5rem] bg-gradient-to-br from-primary via-primary/80 to-purple-600 p-[2px] shadow-2xl shadow-primary/20 transition-all duration-500"
+                        >
+                            <div className="w-full h-full rounded-[0.9rem] md:rounded-[1.3rem] bg-[#0a0a0a] flex items-center justify-center overflow-hidden border-2 border-black/20">
+                                {user?.photoURL ? (
+                                    <img src={user.photoURL} alt="User" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                        <UserIcon className="w-6 h-6 md:w-8 md:h-8 text-primary/30" />
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                        <div className="absolute -bottom-2 -right-2 md:-bottom-3 md:-right-3 px-3 md:px-4 py-1 md:py-1.5 bg-amber-500 text-white text-[10px] md:text-xs font-black rounded-xl md:rounded-2xl shadow-xl border-2 md:border-4 border-background flex items-center gap-1.5 md:gap-2 animate-bounce">
-                            <Star className="w-3 h-3 md:w-4 md:h-4 fill-current" /> {userData?.totalPoints || 0} XP
-                        </div>
+                        </motion.div>
+                        <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="absolute -bottom-1 -right-1 md:-bottom-1.5 md:-right-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-amber-500 text-white text-[7px] md:text-xs font-black rounded-lg shadow-2xl border-2 border-[#0a0a0a] flex items-center gap-1"
+                        >
+                            <Trophy className="w-2.5 h-2.5 md:w-3 md:h-3 fill-current animate-pulse" /> 
+                            <span>{userData?.totalPoints || 0} XP</span>
+                        </motion.div>
                     </div>
-                    <div className="text-center md:text-right space-y-3">
-                        <h1 className="text-3xl md:text-5xl font-black tracking-tight flex flex-col md:flex-row items-center gap-4">
-                            {user?.displayName || "طالب العلم"}
-                            <span className={cn("px-5 py-1.5 text-[10px] font-black rounded-full border border-current/20 uppercase tracking-[0.2em] shadow-lg backdrop-blur-md", getLevelInfo(userData?.totalPoints || 0).bg, getLevelInfo(userData?.totalPoints || 0).color)}>
-                                {getLevelInfo(userData?.totalPoints || 0).label}
-                            </span>
-                        </h1>
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-muted-foreground">
-                            <div className="flex items-center gap-2.5 text-orange-500 font-black text-sm px-4 py-2 bg-orange-500/10 rounded-xl border border-orange-500/20">
-                                <TrendingUp className="w-5 h-5 animate-pulse" />
-                                <span>سلسلة الالتزام: {userData?.streak || 0} يوم</span>
+                    
+                    <div className="text-center md:text-right space-y-2">
+                        <div className="space-y-0.5">
+                            <h1 className="text-xl md:text-2xl font-black tracking-tight flex flex-col md:flex-row items-center gap-2.5 text-white">
+                                {user?.displayName || "طالب العلم"}
+                                <span className={cn(
+                                    "px-3 py-0.5 text-[7px] md:text-[9px] font-black rounded-full border border-current/10 uppercase tracking-[0.15em] shadow-xl backdrop-blur-md", 
+                                    getLevelInfo(userData?.totalPoints || 0).bg, 
+                                    getLevelInfo(userData?.totalPoints || 0).color
+                                )}>
+                                    {getLevelInfo(userData?.totalPoints || 0).label}
+                                </span>
+                            </h1>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-3">
+                            <div className="flex items-center gap-2 text-orange-500 font-black text-[9px] md:text-xs px-3 py-1.5 bg-orange-500/10 rounded-xl border border-orange-500/20 shadow-lg shadow-orange-500/5">
+                                <Flame className="w-3.5 h-3.5 animate-bounce" />
+                                <span>الالتزام: {userData?.streak || 0} يوم</span>
                             </div>
-                            <div className="flex items-center gap-2 text-sm font-bold opacity-60">
-                                <Target className="w-4 h-4" />
+                            <div className="flex items-center gap-1.5 text-[9px] font-black opacity-60 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10 uppercase tracking-widest">
+                                <Target className="w-3 h-3 text-primary" />
                                 <span>المستوى {getLevelInfo(userData?.totalPoints || 0).rank} / 4</span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col md:flex-row items-center gap-6 w-full lg:w-auto relative z-10">
-                    <ActivityChart logs={lastWeekLogs} />
-                    <div className="flex gap-4">
-                        <button onClick={() => router.push('/students/profile')} className="p-5 bg-white/5 hover:bg-primary/20 rounded-[1.8rem] transition-all border border-white/10 hover:border-primary/30 group shadow-xl">
-                            <UserIcon className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
-                        </button>
-                        <button onClick={() => router.push('/settings')} className="p-5 bg-white/5 hover:bg-primary/20 rounded-[1.8rem] transition-all border border-white/10 hover:border-primary/30 group shadow-xl">
-                            <Settings className="w-6 h-6 text-muted-foreground group-hover:text-primary" />
-                        </button>
+
+                <div className="flex flex-col md:flex-row items-center gap-4 w-full lg:w-auto relative z-10">
+                    <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 shadow-inner group transition-all hover:bg-white/10">
+                        <ActivityChart logs={lastWeekLogs} />
+                    </div>
+                    <div className="flex gap-2">
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => router.push('/students/profile')} 
+                            className="p-3.5 bg-white/5 hover:bg-primary/20 rounded-xl transition-all border border-white/10 hover:border-primary/30 group shadow-2xl relative"
+                        >
+                            <UserIcon className="w-4.5 h-4.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            <div className="absolute inset-0 rounded-xl bg-primary/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </motion.button>
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => router.push('/settings')} 
+                            className="p-3.5 bg-white/5 hover:bg-primary/20 rounded-xl transition-all border border-white/10 hover:border-primary/30 group shadow-2xl relative"
+                        >
+                            <Settings className="w-4.5 h-4.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            <div className="absolute inset-0 rounded-xl bg-primary/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </motion.button>
                     </div>
                 </div>
             </motion.div>
@@ -683,17 +796,17 @@ export default function StudentsDashboard() {
             <AnimatePresence>
                 {activeSessions.length > 0 && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-4">
-                        <div className="flex items-center gap-2 px-6"><Radio className="w-5 h-5 text-red-500 animate-pulse" /><h3 className="text-xl font-black">تسميع مباشر الآن</h3></div>
-                        <div className="flex flex-wrap gap-6">
+                        <div className="flex items-center gap-2 px-4 md:px-6"><Radio className="w-5 h-5 text-red-500 animate-pulse" /><h3 className="text-xl font-black">تسميع مباشر الآن</h3></div>
+                        <div className="flex flex-wrap gap-4 md:gap-5">
                             {activeSessions.map(session => (
-                                <GlassCard key={session.id} className="flex-1 min-w-[300px] p-6 border-red-500/30 bg-red-500/5 relative group overflow-hidden">
+                                <GlassCard key={session.id} className="flex-1 min-w-[280px] md:min-w-[320px] p-2.5 md:p-4 border-red-500/20 bg-red-500/5 relative group overflow-hidden rounded-xl">
                                     <div className="flex items-center justify-between relative z-10">
-                                        <div className="space-y-2">
-                                            <div className="text-xs font-black text-red-500 uppercase flex items-center gap-2"><span className="w-2 h-2 bg-red-500 rounded-full animate-ping" /> {session.type === 'video' ? 'فيديو' : 'صوتي'}</div>
-                                            <h4 className="text-xl font-black">{session.title}</h4>
-                                            <p className="text-xs opacity-60">المشرف: {session.creatorName}</p>
+                                        <div className="space-y-0.5">
+                                            <div className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" /> {session.type === 'video' ? 'بث فيديو' : 'صوتي مباشر'}</div>
+                                            <h4 className="text-base font-black tracking-tight">{session.title}</h4>
+                                            <p className="text-[9px] opacity-50">المبادر: {session.creatorName}</p>
                                         </div>
-                                        <button onClick={() => handleJoinSession(session)} className="px-6 py-4 bg-red-500 text-white font-black rounded-2xl flex items-center gap-2">دخول <ArrowUpRight className="w-5 h-5" /></button>
+                                        <button onClick={() => handleJoinSession(session)} className="px-3.5 py-2 bg-red-600 text-white text-[10px] font-black rounded-lg flex items-center gap-1.5 shadow-lg shadow-red-500/20 active:scale-95 transition-all">دخول <ArrowUpRight className="w-3 h-3" /></button>
                                     </div>
                                 </GlassCard>
                             ))}
@@ -727,31 +840,50 @@ export default function StudentsDashboard() {
 
             {/* Volumes Progress */}
             <section className="space-y-8 pt-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2 md:px-4">
                     <div className="space-y-2">
-                        <h3 className="text-2xl font-black flex items-center gap-3 text-primary"><Library className="w-6 h-6" /> مسار إنجاز المجلدات المطلوبة</h3>
-                        <p className="text-muted-foreground text-sm font-medium italic">"وخيرُ العلم ما ضُبطت أصولُه.."</p>
+                        <h3 className="text-xl md:text-2xl font-black flex items-center gap-3 text-primary"><Library className="w-6 h-6" /> مسار إنجاز المجلدات المطلوبة</h3>
+                        <p className="text-muted-foreground text-xs md:text-sm font-medium italic">"وخيرُ العلم ما ضُبطت أصولُه.."</p>
                     </div>
                     
                     {/* Aggregated Progress Card */}
                     {(activeTemplate || activeCourse?.folderId) && (
-                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-primary/10 border border-primary/20 rounded-[2rem] p-6 flex items-center gap-6 shadow-2xl backdrop-blur-md relative overflow-hidden group">
+                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-primary/10 border border-primary/20 rounded-xl md:rounded-2xl p-2.5 md:p-3.5 flex items-center gap-3 md:gap-4 shadow-2xl backdrop-blur-md relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-                            <div className="relative w-16 h-16">
+                            <div className="relative w-10 h-10 md:w-14 md:h-14">
                                 <svg className="w-full h-full transform -rotate-90">
-                                    <circle cx="32" cy="32" r="28" fill="transparent" stroke="currentColor" strokeWidth="4" className="text-white/5" />
+                                    <circle cx="20" cy="20" r="18" fill="transparent" stroke="currentColor" strokeWidth="2.5" className="text-white/5 md:hidden" />
+                                    <circle cx="28" cy="28" r="25" fill="transparent" stroke="currentColor" strokeWidth="3.5" className="text-white/5 hidden md:block" />
                                     <motion.circle 
-                                        cx="32" cy="32" r="28" fill="transparent" stroke="currentColor" strokeWidth="4" 
-                                        className="text-primary"
-                                        strokeDasharray={176}
-                                        initial={{ strokeDashoffset: 176 }}
+                                        cx="20" cy="20" r="18" fill="transparent" stroke="currentColor" strokeWidth="2.5" 
+                                        className="text-primary md:hidden"
+                                        strokeDasharray={113}
+                                        initial={{ strokeDashoffset: 113 }}
                                         animate={{ 
-                                            strokeDashoffset: 176 - (176 * Math.min(
+                                            strokeDashoffset: 113 - (113 * Math.min(
                                                 (Object.entries(volumeProgress)
-                                                    .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                                    .filter(([vid]) => templateVolumes.some(tv => tv.volumeId === vid) || courseVolumes.includes(vid) || activeCourse?.folderId === vid)
                                                     .reduce((acc, [, val]) => acc + val, 0) / 
                                                 (SUNNAH_VOLUMES
-                                                    .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                                    .filter(v => templateVolumes.some(tv => tv.volumeId === v.id) || courseVolumes.includes(v.id) || activeCourse?.folderId === v.id)
+                                                    .reduce((acc, v) => acc + v.totalPages, 0) || 1)
+                                                ), 1)
+                                            ) 
+                                        }}
+                                        transition={{ duration: 1.5, ease: "easeOut" }}
+                                    />
+                                    <motion.circle 
+                                        cx="28" cy="28" r="25" fill="transparent" stroke="currentColor" strokeWidth="3.5" 
+                                        className="text-primary hidden md:block"
+                                        strokeDasharray={157}
+                                        initial={{ strokeDashoffset: 157 }}
+                                        animate={{ 
+                                            strokeDashoffset: 157 - (157 * Math.min(
+                                                (Object.entries(volumeProgress)
+                                                    .filter(([vid]) => templateVolumes.some(tv => tv.volumeId === vid) || courseVolumes.includes(vid) || activeCourse?.folderId === vid)
+                                                    .reduce((acc, [, val]) => acc + val, 0) / 
+                                                (SUNNAH_VOLUMES
+                                                    .filter(v => templateVolumes.some(tv => tv.volumeId === v.id) || courseVolumes.includes(v.id) || activeCourse?.folderId === v.id)
                                                     .reduce((acc, v) => acc + v.totalPages, 0) || 1)
                                                 ), 1)
                                             ) 
@@ -759,55 +891,55 @@ export default function StudentsDashboard() {
                                         transition={{ duration: 1.5, ease: "easeOut" }}
                                     />
                                 </svg>
-                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black">
+                                <div className="absolute inset-0 flex items-center justify-center text-[7px] md:text-[9px] font-black">
                                     {Math.round((Object.entries(volumeProgress)
-                                        .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                        .filter(([vid]) => templateVolumes.some(tv => tv.volumeId === vid) || courseVolumes.includes(vid) || activeCourse?.folderId === vid)
                                         .reduce((acc, [, val]) => acc + val, 0) / 
                                     (SUNNAH_VOLUMES
-                                        .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                        .filter(v => templateVolumes.some(tv => tv.volumeId === v.id) || courseVolumes.includes(v.id) || activeCourse?.folderId === v.id)
                                         .reduce((acc, v) => acc + v.totalPages, 0) || 1)) * 100)}%
                                 </div>
                             </div>
-                            <div className="space-y-1 relative z-10">
-                                <div className="text-[10px] font-black text-primary uppercase tracking-widest opacity-70">الإنجاز الكلي للمسار</div>
-                                <div className="text-xl font-black flex items-baseline gap-2">
-                                    <span className="text-3xl tracking-tighter">
+                            <div className="space-y-0 relative z-10">
+                                <div className="text-[7px] md:text-[9px] font-black text-primary uppercase tracking-widest opacity-70">الإنجاز الكلي</div>
+                                <div className="text-base md:text-lg font-black flex items-baseline gap-1.5">
+                                    <span className="text-xl md:text-2xl tracking-tighter">
                                         { (SUNNAH_VOLUMES
-                                            .filter(v => activeTemplate?.selectedVolumeIds?.includes(v.id) || activeCourse?.selectedVolumeIds?.includes(v.id) || activeCourse?.folderId === v.id)
+                                            .filter(v => templateVolumes.some(tv => tv.volumeId === v.id) || courseVolumes.includes(v.id) || activeCourse?.folderId === v.id)
                                             .reduce((acc, v) => acc + v.totalPages, 0)) - 
                                           (Object.entries(volumeProgress)
-                                            .filter(([vid]) => activeTemplate?.selectedVolumeIds?.includes(vid) || activeCourse?.selectedVolumeIds?.includes(vid) || activeCourse?.folderId === vid)
+                                            .filter(([vid]) => templateVolumes.some(tv => tv.volumeId === vid) || courseVolumes.includes(vid) || activeCourse?.folderId === vid)
                                             .reduce((acc, [, val]) => acc + val, 0)) }
                                     </span>
-                                    <span className="text-xs opacity-50">صفحة متبقية</span>
+                                    <span className="text-[9px] opacity-50">متبقية</span>
                                 </div>
                             </div>
                         </motion.div>
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                     {SUNNAH_VOLUMES
                         .filter(volume => {
-                            const isTarget = activeTemplate?.selectedVolumeIds?.includes(volume.id) || activeCourse?.selectedVolumeIds?.includes(volume.id) || activeCourse?.folderId === volume.id;
+                            const isTarget = templateVolumes.some(tv => tv.volumeId === volume.id) || courseVolumes.includes(volume.id) || activeCourse?.folderId === volume.id;
                             return isTarget;
                         })
                         .map(volume => {
                             const completed = volumeProgress[volume.id] || 0;
                             const percent = Math.min(Math.round((completed / volume.totalPages) * 100), 100);
                             return (
-                                <GlassCard key={volume.id} className={cn("p-6 hover:-translate-y-2 transition-all duration-500 overflow-hidden relative group", percent >= 100 ? "border-emerald-500/30 bg-emerald-500/5 shadow-emerald-500/10" : "bg-white/[0.01]")}>
-                                    <div className={cn("absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-20 transition-all duration-700 group-hover:scale-150", "bg-gradient-to-br " + volume.color)} />
-                                    <div className="space-y-6 relative z-10">
+                                <GlassCard key={volume.id} className={cn("p-3.5 md:p-4.5 hover:-translate-y-1 transition-all duration-500 overflow-hidden relative group rounded-xl", percent >= 100 ? "border-emerald-500/30 bg-emerald-500/5 shadow-emerald-500/10" : "bg-white/[0.01]")}>
+                                    <div className={cn("absolute -top-10 -right-10 w-24 h-24 rounded-full blur-3xl opacity-20 transition-all duration-700 group-hover:scale-150", "bg-gradient-to-br " + volume.color)} />
+                                    <div className="space-y-2.5 md:space-y-3.5 relative z-10">
                                         <div className="flex items-start justify-between">
-                                            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white bg-gradient-to-br shadow-xl transform group-hover:rotate-12 transition-transform", volume.color)}>{percent >= 100 ? <Trophy className="w-6 h-6" /> : <BookOpen className="w-6 h-6" />}</div>
-                                            <div className="text-left"><p className="text-3xl font-black tracking-tighter">{percent}%</p></div>
+                                            <div className={cn("w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center text-white bg-gradient-to-br shadow-xl transform group-hover:rotate-12 transition-transform", volume.color)}>{percent >= 100 ? <Trophy className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" /> : <BookOpen className="w-3.5 h-3.5 md:w-4.5 md:h-4.5" />}</div>
+                                            <div className="text-left"><p className="text-lg md:text-xl font-black tracking-tighter opacity-80">{percent}%</p></div>
                                         </div>
                                         <div>
-                                            <h4 className="font-black text-lg mb-1">{volume.title}</h4>
-                                            <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">{completed} / {volume.totalPages} صفحة</p>
+                                            <h4 className="font-black text-xs md:text-sm mb-0.5 truncate">{volume.title}</h4>
+                                            <p className="text-[8px] font-bold opacity-30 uppercase tracking-widest">{completed} / {volume.totalPages} مـادة</p>
                                         </div>
-                                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden shadow-inner relative">
+                                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden shadow-inner relative">
                                             <motion.div 
                                                 initial={{ width: 0 }} 
                                                 animate={{ width: `${percent}%` }} 
@@ -853,27 +985,27 @@ export default function StudentsDashboard() {
                             }
 
                             return (
-                                <GlassCard key={idx} className={cn("p-8 cursor-pointer transition-all border-l-4 group relative", isDone ? "border-emerald-500 bg-emerald-500/5 opacity-80" : `border-transparent bg-white/[0.02] hover:bg-white/[0.04] flex flex-col`)} onClick={() => handleToggleTask(taskData, !isDone)}>
-                                    <div className="flex items-center gap-6">
-                                        <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500", isDone ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20" : "bg-white/5 text-muted-foreground")}>
-                                            {isLoggingDaily ? <Loader2 className="animate-spin" /> : isDone ? <CheckCircle /> : <div className="w-4 h-4 rounded-full border-2 border-current opacity-30" />}
+                                <GlassCard key={idx} className={cn("p-4 md:p-6 cursor-pointer transition-all border-l-4 group relative rounded-2xl", isDone ? "border-emerald-500 bg-emerald-500/5 opacity-80 shadow-emerald-500/5" : `border-transparent bg-white/[0.02] hover:bg-white/[0.04] flex flex-col`)} onClick={() => handleToggleTask(taskData, !isDone)}>
+                                    <div className="flex items-center gap-4 md:gap-5">
+                                        <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center transition-all duration-500", isDone ? "bg-emerald-500 text-white shadow-xl shadow-emerald-500/20" : "bg-white/5 text-muted-foreground")}>
+                                            {isLoggingDaily ? <Loader2 className="animate-spin" /> : isDone ? <CheckCircle className="w-4 h-4 md:w-5 md:h-5" /> : <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full border-2 border-current opacity-30" />}
                                         </div>
-                                        <div className="flex-1 space-y-1">
+                                        <div className="flex-1 space-y-0.5">
                                             <div className="flex items-center gap-2">
-                                                {typeof taskData !== 'string' && <div className={cn("w-2 h-2 rounded-full", accentColor)} />}
-                                                <p className={cn("text-xl font-black transition-all", isDone && "line-through opacity-50")}>{taskLabel}</p>
+                                                {typeof taskData !== 'string' && <div className={cn("w-1 h-1 md:w-1.5 md:h-1.5 rounded-full", accentColor)} />}
+                                                <p className={cn("text-base md:text-lg font-black transition-all leading-tight", isDone && "line-through opacity-50")}>{taskLabel}</p>
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[10px] font-black rounded uppercase tracking-widest">+5 XP</div>
-                                                {typeof taskData !== 'string' && taskData.type === 'hadiths' && <span className="text-[10px] opacity-40 font-bold uppercase tracking-widest flex items-center gap-1"><Hash className="w-3 h-3" /> أحاديث</span>}
-                                                {typeof taskData !== 'string' && taskData.type === 'pages' && <span className="text-[10px] opacity-40 font-bold uppercase tracking-widest flex items-center gap-1"><BookOpen className="w-3 h-3" /> صفحات</span>}
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="px-1.5 py-0.5 bg-amber-500/10 text-amber-500 text-[8px] font-black rounded uppercase tracking-widest">+5 XP</div>
+                                                {typeof taskData !== 'string' && taskData.type === 'hadiths' && <span className="text-[8px] opacity-40 font-bold uppercase tracking-widest flex items-center gap-1"><Hash className="w-2.5 h-2.5" /> أحاديث</span>}
+                                                {typeof taskData !== 'string' && taskData.type === 'pages' && <span className="text-[8px] opacity-40 font-bold uppercase tracking-widest flex items-center gap-1"><BookOpen className="w-2.5 h-2.5" /> صفحات</span>}
                                             </div>
                                         </div>
                                     </div>
                                     {!isDone && typeof taskData !== 'string' && (taskData.start || taskData.end) && (
-                                        <div className="mt-4 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-1">
-                                            <p className="text-sm font-bold opacity-60 flex items-center gap-2">
-                                                <Target className="w-4 h-4 text-primary" />
+                                        <div className="mt-3 pt-3 border-t border-white/5 animate-in fade-in slide-in-from-top-1">
+                                            <p className="text-[10px] font-bold opacity-60 flex items-center gap-1.5">
+                                                <Target className="w-3.5 h-3.5 text-primary" />
                                                 نطاق المهمة: {taskData.start} {taskData.end ? `إلى ${taskData.end}` : ''}
                                             </p>
                                         </div>
@@ -886,38 +1018,38 @@ export default function StudentsDashboard() {
             )}
 
             {/* Gamification: Badges & History */}
-            <div className="grid lg:grid-cols-3 gap-12 pt-10">
-                <div className="lg:col-span-2 space-y-8">
-                    <h3 className="text-2xl font-black flex items-center gap-3 text-amber-500 px-4"><Award className="w-7 h-7" /> خزانة الأوسمة الملكية</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid lg:grid-cols-3 gap-8 pt-6">
+                <div className="lg:col-span-2 space-y-6">
+                    <h3 className="text-xl font-black flex items-center gap-3 text-amber-500 px-4"><Award className="w-6 h-6" /> خزانة الأوسمة الملكية</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {myBadges.length > 0 ? myBadges.map((badge, idx) => {
                             const IconComp = AVAILABLE_ICONS.find(i => i.key === badge.iconKey)?.icon || Star;
                             return (
-                                <GlassCard key={badge.id} className="p-8 flex flex-col items-center text-center gap-4 group hover:-translate-y-2 transition-all">
-                                    <div className={cn("w-20 h-20 rounded-[2rem] flex items-center justify-center text-white bg-gradient-to-br shadow-xl group-hover:rotate-12 transition-all", badge.color)}><IconComp className="w-10 h-10" /></div>
-                                    <h4 className="font-black text-sm">{badge.name}</h4>
-                                    <p className="text-[10px] opacity-40 italic">{badge.rarity === 'diamond' ? 'نادر جداً' : 'وسام ملكي'}</p>
+                                <GlassCard key={badge.id} className="p-5 flex flex-col items-center text-center gap-3 group hover:-translate-y-1 transition-all rounded-xl">
+                                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white bg-gradient-to-br shadow-xl group-hover:rotate-12 transition-all", badge.color)}><IconComp className="w-7 h-7" /></div>
+                                    <h4 className="font-black text-[11px] leading-tight">{badge.name}</h4>
+                                    <p className="text-[9px] opacity-40 italic">{badge.rarity === 'diamond' ? 'نادر جداً' : 'وسام ملكي'}</p>
                                 </GlassCard>
                             );
                         }) : (
-                            <div className="col-span-full py-16 border-2 border-dashed border-white/5 rounded-[3rem] text-center opacity-20"><Shield className="w-12 h-12 mx-auto mb-4" /><p>ابدأ رحلتك لتجمـع الأوسمة</p></div>
+                            <div className="col-span-full py-12 border-2 border-dashed border-white/5 rounded-2xl text-center opacity-20"><Shield className="w-10 h-10 mx-auto mb-3" /><p className="text-xs">ابدأ رحلتك لتجمـع الأوسمة</p></div>
                         )}
                     </div>
                 </div>
-                <div className="lg:col-span-1 space-y-8">
-                    <h3 className="text-2xl font-black flex items-center gap-3 text-primary px-4"><Zap className="w-6 h-6" /> السجل الأكاديمي</h3>
-                    <GlassCard className="p-8 bg-primary/5 space-y-6">
-                        <div className="space-y-4 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="lg:col-span-1 space-y-6">
+                    <h3 className="text-xl font-black flex items-center gap-3 text-primary px-4"><Zap className="w-5 h-5" /> السجل الأكاديمي</h3>
+                    <GlassCard className="p-6 bg-primary/5 space-y-4 rounded-xl">
+                        <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                             {pointsLogs.map(log => (
-                                <div key={log.id} className="flex justify-between items-center p-4 bg-white/5 rounded-2xl">
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black", log.type === 'penalty' ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-500")}>{log.amount > 0 ? `+${log.amount}` : log.amount}</div>
-                                        <div><p className="text-xs font-bold">{log.reason}</p><p className="text-[9px] opacity-30">{log.timestamp?.toDate().toLocaleDateString('ar-EG')}</p></div>
+                                <div key={log.id} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black", log.type === 'penalty' ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-500")}>{log.amount > 0 ? `+${log.amount}` : log.amount}</div>
+                                        <div><p className="text-[10px] font-bold">{log.reason}</p><p className="text-[8px] opacity-30">{log.timestamp?.toDate().toLocaleDateString('ar-EG')}</p></div>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="pt-4 border-t border-white/10 flex justify-between items-center"><span className="text-[10px] opacity-40 font-black">الرصيد الكلي</span><div className="flex items-center gap-2 text-amber-500"><Coins className="w-5 h-5" /><span className="text-2xl font-black">{userData?.totalPoints || 0}</span></div></div>
+                        <div className="pt-3 border-t border-white/10 flex justify-between items-center"><span className="text-[9px] opacity-40 font-black">الرصيد الكلي</span><div className="flex items-center gap-2 text-amber-500"><Coins className="w-4 h-4" /><span className="text-xl font-black">{userData?.totalPoints || 0}</span></div></div>
                     </GlassCard>
 
                     {/* Leaderboard Section */}
@@ -962,14 +1094,28 @@ export default function StudentsDashboard() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {testimonials.map(t => (
-                        <GlassCard key={t.id} className="p-10 h-full flex flex-col justify-between hover:border-primary/40 transition-all">
-                            <div className="space-y-6"><Quote className="w-10 h-10 text-primary opacity-20" /><p className="text-lg italic font-medium">"{t.content}"</p></div>
-                            <div className="flex items-center justify-between pt-8 border-t border-white/5">
+                        <GlassCard key={t.id} className="p-6 md:p-8 h-full flex flex-col justify-between hover:border-primary/40 transition-all rounded-2xl relative overflow-hidden">
+                            <div className="space-y-4">
+                                <Quote className="w-8 h-8 text-primary opacity-20" />
+                                <p className="text-sm md:text-base italic font-medium leading-relaxed">"{t.content}"</p>
+                            </div>
+                            <div className="flex items-center justify-between pt-6 border-t border-white/5 mt-6">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">{t.photoURL ? <img src={t.photoURL} alt={t.studentName} /> : t.studentName?.[0]}</div>
-                                    <div><span className="text-sm font-black">{t.studentName}</span></div>
+                                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/10">
+                                        {t.photoURL ? <img src={t.photoURL} alt={t.studentName} className="w-full h-full object-cover" /> : <div className="text-xs font-black">{t.studentName?.[0]}</div>}
+                                    </div>
+                                    <span className="text-xs font-black truncate max-w-[100px]">{t.studentName}</span>
                                 </div>
-                                <button onClick={() => handleToggleLike(t.id, t.likes)} className={cn("px-4 py-2 rounded-xl flex items-center gap-2", t.likes.includes(user?.uid || '') ? "bg-rose-500 text-white" : "bg-white/5")}><Heart className="w-4 h-4" /> {t.likes.length}</button>
+                                <button 
+                                    onClick={() => handleToggleLike(t.id)} 
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all text-xs", 
+                                        myLikedPostIds.has(t.id) ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" : "bg-white/5 opacity-60 hover:opacity-100 border border-white/10"
+                                    )}
+                                >
+                                    <Heart className={cn("w-3.5 h-3.5", myLikedPostIds.has(t.id) && "fill-white")} /> 
+                                    <span className="font-bold">{t.likesCount || 0}</span>
+                                </button>
                             </div>
                         </GlassCard>
                     ))}
@@ -977,22 +1123,57 @@ export default function StudentsDashboard() {
             </div>
 
             {/* Dialogs */}
-            <Dialog open={dialogConfig.isOpen} onOpenChange={open => setDialogConfig(prev => ({ ...prev, isOpen: open }))}>
-                <DialogContent className="max-w-md bg-background rounded-3xl p-8 text-center sm:rounded-3xl">
-                    <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4", dialogConfig.type === 'success' ? "bg-green-500/10 text-green-500" : "bg-rose-500/10 text-rose-500")}>{dialogConfig.type === 'success' ? <CheckCircle /> : <X />}</div>
-                    <DialogTitle className="text-2xl font-black">{dialogConfig.title}</DialogTitle>
-                    <DialogDescription className="py-4 opacity-60">{dialogConfig.description}</DialogDescription>
-                    <button onClick={() => setDialogConfig(prev => ({ ...prev, isOpen: false }))} className="w-full mt-4 py-4 bg-primary text-white font-black rounded-2xl shadow-xl">فهمت</button>
-                </DialogContent>
-            </Dialog>
+            <EliteModal 
+                isOpen={dialogConfig.isOpen} 
+                onClose={() => setDialogConfig(prev => ({ ...prev, isOpen: false }))}
+                title={dialogConfig.title}
+                description={dialogConfig.description}
+                maxWidth="sm"
+                footer={(
+                    <button 
+                        onClick={() => setDialogConfig(prev => ({ ...prev, isOpen: false }))} 
+                        className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all text-sm"
+                    >
+                        فهمت، استمرار
+                    </button>
+                )}
+            >
+                <div className="flex flex-col items-center justify-center p-4">
+                    <div className={cn(
+                        "w-20 h-20 rounded-[2rem] flex items-center justify-center mb-4 shadow-inner border", 
+                        dialogConfig.type === 'success' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                    )}>
+                        {dialogConfig.type === 'success' ? <CheckCircle className="w-10 h-10" /> : <X className="w-10 h-10" />}
+                    </div>
+                </div>
+            </EliteModal>
 
-            <Dialog open={isTestimonialModalOpen} onOpenChange={setIsTestimonialModalOpen}>
-                <DialogContent className="max-w-xl bg-background rounded-3xl p-8 sm:rounded-3xl">
-                    <DialogTitle className="text-2xl font-black mb-6">شارك تجربتك العلمية</DialogTitle>
-                    <textarea value={newTestimonialContent} onChange={e => setNewTestimonialContent(e.target.value)} placeholder="اكتب هنا تجربتك لزملائك..." className="w-full h-40 p-4 bg-white/5 rounded-2xl resize-none outline-none border border-white/5 focus:border-primary/40 transition-all" />
-                    <button onClick={handleSubmitTestimonial} disabled={isSubmittingTestimonial || !newTestimonialContent.trim()} className="w-full mt-6 py-4 bg-primary text-white font-black rounded-2xl flex items-center justify-center gap-2">{isSubmittingTestimonial ? <Loader2 className="animate-spin" /> : <Sparkles />} نشر الآن</button>
-                </DialogContent>
-            </Dialog>
+            <EliteModal 
+                isOpen={isTestimonialModalOpen} 
+                onClose={() => setIsTestimonialModalOpen(false)}
+                title="شارك تجربتك العلمية"
+                description="كلماتك قد تكون نبراساً ينير الطريق لزملائك الجدد"
+                maxWidth="lg"
+                footer={(
+                    <button 
+                        onClick={handleSubmitTestimonial} 
+                        disabled={isSubmittingTestimonial || !newTestimonialContent.trim()} 
+                        className="w-full py-4 bg-primary text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 text-sm"
+                    >
+                        {isSubmittingTestimonial ? <Loader2 className="animate-spin w-5 h-5" /> : <Sparkles className="w-5 h-5" />} 
+                        نشر الخاطرة الآن
+                    </button>
+                )}
+            >
+                <div className="p-2">
+                    <textarea 
+                        value={newTestimonialContent} 
+                        onChange={e => setNewTestimonialContent(e.target.value)} 
+                        placeholder="ماذا وجدت في رحاب السنة؟ شاركنا أثر العلم في نفسك..." 
+                        className="w-full h-48 p-6 bg-white/5 rounded-[2rem] resize-none outline-none border border-white/10 focus:ring-8 focus:ring-primary/5 transition-all font-bold text-base leading-relaxed" 
+                    />
+                </div>
+            </EliteModal>
 
             {/* Achievement Celebration Modal */}
             <AnimatePresence>
@@ -1055,14 +1236,50 @@ export default function StudentsDashboard() {
 
 function CourseCard({ course, isJoined, isActive, onSelect, onJoin }: { course: Course, isJoined: boolean, isActive?: boolean, onSelect?: () => void, onJoin?: () => void }) {
     return (
-        <GlassCard className={cn("p-8 flex flex-col h-full transition-all duration-500 hover:scale-[1.02]", isActive ? "border-primary ring-2 ring-primary/10 bg-primary/5" : "hover:border-primary/20")} onClick={onSelect}>
-            <div className="flex-1 space-y-6">
-                <div className="flex justify-between items-start"><div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><BookOpen /></div><div className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase", isJoined ? "bg-green-500/10 text-green-500" : "bg-primary/10 text-primary")}>{isJoined ? 'منضم' : 'متاح'}</div></div>
-                <div className="space-y-2"><h4 className="text-xl font-black">{course.title}</h4><p className="text-sm opacity-60 line-clamp-2">{course.description}</p></div>
+        <GlassCard 
+            className={cn(
+                "p-0 flex flex-col h-full transition-all duration-500 hover:-translate-y-1.5 border-white/5 card-shine group rounded-[1.5rem] md:rounded-[2rem] overflow-hidden", 
+                isActive ? "border-primary ring-4 ring-primary/5 bg-primary/5 shadow-2xl shadow-primary/10" : "hover:border-primary/30"
+            )} 
+            onClick={onSelect}
+        >
+            <div className="p-6 md:p-8 space-y-4 md:space-y-6 flex-1">
+                <div className="flex justify-between items-start">
+                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary shadow-inner group-hover:scale-110 transition-transform">
+                        <BookOpen className="w-6 h-6 md:w-7 md:h-7" />
+                    </div>
+                    <div className={cn(
+                        "px-3 py-1 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest border shadow-lg", 
+                        isJoined ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-emerald-500/5" : "bg-primary/10 text-primary border-primary/20 shadow-primary/5"
+                    )}>
+                        {isJoined ? 'نشط' : 'متاح'}
+                    </div>
+                </div>
+                <div className="space-y-2 md:space-y-3">
+                    <h4 className="text-xl md:text-2xl font-black tracking-tight group-hover:text-primary transition-colors">{course.title}</h4>
+                    <p className="text-[12px] md:text-sm text-muted-foreground font-medium opacity-60 line-clamp-2 md:line-clamp-3 leading-relaxed">{course.description}</p>
+                </div>
             </div>
-            <div className="pt-6 border-t border-white/5 flex justify-between items-center">
-                <div className="flex items-center gap-2 text-[10px] opacity-40 font-bold"><Users className="w-3 h-3" /> +1.2k طالب</div>
-                {isJoined ? <span className="text-primary text-xs font-black flex items-center gap-1">عرض <ArrowUpRight className="w-4 h-4" /></span> : <button onClick={e => { e.stopPropagation(); onJoin?.(); }} className="px-4 py-2 bg-primary text-white text-[10px] font-black rounded-xl">انضم الآن</button>}
+            <div className="px-6 py-4 md:px-8 md:py-6 bg-white/[0.02] border-t border-white/5 flex justify-between items-center relative overflow-hidden mt-auto">
+                <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
+                    <Users className="w-3.5 h-3.5 md:w-4 md:h-4" /> 
+                    <span>مجتمع المعرفة</span>
+                </div>
+                {isJoined ? (
+                    <motion.span 
+                        whileHover={{ x: -5 }}
+                        className="text-primary text-[10px] md:text-xs font-black flex items-center gap-1.5 md:gap-2"
+                    >
+                        دخول <ArrowUpRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    </motion.span>
+                ) : (
+                    <button 
+                        onClick={e => { e.stopPropagation(); onJoin?.(); }} 
+                        className="px-4 py-2 md:px-6 md:py-2.5 bg-primary text-white text-[9px] md:text-[10px] font-black rounded-lg md:rounded-xl shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all btn-elite"
+                    >
+                        التحاق
+                    </button>
+                )}
             </div>
         </GlassCard>
     );
@@ -1070,15 +1287,43 @@ function CourseCard({ course, isJoined, isActive, onSelect, onJoin }: { course: 
 
 function GroupCard({ group, isJoined }: { group: Group, isJoined: boolean }) {
     return (
-        <GlassCard className="p-6 space-y-6 hover:border-primary/30 transition-all duration-500 h-full flex flex-col">
-            <div className="flex justify-between items-center"><div className={cn("px-3 py-1 rounded-full text-[10px] font-black text-white", group.gender === 'male' ? "bg-blue-600" : "bg-rose-600")}>{group.gender === 'male' ? 'قسم الرجال' : 'قسم النساء'}</div>{isJoined && <CheckCircle className="text-green-500 w-5 h-5" />}</div>
-            <h4 className="text-lg font-black">{group.name}</h4>
-            <div className="space-y-2 text-xs opacity-60">
-                <div className="flex items-center gap-2"><Clock3 className="w-4 h-4" /> <span>{group.schedule.startTime} - {group.schedule.endTime}</span></div>
-                <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /> <span className="truncate">{group.schedule.recitationDays?.join(" • ")}</span></div>
+        <GlassCard className="p-0 space-y-0 group hover:-translate-y-1.5 transition-all duration-500 h-full flex flex-col rounded-[1.5rem] md:rounded-[2rem] border-white/5 card-shine overflow-hidden">
+            <div className="p-6 md:p-8 space-y-4 md:space-y-6 flex-1">
+                <div className="flex justify-between items-center">
+                    <div className={cn(
+                        "px-3 py-1 rounded-full text-[8px] md:text-[9px] font-black text-white uppercase tracking-widest shadow-lg", 
+                        group.gender === 'male' ? "bg-blue-600 shadow-blue-500/20" : "bg-rose-600 shadow-rose-500/20"
+                    )}>
+                        {group.gender === 'male' ? 'قسم الرجال' : 'قسم النساء'}
+                    </div>
+                    {isJoined && (
+                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                            <CheckCircle className="text-emerald-500 w-4 h-4 md:w-5 md:h-5 shadow-emerald-500/20 shadow-lg" />
+                        </div>
+                    )}
+                </div>
+                <h4 className="text-lg md:text-xl font-black tracking-tight group-hover:text-primary transition-colors">{group.name}</h4>
+                <div className="space-y-2 md:space-y-3 text-[10px] md:text-[11px] font-black uppercase tracking-widest opacity-60">
+                    <div className="flex items-center gap-2.5 md:gap-3 bg-white/5 p-2 md:p-3 rounded-lg md:rounded-xl border border-white/5">
+                        <Clock3 className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" /> 
+                        <span>{group.schedule.startTime} - {group.schedule.endTime}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 md:gap-3 bg-white/5 p-2 md:p-3 rounded-lg md:rounded-xl border border-white/5">
+                        <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" /> 
+                        <span className="truncate">{group.schedule.recitationDays?.join(" • ")}</span>
+                    </div>
+                </div>
             </div>
-            <div className="pt-4 border-t border-white/5 mt-auto">
-                {isJoined ? <button className="w-full py-3 bg-primary/5 text-primary text-xs font-black rounded-xl">عرض الزملاء</button> : <button className="w-full py-3 border border-white/5 text-xs font-black rounded-xl">مراسلة المشرف</button>}
+            <div className="px-6 py-4 md:px-8 md:py-6 bg-white/[0.02] border-t border-white/5 mt-auto relative overflow-hidden">
+                {isJoined ? (
+                    <button className="w-full py-3 md:py-4 bg-primary/5 text-primary text-[10px] md:text-xs font-black rounded-xl md:rounded-2xl border border-primary/20 hover:bg-primary/10 transition-all">
+                        عرض المنجزات
+                    </button>
+                ) : (
+                    <button className="w-full py-3 md:py-4 bg-white/5 border border-white/10 text-[10px] md:text-xs font-black rounded-xl md:rounded-2xl hover:bg-white/10 transition-all">
+                        مراسلة المشرف
+                    </button>
+                )}
             </div>
         </GlassCard>
     );

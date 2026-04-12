@@ -251,7 +251,7 @@ export default function StudentProfile() {
                         <h2 className="text-2xl font-bold tracking-tight">البيانات الشـخصية</h2>
                     </div>
 
-                    <GlassCard className="p-8 md:p-12 space-y-10 border-white/5 shadow-2xl bg-white/[0.02]">
+                    <GlassCard className="space-y-10 p-8 md:p-12">
                         <div className="grid md:grid-cols-2 gap-8">
                             <EliteInput 
                                 label="الاسم الرباعي الكامل (كما هو في الهوية)" 

@@ -161,17 +161,17 @@ export default function GamificationAdmin() {
     return (
         <div className="space-y-10 pb-20 max-w-7xl mx-auto px-4">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-2">
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight text-white">إدارة المحفزات والأوسمة</h1>
-                    <p className="text-muted-foreground font-medium">تحكم في معايير كسب النقاط، وصمم أوسمة فريدة لطلابك.</p>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">إدارة المحفزات والأوسمة</h1>
+                    <p className="text-[11px] md:text-xs text-muted-foreground font-medium opacity-60">تحكم في معايير كسب النقاط، وصمم أوسمة فريدة لطلابك.</p>
                 </div>
                 <div className="flex gap-3">
                     <button 
                         onClick={() => { setCurrentBadge({ rarity: 'bronze', iconKey: 'Star', color: 'from-orange-400 to-orange-700' }); setIsBadgeModalOpen(true); }}
-                        className="bg-primary text-white font-black px-6 py-3 rounded-2xl shadow-xl shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
+                        className="bg-primary hover:bg-primary/90 text-white font-black px-5 py-2.5 rounded-xl shadow-lg shadow-primary/10 transition-all flex items-center gap-2 text-sm active:scale-95"
                     >
-                        <Plus className="w-5 h-5" /> إضافة وسام جديد
+                        <Plus className="w-4 h-4" /> تصميم وسام جديد
                     </button>
                 </div>
             </div>
@@ -179,10 +179,10 @@ export default function GamificationAdmin() {
             <div className="grid lg:grid-cols-3 gap-8">
                 {/* Points Configuration */}
                 <div className="lg:col-span-1">
-                    <GlassCard className="p-8 border-primary/20 bg-primary/5 sticky top-8">
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="p-3 bg-primary/10 rounded-2xl"><Settings className="w-6 h-6 text-primary" /></div>
-                            <h2 className="text-xl font-bold">إعدادات النقاط</h2>
+                    <GlassCard className="p-5 md:p-6 border-primary/20 bg-primary/5 sticky top-8 rounded-2xl shadow-2xl">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-primary/10 rounded-xl"><Settings className="w-5 h-5 text-primary" /></div>
+                            <h2 className="text-lg font-black">إعدادات النقاط</h2>
                         </div>
 
                         <div className="space-y-8">
@@ -221,21 +221,21 @@ export default function GamificationAdmin() {
                             <button 
                                 onClick={handleSaveSettings}
                                 disabled={saving}
-                                className="w-full py-5 bg-primary text-white rounded-2xl font-black shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4"
+                                className="w-full py-4 bg-primary text-white rounded-xl font-black text-sm shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 mt-2"
                             >
-                                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                                اعتماد كافة القواعد
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                اعتماد القواعد العلمية
                             </button>
                         </div>
                     </GlassCard>
                 </div>
 
                 {/* Badges Management */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between">
+                <div className="lg:col-span-2 space-y-5">
+                    <div className="flex items-center justify-between px-1">
                         <div className="flex items-center gap-3">
-                            <Award className="w-6 h-6 text-amber-500" />
-                            <h2 className="text-xl font-bold">مكتبة الأوسمة الحالية ({badges.length})</h2>
+                            <Award className="w-5 h-5 text-amber-500" />
+                            <h2 className="text-lg font-black">مكتبة الأوسمة الحالية ({badges.length})</h2>
                         </div>
                     </div>
 
@@ -245,35 +245,35 @@ export default function GamificationAdmin() {
                             const IconComp = AVAILABLE_ICONS.find(i => i.key === badge.iconKey)?.icon || Star;
 
                             return (
-                                <GlassCard key={badge.id} className="group p-6 relative overflow-hidden transition-all hover:-translate-y-1">
-                                    <div className={cn("absolute top-0 right-0 w-32 h-32 blur-3xl opacity-10 rounded-full -mr-16 -mt-16 bg-gradient-to-br", badge.color)} />
+                                <GlassCard key={badge.id} className="group p-4 md:p-5 relative overflow-hidden transition-all hover:-translate-y-1 rounded-2xl border-white/5 bg-white/[0.01]">
+                                    <div className={cn("absolute top-0 right-0 w-24 h-24 blur-3xl opacity-5 rounded-full -mr-12 -mt-12 bg-gradient-to-br", badge.color)} />
                                     
                                     <div className="flex items-start justify-between relative z-10">
                                         <div className="flex items-center gap-4">
                                             <div className={cn(
-                                                "w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-xl bg-gradient-to-br",
+                                                "w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-white shadow-lg bg-gradient-to-br transition-transform group-hover:scale-110",
                                                 badge.color
                                             )}>
-                                                <IconComp className="w-8 h-8" />
+                                                <IconComp className="w-6 h-6 md:w-7 md:h-7" />
                                             </div>
                                             <div>
-                                                <h3 className="font-black text-lg">{badge.name}</h3>
-                                                <span className={cn("text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full", rarity.bg, rarity.text)}>
+                                                <h3 className="font-black text-base">{badge.name}</h3>
+                                                <span className={cn("text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full", rarity.bg, rarity.text)}>
                                                     وسام {rarity.label}
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => { setCurrentBadge(badge); setIsBadgeModalOpen(true); }} className="p-2 hover:bg-white/10 rounded-lg text-blue-400 border border-white/5"><Edit className="w-4 h-4" /></button>
-                                            <button onClick={() => handleDeleteBadge(badge.id)} className="p-2 hover:bg-rose-500/10 rounded-lg text-rose-500 border border-white/5"><Trash2 className="w-4 h-4" /></button>
+                                        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => { setCurrentBadge(badge); setIsBadgeModalOpen(true); }} className="p-1.5 hover:bg-white/10 rounded-lg text-blue-400 border border-white/5"><Edit className="w-3.5 h-3.5" /></button>
+                                            <button onClick={() => handleDeleteBadge(badge.id)} className="p-1.5 hover:bg-rose-500/10 rounded-lg text-rose-500 border border-white/5"><Trash2 className="w-3.5 h-3.5" /></button>
                                         </div>
                                     </div>
 
-                                    <div className="mt-6 space-y-2 relative z-10">
-                                        <p className="text-xs text-muted-foreground font-medium line-clamp-2">{badge.description}</p>
-                                        <div className="flex items-center gap-2 pt-2">
-                                            <Coins className="w-4 h-4 text-amber-500" />
-                                            <span className="text-sm font-black">{badge.requiredPoints} نقطة مطلوب</span>
+                                    <div className="mt-5 space-y-2 relative z-10">
+                                        <p className="text-[11px] text-muted-foreground font-medium line-clamp-2 opacity-70 leading-relaxed">{badge.description}</p>
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <Coins className="w-3.5 h-3.5 text-amber-500" />
+                                            <span className="text-[11px] font-black">{badge.requiredPoints} نقطة مطلوب</span>
                                         </div>
                                     </div>
                                 </GlassCard>
@@ -297,14 +297,14 @@ export default function GamificationAdmin() {
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsBadgeModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
                         <motion.div 
                             initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-background border border-white/10 rounded-[2.5rem] shadow-2xl w-full max-w-xl relative z-10 overflow-hidden flex flex-col"
+                            className="bg-background border border-white/10 rounded-2xl shadow-2xl w-full max-w-xl relative z-10 overflow-hidden flex flex-col"
                         >
-                            <div className="p-8 border-b border-white/5 bg-primary/5 flex items-center justify-between">
-                                <h3 className="text-xl font-black">{currentBadge.id ? 'تعديل وسام' : 'تصميم وسام جديد'}</h3>
-                                <button onClick={() => setIsBadgeModalOpen(false)} className="p-2 hover:bg-white/10 rounded-xl"><X className="w-6 h-6" /></button>
+                            <div className="p-5 md:p-6 border-b border-white/5 bg-primary/5 flex items-center justify-between">
+                                <h3 className="text-lg font-black">{currentBadge.id ? 'تعديل الوسام العلمي' : 'تصميم وسام جديد'}</h3>
+                                <button onClick={() => setIsBadgeModalOpen(false)} className="p-1.5 hover:bg-white/10 rounded-lg"><X className="w-5 h-5" /></button>
                             </div>
 
-                            <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
+                            <div className="p-5 md:p-6 space-y-5 overflow-y-auto max-h-[70vh]">
                                 {/* Icon & Rarity Preview */}
                                 <div className="flex justify-center py-4">
                                     <div className={cn(
@@ -317,30 +317,30 @@ export default function GamificationAdmin() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="col-span-full space-y-2">
-                                        <label className="text-xs font-black uppercase tracking-widest opacity-60">اسم الوسام</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">اسم الوسام</label>
                                         <input 
                                             type="text" value={currentBadge.name || ''} 
                                             onChange={(e) => setCurrentBadge({ ...currentBadge, name: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 focus:ring-2 focus:ring-primary/50 outline-none font-bold"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary/20 outline-none font-bold text-sm"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase tracking-widest opacity-60">النقاط المطلوبة</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">النقاط المطلوبة</label>
                                         <input 
                                             type="number" value={currentBadge.requiredPoints || 0} 
                                             onChange={(e) => setCurrentBadge({ ...currentBadge, requiredPoints: Number(e.target.value) })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 focus:ring-2 focus:ring-primary/50 outline-none font-bold"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary/20 outline-none font-bold text-sm"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-xs font-black uppercase tracking-widest opacity-60">مستوى الندرة</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">مستوى الندرة</label>
                                         <select 
                                             value={currentBadge.rarity} 
                                             onChange={(e) => {
                                                 const r = e.target.value as any;
                                                 setCurrentBadge({ ...currentBadge, rarity: r, color: (RARITY_CONFIG as any)[r].color });
                                             }}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 focus:ring-2 focus:ring-primary/50 outline-none font-bold"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary/20 outline-none font-bold text-sm"
                                         >
                                             <option value="bronze">برونزي</option>
                                             <option value="silver">فضي</option>
@@ -369,22 +369,23 @@ export default function GamificationAdmin() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase tracking-widest opacity-60">وصف الوسام</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">وصف الوسام</label>
                                     <textarea 
                                         value={currentBadge.description || ''} 
                                         onChange={(e) => setCurrentBadge({ ...currentBadge, description: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 focus:ring-2 focus:ring-primary/50 outline-none font-medium h-24"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 focus:ring-2 focus:ring-primary/20 outline-none font-medium text-xs h-20 resize-none"
+                                        placeholder="اكتب وصفاً مختصراً لسبب منح هذا الوسام..."
                                     />
                                 </div>
                             </div>
 
-                            <div className="p-8 bg-white/5 border-t border-white/5 flex gap-4">
-                                <button onClick={() => setIsBadgeModalOpen(false)} className="flex-1 py-4 bg-white/10 rounded-2xl font-black">إلغاء</button>
+                            <div className="p-5 md:p-6 bg-white/5 border-t border-white/5 flex gap-4">
+                                <button onClick={() => setIsBadgeModalOpen(false)} className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-black text-sm transition-colors">إلغاء</button>
                                 <button 
                                     onClick={handleSaveBadge}
-                                    className="flex-[2] py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 flex items-center justify-center gap-2"
+                                    className="flex-[2] py-3 bg-primary text-white rounded-xl font-black shadow-lg shadow-primary/20 flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
                                 >
-                                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     {currentBadge.id ? 'تحديث الوسام' : 'حفظ الوسام'}
                                 </button>
                             </div>
@@ -399,17 +400,17 @@ export default function GamificationAdmin() {
 function PointInput({ field, settings, setSettings }: any) {
     const Icon = field.icon;
     return (
-        <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2 px-1">
-                <Icon className={cn("w-3.5 h-3.5", field.color)} /> {field.label}
+        <div className="space-y-1.5">
+            <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-2 px-1">
+                <Icon className={cn("w-3 h-3 md:w-3.5 md:h-3.5", field.color)} /> {field.label}
             </label>
             <div className="relative group">
-                <Coins className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 opacity-20 group-focus-within:opacity-50 transition-opacity" />
+                <Coins className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 opacity-10 group-focus-within:opacity-40 transition-opacity" />
                 <input 
                     type="number" 
                     value={(settings as any)[field.key]} 
                     onChange={(e) => setSettings({ ...settings, [field.key]: Number(e.target.value) })}
-                    className="w-full bg-white/5 border border-white/10 rounded-[1.25rem] px-6 py-4 focus:ring-4 focus:ring-primary/10 outline-none font-bold text-lg transition-all"
+                    className="w-full bg-white/[0.02] border border-white/5 rounded-xl px-5 py-3 focus:ring-4 focus:ring-primary/5 outline-none font-black text-base transition-all shadow-inner"
                 />
             </div>
         </div>

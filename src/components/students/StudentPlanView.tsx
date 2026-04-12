@@ -11,9 +11,8 @@ import {
     setDoc,
     serverTimestamp,
     getDoc,
-    arrayUnion,
-    arrayRemove,
-    updateDoc
+    updateDoc,
+    deleteDoc
 } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -24,7 +23,6 @@ import {
     ChevronLeft,
     ChevronRight,
     Trophy,
-    Target,
     BookOpen,
     Hash,
     Layers,
@@ -34,7 +32,8 @@ import {
     ArrowRight,
     Loader2,
     Star,
-    Layout
+    Compass,
+    Activity
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -93,11 +92,10 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
             setLoading(false);
         });
 
-        // Fetch User Progress
-        const unsubProgress = onSnapshot(doc(db, "planProgress", courseId, "planProgress", user.uid), (snap) => {
-            if (snap.exists()) {
-                setProgress(snap.data().completedDayIds || []);
-            }
+        // Fetch User Progress using the new nested path
+        const progressPath = `${courseId}_${user.uid}`;
+        const unsubProgress = onSnapshot(collection(db, "plan_progress", progressPath, "plan_progress"), (snap) => {
+            setProgress(snap.docs.map(d => d.id));
         });
 
         return () => {
@@ -141,19 +139,18 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
     const toggleCompletion = async (planId: string) => {
         if (!user || !courseId) return;
         const isCompleted = progress.includes(planId);
-        const ref = doc(db, "planProgress", courseId, "planProgress", user.uid);
+        const progressPath = `${courseId}_${user.uid}`;
+        const ref = doc(db, "plan_progress", progressPath, "plan_progress", planId);
         
         try {
-            const snap = await getDoc(ref);
-            if (!snap.exists()) {
-                await setDoc(ref, {
-                    completedDayIds: [planId],
-                    updatedAt: serverTimestamp()
-                });
+            if (isCompleted) {
+                await deleteDoc(ref);
             } else {
-                await updateDoc(ref, {
-                    completedDayIds: isCompleted ? arrayRemove(planId) : arrayUnion(planId),
-                    updatedAt: serverTimestamp()
+                await setDoc(ref, {
+                    planId,
+                    userId: user.uid,
+                    courseId,
+                    completedAt: serverTimestamp()
                 });
             }
         } catch (error) {
@@ -172,7 +169,7 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
         <div className="min-h-screen flex items-center justify-center">
             <div className="text-center space-y-4">
                 <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto opacity-20" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">جاري تحميل مسارك التعليمي...</p>
+                <p className="text-sm text-muted-foreground">جاري تحميل مسارك التعليمي…</p>
             </div>
         </div>
     );
@@ -180,41 +177,57 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
     return (
         <div className="max-w-4xl mx-auto space-y-10 pb-24 px-4">
             {/* Header Area */}
-            <div className="flex items-center justify-between">
-                <Link href={backUrl} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group">
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    <span className="font-bold text-sm">العودة للدورة</span>
+            <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-sm">
+                <Link
+                    href={backUrl}
+                    className="group flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+                    العودة للوحة الدورة
                 </Link>
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-500 px-3 py-1.5 rounded-full border border-amber-500/20 shadow-lg shadow-amber-500/5">
-                        <Flame className="w-4 h-4 fill-amber-500" />
-                        <span className="text-xs font-black">{progress.length} أيام متتالية</span>
-                    </div>
+                <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    <Flame className="h-4 w-4 fill-current" />
+                    {progress.length} من المهام
                 </div>
             </div>
 
             {/* Title & Overall Progress */}
             <div className="space-y-6">
                 <div>
-                    <h1 className="text-3xl font-black tracking-tight">{courseTitle}</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{courseTitle}</h1>
                     <p className="text-muted-foreground mt-1">رحلتك العلمية المبرمجة حسب منهج الصحيحين</p>
                 </div>
 
-                <GlassCard className="p-8 space-y-6 bg-white/[0.02] border-white/5 shadow-2xl overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl -mr-16 -mt-16 rounded-full" />
-                    <div className="flex justify-between items-end">
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">إنجاز الخطة الإجمالي</p>
-                            <h2 className="text-4xl font-black text-primary">{Math.round(overallProgress)}%</h2>
+                <GlassCard className="relative space-y-6 overflow-hidden p-6 md:p-8 md:space-y-8">
+                    <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                                <Activity className="h-3.5 w-3.5" />
+                                التقدم الكلي
+                            </div>
+                            <div className="flex items-baseline gap-2">
+                                <h2 className="text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
+                                    {Math.round(overallProgress)}%
+                                </h2>
+                                <span className="text-sm text-muted-foreground">مكتمل</span>
+                            </div>
                         </div>
-                        <p className="text-xs font-bold text-muted-foreground opacity-50">{progress.length} من أصل {plans.length} يوم تم إنجازه</p>
+                        <div className="space-y-1 text-right">
+                            <p className="text-xs text-muted-foreground">
+                                {progress.length} من أصل {plans.length} يوم عمل
+                            </p>
+                            <div className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-1 text-xs font-medium text-primary">
+                                <Compass className="h-3 w-3" />
+                                مسار {todayTask?.planType === "hadiths" ? "المحدثين" : "الحفاظ"}
+                            </div>
+                        </div>
                     </div>
-                    <div className="h-3 bg-white/5 rounded-full overflow-hidden shadow-inner border border-white/5">
-                        <motion.div 
+                    <div className="h-3 overflow-hidden rounded-full bg-muted">
+                        <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${overallProgress}%` }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            className="h-full bg-gradient-to-r from-primary to-purple-600 rounded-full" 
+                            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                            className="h-full rounded-full bg-primary"
                         />
                     </div>
                 </GlassCard>
@@ -226,43 +239,69 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                 >
-                    <GlassCard className={cn(
-                        "p-1 border-2 transition-all duration-500",
-                        isTodayCompleted ? "border-green-500/50 bg-green-500/5" : "border-primary/50 bg-primary/5"
-                    )}>
-                        <div className="p-8 flex flex-col md:flex-row items-center justify-between gap-8">
-                            <div className="flex items-center gap-6">
-                                <div className={cn(
-                                    "w-16 h-16 rounded-3xl flex items-center justify-center shadow-2xl relative",
-                                    isTodayCompleted ? "bg-green-500 text-white" : "bg-primary text-white"
-                                )}>
-                                    <Trophy className="w-8 h-8" />
-                                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-white text-black text-[10px] rounded-full flex items-center justify-center border border-gray-200">
-                                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                    <GlassCard
+                        className={cn(
+                            "border-2 p-6 md:p-8",
+                            isTodayCompleted
+                                ? "border-green-500/40 bg-green-500/5"
+                                : "border-primary/40 bg-primary/5"
+                        )}
+                    >
+                        <div className="relative z-10 flex flex-col items-center justify-between gap-8 md:flex-row">
+                            <div className="flex flex-col items-center gap-6 md:flex-row md:items-center">
+                                <div
+                                    className={cn(
+                                        "relative flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-sm md:h-20 md:w-20",
+                                        isTodayCompleted ? "bg-green-600" : "bg-primary"
+                                    )}
+                                >
+                                    <Trophy className="h-9 w-9 md:h-10 md:w-10" />
+                                    <div className="absolute -end-1 -top-1 flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card shadow-sm">
+                                        <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
                                     </div>
                                 </div>
-                                <div className="text-right md:text-right">
-                                    <h3 className="text-2xl font-black">مهمة اليوم</h3>
-                                    <p className="text-sm font-bold opacity-60">الأسبوع {todayTask.weekIndex} • اليوم {todayTask.dayIndex}</p>
+                                <div className="text-center md:text-right">
+                                    <div className="mb-1 flex items-center justify-center gap-2 md:justify-start">
+                                        <span className="h-2 w-2 rounded-full bg-primary" />
+                                        <h3 className="text-2xl font-semibold tracking-tight md:text-3xl">مهمة اليوم</h3>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        الأسبوع {todayTask.weekIndex} • اليوم {todayTask.dayIndex}
+                                    </p>
                                 </div>
                             </div>
 
-                            <div className="flex flex-col items-center md:items-end gap-2">
-                                <div className="flex items-center gap-2 font-black text-lg">
-                                    {todayTask.planType === 'hadiths' ? <Hash className="w-5 h-5 text-primary" /> : todayTask.planType === 'pages' ? <BookOpen className="w-5 h-5 text-primary" /> : <Layers className="w-5 h-5 text-primary" />}
-                                    <span>{todayTask.planType === 'hadiths' ? 'أحاديث' : todayTask.planType === 'pages' ? 'صفحات' : 'مجلدات'} {' '} {todayTask.startPoint} {todayTask.endPoint ? ` - ${todayTask.endPoint}` : ''}</span>
+                            <div className="flex w-full flex-col items-center gap-4 md:w-auto md:items-end">
+                                <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-lg font-medium md:text-xl">
+                                    {todayTask.planType === "hadiths" ? (
+                                        <Hash className="h-6 w-6 text-primary" />
+                                    ) : todayTask.planType === "pages" ? (
+                                        <BookOpen className="h-6 w-6 text-primary" />
+                                    ) : (
+                                        <Layers className="h-6 w-6 text-primary" />
+                                    )}
+                                    <span className="text-foreground">
+                                        {todayTask.planType === "hadiths"
+                                            ? "أحاديث"
+                                            : todayTask.planType === "pages"
+                                              ? "صفحات"
+                                              : "مجلدات"}{" "}
+                                        {todayTask.startPoint}
+                                        {todayTask.endPoint ? ` - ${todayTask.endPoint}` : ""}
+                                    </span>
                                 </div>
                                 <button
+                                    type="button"
                                     onClick={() => toggleCompletion(todayTask.id)}
                                     className={cn(
-                                        "px-8 py-3 rounded-2xl font-black text-sm transition-all shadow-xl active:scale-95 flex items-center gap-3",
-                                        isTodayCompleted 
-                                            ? "bg-green-500 text-white shadow-green-500/20" 
-                                            : "bg-primary text-white shadow-primary/20 hover:scale-105"
+                                        "flex w-full items-center justify-center gap-2 rounded-lg px-8 py-4 text-sm font-medium shadow-sm transition-colors md:w-auto",
+                                        isTodayCompleted
+                                            ? "border border-green-500/30 bg-green-600 text-white hover:bg-green-600/90"
+                                            : "bg-primary text-primary-foreground hover:bg-primary/90"
                                     )}
                                 >
-                                    {isTodayCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
-                                    <span>{isTodayCompleted ? 'تم إنجاز حصة اليوم' : 'تحديد كتم اليوم'}</span>
+                                    {isTodayCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+                                    {isTodayCompleted ? "تم الإنجاز بحمد الله" : "تسجيل إنجاز اليوم"}
                                 </button>
                             </div>
                         </div>
@@ -278,21 +317,23 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
                         سجل الخطة الدراسية
                     </h2>
                     
-                    <div className="flex items-center gap-2 bg-white/5 p-1 rounded-2xl border border-white/5">
-                        <button 
-                            onClick={() => setSelectedWeek(w => Math.max(1, w - 1))}
+                    <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => setSelectedWeek((w) => Math.max(1, w - 1))}
                             disabled={selectedWeek === 1}
-                            className="p-3 hover:bg-white/10 rounded-xl disabled:opacity-20 transition-all"
+                            className="rounded-md p-2 transition-colors hover:bg-muted disabled:opacity-30"
                         >
-                            <ChevronRight className="w-5 h-5" />
+                            <ChevronRight className="h-5 w-5" />
                         </button>
-                        <div className="px-4 font-black text-sm">الأسبوع {selectedWeek}</div>
-                        <button 
-                            onClick={() => setSelectedWeek(w => w + 1)}
+                        <div className="min-w-[5.5rem] px-3 text-center text-sm font-medium">الأسبوع {selectedWeek}</div>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedWeek((w) => w + 1)}
                             disabled={!weeksMap.some(([w]) => w === selectedWeek + 1)}
-                            className="p-3 hover:bg-white/10 rounded-xl disabled:opacity-20 transition-all"
+                            className="rounded-md p-2 transition-colors hover:bg-muted disabled:opacity-30"
                         >
-                            <ChevronLeft className="w-5 h-5" />
+                            <ChevronLeft className="h-5 w-5" />
                         </button>
                     </div>
                 </div>
@@ -314,22 +355,32 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
                                     <GlassCard
                                         key={plan.id}
                                         className={cn(
-                                            "p-6 transition-all duration-300 border shadow-xl flex flex-col md:flex-row items-center gap-6",
-                                            isCompleted ? "border-green-500/20 bg-green-500/[0.02]" : isCurrent ? "border-primary/50 bg-primary/[0.02] ring-1 ring-primary/20" : "border-white/5"
+                                            "flex flex-col items-center gap-6 p-5 md:flex-row md:p-6",
+                                            isCompleted
+                                                ? "border-green-500/30 bg-green-500/5"
+                                                : isCurrent
+                                                  ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+                                                  : ""
                                         )}
                                     >
                                         <div className="flex items-center gap-6 flex-1 w-full">
-                                            <div className={cn(
-                                                "w-12 h-12 rounded-2xl flex items-center justify-center font-black flex-shrink-0 shadow-inner",
-                                                isCompleted ? "bg-green-500/10 text-green-500" : isCurrent ? "bg-primary text-white" : "bg-white/5 text-muted-foreground"
-                                            )}>
+                                            <div
+                                                className={cn(
+                                                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-semibold",
+                                                    isCompleted
+                                                        ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                                                        : isCurrent
+                                                          ? "bg-primary text-primary-foreground"
+                                                          : "bg-muted text-muted-foreground"
+                                                )}
+                                            >
                                                 {plan.dayIndex}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-3">
                                                     <h3 className="font-bold text-lg">اليوم {plan.dayIndex}</h3>
                                                     {isCompleted && (
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-green-500 flex items-center gap-1">
+                                                        <span className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
                                                             <CheckCircle2 className="w-3 h-3" /> تم الإنجاز
                                                         </span>
                                                     )}
@@ -346,7 +397,10 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
                                         <div className="flex items-center gap-4 w-full md:w-auto">
                                             <div className="flex -space-x-2 mr-4">
                                                 {plan.tasks.slice(0, 3).map((_, i) => (
-                                                    <div key={i} className="w-6 h-6 rounded-full border-2 border-slate-900 bg-primary/20 flex items-center justify-center">
+                                                    <div
+                                                        key={i}
+                                                        className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-primary/15"
+                                                    >
                                                         <Clock className="w-3 h-3 text-primary" />
                                                     </div>
                                                 ))}
@@ -354,10 +408,10 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
                                             <button
                                                 onClick={() => toggleCompletion(plan.id)}
                                                 className={cn(
-                                                    "flex-1 md:flex-none py-3 px-6 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2",
-                                                    isCompleted 
-                                                        ? "bg-green-500/10 text-green-500 hover:bg-green-500/20" 
-                                                        : "bg-white/5 hover:bg-white/10 text-foreground"
+                                                    "flex flex-1 items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-xs font-medium transition-colors md:flex-none",
+                                                    isCompleted
+                                                        ? "border border-green-500/30 bg-green-500/10 text-green-700 hover:bg-green-500/15 dark:text-green-400"
+                                                        : "border border-border bg-muted/50 text-foreground hover:bg-muted"
                                                 )}
                                             >
                                                 {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
@@ -371,7 +425,7 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
                     </AnimatePresence>
 
                     {currentWeekPlans.length === 0 && (
-                        <div className="text-center py-20 border border-dashed rounded-[3rem] opacity-30">
+                        <div className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">
                             <Calendar className="w-12 h-12 mx-auto mb-4 opacity-10" />
                             <p className="text-sm font-bold">لا توجد مهام مضافة لهذا الأسبوع بعد.</p>
                         </div>
@@ -392,9 +446,9 @@ export function StudentPlanView({ courseId, backUrl }: StudentPlanViewProps) {
 
 function FooterStat({ label, value }: { label: string, value: string }) {
     return (
-        <GlassCard className="p-4 text-center space-y-1 bg-white/[0.01] border-white/5">
-            <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground opacity-40">{label}</p>
-            <p className="text-sm font-black">{value}</p>
+        <GlassCard className="space-y-1 p-4 text-center">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+            <p className="text-sm font-semibold text-foreground">{value}</p>
         </GlassCard>
     );
 }

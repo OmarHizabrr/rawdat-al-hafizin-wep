@@ -5,7 +5,7 @@ import { db } from "@/lib/firebase";
 import { 
     collection, onSnapshot, doc, setDoc, 
     updateDoc, deleteDoc, serverTimestamp, 
-    query, orderBy 
+    query, orderBy, writeBatch, getDocs 
 } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
@@ -72,14 +72,57 @@ export default function PlansDashboard() {
         setSaving(true);
         try {
             const templateId = isEditing ? currentTemplate.id! : doc(collection(db, "plan_templates")).id;
+            const batch = writeBatch(db);
+            
+            // 1. Save main template (WITHOUT arrays)
+            const cleanTiers = (currentTemplate.tiers || []).map(t => ({
+                ...t,
+                selectedVolumeIds: null // Clear tier-level legacy arrays
+            }));
+            
             const data = {
                 ...currentTemplate,
                 id: templateId,
+                tiers: cleanTiers,
                 createdBy: user.uid,
                 updatedAt: serverTimestamp(),
-                createdAt: isEditing ? currentTemplate.createdAt : serverTimestamp()
+                createdAt: isEditing ? currentTemplate.createdAt : serverTimestamp(),
+                selectedVolumeIds: null // Clear template-level legacy arrays
             };
-            await setDoc(doc(db, "plan_templates", templateId), data);
+            
+            batch.set(doc(db, "plan_templates", templateId), data, { merge: true });
+
+            // 2. Manage template_volumes (Nested Path Pattern)
+            if (isEditing) {
+                const oldVols = await getDocs(collection(db, "template_volumes", templateId, "template_volumes"));
+                oldVols.forEach(v => batch.delete(v.ref));
+            }
+
+            // Save Template-level volumes
+            if (currentTemplate.selectedVolumeIds) {
+                currentTemplate.selectedVolumeIds.forEach(vid => {
+                    const volRef = doc(db, "template_volumes", templateId, "template_volumes", vid);
+                    batch.set(volRef, { templateId, volumeId: vid, createdAt: serverTimestamp() });
+                });
+            }
+
+            // Save Tier-level volumes
+            currentTemplate.tiers?.forEach(tier => {
+                if (tier.selectedVolumeIds) {
+                    tier.selectedVolumeIds.forEach(vid => {
+                        // Use a composite ID or let Firestore generate one, but unique per vol per tier
+                        const tierVolRef = doc(collection(db, "template_volumes", templateId, "template_volumes"));
+                        batch.set(tierVolRef, { 
+                            templateId, 
+                            tierId: tier.id, 
+                            volumeId: vid, 
+                            createdAt: serverTimestamp() 
+                        });
+                    });
+                }
+            });
+
+            await batch.commit();
             setIsModalOpen(false);
             setDialogConfig({ isOpen: true, type: 'success', title: 'تم الحفظ', description: 'تم تحديث قالب الخطة بنجاح.', onConfirm: null });
         } catch (error) {
@@ -88,7 +131,33 @@ export default function PlansDashboard() {
             setSaving(false);
         }
     };
+    const handleEdit = async (template: PlanTemplate) => {
+        setSaving(true);
+        try {
+            const volsSnap = await getDocs(collection(db, "template_volumes", template.id, "template_volumes"));
+            const volsData = volsSnap.docs.map(d => d.data());
+            
+            // Template level: no tierId
+            const templateVols = volsData.filter(v => !v.tierId).map(v => v.volumeId);
+            
+            // Tier level: rebuild based on tierId
+            const tiers = template.tiers.map(t => ({
+                ...t,
+                selectedVolumeIds: volsData.filter(v => v.tierId === t.id).map(v => v.volumeId)
+            }));
 
+            setCurrentTemplate({ ...template, tiers, selectedVolumeIds: templateVols });
+            setIsEditing(true);
+            setIsModalOpen(true);
+        } catch (error) {
+            console.error("Error fetching template volumes:", error);
+            setCurrentTemplate(template);
+            setIsEditing(true);
+            setIsModalOpen(true);
+        } finally {
+            setSaving(false);
+        }
+    };
     const handleDelete = async (id: string, name: string) => {
         setDialogConfig({ 
             isOpen: true, 
@@ -100,8 +169,22 @@ export default function PlansDashboard() {
     };
 
     const confirmDelete = async (id: string) => {
-        await deleteDoc(doc(db, "plan_templates", id));
-        setDialogConfig({ isOpen: false, type: 'success', title: '', description: '', onConfirm: null });
+        try {
+            const batch = writeBatch(db);
+            
+            // Delete subcollections: template_volumes/{id}/template_volumes
+            const volsSnap = await getDocs(collection(db, "template_volumes", id, "template_volumes"));
+            volsSnap.forEach(v => batch.delete(v.ref));
+            
+            // Delete main template doc
+            batch.delete(doc(db, "plan_templates", id));
+            
+            await batch.commit();
+            setDialogConfig({ isOpen: false, type: 'success', title: 'تم الحذف', description: 'تم حذف الخطة وكافة ارتباطاتها.', onConfirm: null });
+        } catch (error) {
+            console.error("Delete error:", error);
+            setDialogConfig({ isOpen: true, type: 'danger', title: 'خطأ', description: 'حدث خطأ أثناء محاولة الحذف.', onConfirm: null });
+        }
     };
 
     if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary opacity-20" /></div>;
@@ -154,7 +237,7 @@ export default function PlansDashboard() {
                                         {CATEGORY_MAP[template.category].label}
                                     </div>
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => { setCurrentTemplate(template); setIsEditing(true); setIsModalOpen(true); }} className="p-2 hover:bg-primary/10 text-primary rounded-xl transition-colors"><Edit className="w-4 h-4" /></button>
+                                        <button onClick={() => handleEdit(template)} className="p-2 hover:bg-primary/10 text-primary rounded-xl transition-colors"><Edit className="w-4 h-4" /></button>
                                         <button onClick={() => handleDelete(template.id, template.name)} className="p-2 hover:bg-red-500/10 text-red-500 rounded-xl transition-colors"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </div>

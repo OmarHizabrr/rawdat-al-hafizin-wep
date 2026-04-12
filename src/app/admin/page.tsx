@@ -195,41 +195,39 @@ export default function AdminDashboard() {
     ];
 
     return (
-        <div className="space-y-12">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-                <div className="space-y-2">
-                    <h1 className="text-4xl md:text-5xl font-black tracking-tight">غرفة التحكم والعمليات</h1>
-                    <p className="text-muted-foreground font-medium flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+        <div className="space-y-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 pt-2 px-1">
+                <div className="space-y-1">
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">غرفة التحكم والعمليات</h1>
+                    <p className="text-[11px] md:text-xs text-muted-foreground font-medium flex items-center gap-2 opacity-60">
+                        <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
                         نظرة شاملة وتحليلية لأداء المنصة والنشاط الحالي.
                     </p>
                 </div>
                 {!loading && (
-                    <div className="bg-primary/5 text-primary px-6 py-3 rounded-2xl border border-primary/20 text-xs font-black flex items-center gap-3 shadow-xl">
-                        <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                    <div className="bg-primary/5 text-primary px-4 py-2 rounded-xl border border-primary/10 text-[10px] font-black flex items-center gap-3 shadow-lg backdrop-blur-md">
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
                         تحديث مباشر • {new Date().toLocaleTimeString('ar-SA')}
                     </div>
                 )}
             </div>
 
-            {/* Stats Header */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 px-1">
                 <StatCard label="إجمالي الطلاب" value={stats.totalStudents} icon={Users} color="from-blue-500 to-cyan-500" />
-                <StatCard label="الدورات المفعلة" value={stats.activeCourses} icon={GraduationCap} color="from-indigo-500 to-purple-500" />
-                <StatCard label="الحلقات العلمية" value={stats.totalHalaqat} icon={BookOpen} color="from-orange-500 to-amber-500" />
+                <StatCard label="الدورات" value={stats.activeCourses} icon={GraduationCap} color="from-indigo-500 to-purple-500" />
+                <StatCard label="الحلقات" value={stats.totalHalaqat} icon={BookOpen} color="from-orange-500 to-amber-500" />
                 <StatCard label="إنجازات اليوم" value={stats.dailyLogsToday} icon={BarChart3} color="from-emerald-500 to-teal-500" />
             </div>
 
-            {/* Categorized Admin Cards */}
-            <div className="space-y-16">
+            <div className="space-y-12">
                 {categorizedCards.map((category, catIdx) => (
-                    <section key={catIdx} className="space-y-8">
-                        <div className="flex items-center gap-4 px-2">
-                            <div className={cn("p-2.5 rounded-xl bg-white/5 border border-white/10", category.color)}>
-                                <category.icon className="w-6 h-6" />
+                    <section key={catIdx} className="space-y-5 md:space-y-6">
+                        <div className="flex items-center gap-3 px-1 md:px-2">
+                            <div className={cn("p-1.5 md:p-2 rounded-xl bg-white/5 border border-white/10 shadow-inner", category.color)}>
+                                <category.icon className="w-4 h-4 md:w-5 md:h-5" />
                             </div>
-                            <h2 className="text-2xl font-black">{category.title}</h2>
-                            <div className="h-px flex-1 bg-gradient-to-l from-white/10 to-transparent mx-4" />
+                            <h2 className="text-lg md:text-xl font-black">{category.title}</h2>
+                            <div className="h-px flex-1 bg-gradient-to-l from-white/10 to-transparent mx-2 md:mx-4 opacity-50" />
                         </div>
 
                         <motion.div
@@ -240,21 +238,21 @@ export default function AdminDashboard() {
                         >
                             {category.items.map((card, index) => (
                                 <motion.div key={index} variants={item}>
-                                    <Link href={card.href} className="block h-full">
-                                        <GlassCard className="h-full group hover:border-primary/50 transition-all hover:-translate-y-1 hover:shadow-2xl bg-white/[0.02] border-white/5">
-                                            <div className="p-8 flex flex-col h-full space-y-6">
+                                    <Link href={card.href} className="block h-full group">
+                                        <GlassCard className="h-full group-hover:border-primary/50 transition-all hover:-translate-y-1 hover:shadow-2xl bg-white/[0.01] border-white/5 rounded-2xl">
+                                            <div className="p-4 md:p-5 flex flex-col h-full space-y-4">
                                                 <div className="flex items-center justify-between">
-                                                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-xl transition-all duration-500 group-hover:scale-110 group-hover:rotate-6", card.bgColor.replace('/10', ''))}>
-                                                        <card.icon className="w-7 h-7" />
+                                                    <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white shadow-lg transition-all duration-500 group-hover:scale-110 group-hover:rotate-6", card.bgColor.replace('/10', ''))}>
+                                                        <card.icon className="w-5 h-5 md:w-6 md:h-6" />
                                                     </div>
-                                                    <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-40 transition-all -translate-x-4 group-hover:translate-x-0 rtl:rotate-180" />
+                                                    <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4 opacity-0 group-hover:opacity-40 transition-all -translate-x-2 group-hover:translate-x-0 rtl:rotate-180" />
                                                 </div>
-                                                <div className="space-y-2 flex-1">
-                                                    <h3 className="text-xl font-black group-hover:text-primary transition-colors">{card.title}</h3>
-                                                    <p className="text-sm text-muted-foreground leading-relaxed font-medium">{card.description}</p>
+                                                <div className="space-y-1.5 flex-1">
+                                                    <h3 className="text-base font-black group-hover:text-primary transition-colors leading-tight">{card.title}</h3>
+                                                    <p className="text-[11px] md:text-xs text-muted-foreground leading-relaxed font-medium opacity-70">{card.description}</p>
                                                 </div>
-                                                <div className="pt-4 border-t border-white/5 flex justify-end">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">إدارة القسم</span>
+                                                <div className="pt-3 border-t border-white/5 flex justify-end">
+                                                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-primary/40 group-hover:text-primary transition-colors">إدارة القسم</span>
                                                 </div>
                                             </div>
                                         </GlassCard>
@@ -271,19 +269,18 @@ export default function AdminDashboard() {
 
 function StatCard({ label, value, icon: Icon, color }: any) {
     return (
-        <GlassCard className="p-8 relative overflow-hidden group border-white/5 transition-all hover:border-primary/20">
-            <div className={cn("absolute top-0 right-0 w-32 h-32 bg-gradient-to-br opacity-5 blur-3xl -mr-16 -mt-16 group-hover:opacity-15 transition-opacity", color)} />
-            <div className="flex items-center gap-6 relative z-10">
-                <div className={cn("w-16 h-16 rounded-[1.5rem] bg-gradient-to-br flex items-center justify-center text-white shadow-xl group-hover:scale-110 transition-transform", color)}>
-                    <Icon className="w-8 h-8" />
+        <GlassCard className="p-4 md:p-5 relative overflow-hidden group border-white/5 transition-all hover:border-primary/20 rounded-xl md:rounded-2xl">
+            <div className={cn("absolute top-0 right-0 w-24 h-24 bg-gradient-to-br opacity-5 blur-2xl -mr-12 -mt-12 group-hover:opacity-15 transition-opacity", color)} />
+            <div className="flex items-center gap-4 relative z-10">
+                <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform", color)}>
+                    <Icon className="w-5 h-5 md:w-6 md:h-6" />
                 </div>
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60 mb-1">{label}</p>
-                    <h4 className="text-3xl font-black tracking-tight">{value.toLocaleString()}</h4>
+                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground opacity-40 mb-0.5">{label}</p>
+                    <h4 className="text-xl md:text-2xl font-black tracking-tighter">{value.toLocaleString()}</h4>
                 </div>
             </div>
-            {/* Minimal Background indicator */}
-            <div className={cn("h-1 w-12 rounded-full absolute bottom-4 left-8 transition-all group-hover:w-24 bg-gradient-to-r opacity-30", color)} />
+            <div className={cn("h-0.5 w-8 rounded-full absolute bottom-3 left-6 transition-all group-hover:w-16 bg-gradient-to-r opacity-20", color)} />
         </GlassCard>
     );
 }

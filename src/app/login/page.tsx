@@ -3,26 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-    Phone, 
-    Lock, 
-    Mail, 
-    Loader2, 
-    ArrowRight, 
-    Eye, 
-    EyeOff, 
+import {
+    Phone,
+    Lock,
+    Mail,
+    Loader2,
+    ArrowRight,
+    Eye,
+    EyeOff,
     LogIn,
     Chrome,
     ShieldCheck,
     ChevronLeft,
     Library,
     Quote,
-    Sparkles
 } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { AuthFormField } from "@/components/auth/AuthFormField";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -32,7 +30,6 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
 
-    // Form inputs
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
@@ -43,7 +40,7 @@ export default function LoginPage() {
             setError("");
             await signInWithGoogle();
             router.push("/");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
             setError("عذراً، فشل تسجيل الدخول عبر جوجل");
         } finally {
@@ -63,9 +60,10 @@ export default function LoginPage() {
                 await signInWithPhonePassword(phone, password);
             }
             router.push("/");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.message || "فشل تسجيل الدخول، يرجى التأكد من البيانات");
+            const msg = err instanceof Error ? err.message : "فشل تسجيل الدخول، يرجى التأكد من البيانات";
+            setError(msg);
         } finally {
             setIsLoading(false);
         }
@@ -73,8 +71,9 @@ export default function LoginPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#020617]">
-                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <div className="min-h-screen flex items-center justify-center bg-muted/40">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
+                <span className="sr-only">جاري التحميل</span>
             </div>
         );
     }
@@ -83,30 +82,44 @@ export default function LoginPage() {
         const getDashboardUrl = () => {
             if (!userData) return "/";
             const role = userData.role;
-            if (role === 'admin' || role === 'committee') return "/admin";
-            if (role === 'teacher') return "/teachers";
-            if (role === 'student' || role === 'applicant') return "/students";
+            if (role === "admin" || role === "committee") return "/admin";
+            if (role === "teacher") return "/teachers";
+            if (role === "student" || role === "applicant") return "/students";
             return "/";
         };
 
         return (
-            <div className="min-h-screen flex items-center justify-center p-6 bg-[#020617] text-white relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full -ml-32 -mt-32" />
-                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="max-w-md w-full relative z-10 text-center space-y-8">
-                    <GlassCard className="p-10 border-primary/20 bg-primary/5">
-                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <ShieldCheck className="w-10 h-10 text-primary" />
+            <div className="min-h-screen flex items-center justify-center bg-muted/30 p-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-full max-w-md"
+                >
+                    <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+                        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                            <ShieldCheck className="h-7 w-7 text-primary" aria-hidden />
                         </div>
-                        <h2 className="text-3xl font-black mb-4">أهلاً بك مجدداً!</h2>
-                        <p className="text-muted-foreground font-medium leading-relaxed mb-8">
-                            أنت مسجل دخولك بالفعل يا {userData?.displayName || 'طالب العلم'}. يمكنك الانتقال مباشرة لمتابعة محفوظاتك.
+                        <h2 className="text-center text-xl font-semibold tracking-tight text-card-foreground">
+                            أهلاً بك مجدداً
+                        </h2>
+                        <p className="mt-2 text-center text-sm leading-relaxed text-muted-foreground">
+                            أنت مسجل الدخول بالفعل يا {userData?.displayName || "طالب العلم"}. يمكنك الانتقال مباشرة
+                            لمتابعة محفوظاتك.
                         </p>
-                        <Link href={getDashboardUrl()} className="block w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all">
+                        <Link
+                            href={getDashboardUrl()}
+                            className="mt-8 flex h-12 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
                             دخول للوحة التحكم
                         </Link>
-                    </GlassCard>
-                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors">
-                        <ArrowRight className="w-4 h-4" /> العودة للرئيسية
+                    </div>
+                    <Link
+                        href="/"
+                        className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                        <ArrowRight className="h-4 w-4" aria-hidden />
+                        العودة للرئيسية
                     </Link>
                 </motion.div>
             </div>
@@ -114,123 +127,133 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col lg:flex-row bg-[#020617] text-white relative overflow-hidden">
-            {/* Left Side: Branding */}
-            <div className="hidden lg:flex lg:w-[40%] relative overflow-hidden flex-col justify-between p-12 bg-primary/5 border-l border-white/5">
-                <div className="absolute top-0 left-0 w-full h-full">
-                    <div className="absolute bottom-[-10%] left-[-10%] w-[80%] h-[80%] bg-primary/10 blur-[120px] rounded-full animate-pulse" />
-                </div>
+        <div className="min-h-screen bg-background text-foreground">
+            <div className="flex min-h-screen flex-col lg:flex-row">
+                {/* Branding — desktop */}
+                <aside className="relative hidden w-full flex-col justify-between border-border bg-muted/40 p-10 lg:flex lg:w-[38%] lg:border-e">
+                    <Link href="/" className="relative z-10 flex items-center gap-3 rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-card shadow-sm ring-1 ring-border">
+                            <Library className="h-6 w-6 text-primary" aria-hidden />
+                        </div>
+                        <div className="flex flex-col items-start">
+                            <span className="text-lg font-semibold leading-tight">روضة الحافظين</span>
+                            <span className="text-xs text-muted-foreground">برنامج تحفيظ السنة</span>
+                        </div>
+                    </Link>
 
-                <Link href="/" className="relative z-10 flex items-center gap-3 group">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-2xl group-hover:rotate-12 transition-transform">
-                        <Library className="w-7 h-7 text-primary" />
-                    </div>
-                    <span className="text-2xl font-black tracking-tighter">ROUDAT <span className="text-primary truncate">ELITE</span></span>
-                </Link>
-
-                <div className="relative z-10 space-y-10">
-                    <motion.div 
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="space-y-4"
-                    >
-                        <Quote className="w-12 h-12 text-primary/20 -scale-x-100" />
-                        <h2 className="text-5xl font-black leading-[1.1] tracking-tight text-white">عُد إلى مَأرز <br /><span className="text-primary italic">الإيمان</span> واليقين.</h2>
-                        <p className="text-muted-foreground font-medium text-lg leading-relaxed max-w-sm">
-                            الاستمرارية هي سر الإتقان. سجل دخولك وواصل رحلتك في حفظ وضبط الحديث الشريف.
+                    <div className="relative z-10 space-y-5 py-12">
+                        <Quote className="h-10 w-10 text-muted-foreground/40" aria-hidden />
+                        <h2 className="text-3xl font-semibold leading-snug tracking-tight lg:text-4xl">
+                            عُد إلى مأرز{" "}
+                            <span className="text-primary">الإيمان</span> واليقين
+                        </h2>
+                        <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                            الاستمرارية هي سر الإتقان. سجّل دخولك وواصل رحلتك في حفظ وضبط الحديث الشريف.
                         </p>
-                    </motion.div>
-                </div>
-
-                <div className="relative z-10 text-xs font-black opacity-30 uppercase tracking-[0.3em]">
-                    &copy; 2026 ROUDAT AL-HAFIZIN • ELITE SYSTEM
-                </div>
-            </div>
-
-            {/* Right Side: Login Form */}
-            <div className="flex-1 flex flex-col justify-center items-center p-6 md:p-12 relative">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 blur-[120px] rounded-full -mr-64 -mt-64 pointer-events-none" />
-                
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="w-full max-w-xl relative z-10 space-y-10"
-                >
-                    <div className="text-center lg:text-right space-y-3">
-                        <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-white">مرحباً بك مجدداً</h1>
-                        <p className="text-muted-foreground font-medium">سجل دخولك لمتابعة وردك اليومي وإنجازاتك.</p>
                     </div>
 
-                    <GlassCard className="p-8 md:p-10 border-white/5 shadow-2xl overflow-visible bg-white/[0.02]">
-                        <AnimatePresence mode="wait">
-                            {error && (
-                                <motion.div 
-                                    initial={{ opacity: 0, y: -10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    className="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold text-center"
-                                >
-                                    {error}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                    <p className="relative z-10 text-xs text-muted-foreground">© 2026 روضة الحافظين</p>
+                </aside>
 
-                        {method === "options" ? (
-                            <div className="space-y-6">
-                                <button
-                                    onClick={handleGoogleSignIn}
-                                    disabled={isLoading}
-                                    className="w-full h-16 bg-white text-black font-black flex items-center justify-center gap-3 rounded-2xl shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 text-lg"
-                                >
-                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Chrome className="w-6 h-6 text-blue-500" />}
-                                    <span>الدخول بالحساب الموحد (جوجل)</span>
-                                </button>
+                {/* Form */}
+                <div className="flex flex-1 flex-col justify-center px-4 py-10 sm:px-8 lg:px-16">
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="mx-auto w-full max-w-[420px] space-y-8"
+                    >
+                        <div className="space-y-2 text-center lg:text-start">
+                            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">تسجيل الدخول</h1>
+                            <p className="text-sm text-muted-foreground">أدخل بياناتك لمتابعة وردك اليومي وإنجازاتك.</p>
+                        </div>
 
-                                <div className="relative py-4 flex items-center gap-4">
-                                    <div className="h-px flex-1 bg-white/5" />
-                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-2">أو عبر المنصة</span>
-                                    <div className="h-px flex-1 bg-white/5" />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-6">
-                                    <button
-                                        onClick={() => setMethod("email")}
-                                        className="h-20 bg-white/5 border border-white/10 text-foreground font-bold rounded-2xl flex flex-col items-center justify-center gap-2 hover:bg-white/10 transition-all group"
+                        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+                            <AnimatePresence mode="wait">
+                                {error && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="mb-6 overflow-hidden rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
+                                        role="alert"
                                     >
-                                        <Mail className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-                                        <span className="text-[10px] uppercase tracking-widest font-black">البريد الإلكتروني</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setMethod("phone")}
-                                        className="h-20 bg-white/5 border border-white/10 text-foreground font-bold rounded-2xl flex flex-col items-center justify-center gap-2 hover:bg-white/10 transition-all group"
-                                    >
-                                        <Phone className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-                                        <span className="text-[10px] uppercase tracking-widest font-black">رقم الجوال</span>
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleAuth} className="space-y-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                                            {method === "email" ? <Mail className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
-                                        </div>
-                                        <h3 className="font-black text-sm uppercase tracking-widest text-primary">{method === "email" ? "البريد الإلكتروني" : "رقم الجوال"}</h3>
-                                    </div>
-                                    <button 
-                                        type="button"
-                                        onClick={() => { setMethod("options"); setError(""); }}
-                                        className="text-[10px] font-black text-muted-foreground hover:text-white transition-colors flex items-center gap-1 group"
-                                    >
-                                        <span>الرجوع</span>
-                                        <ChevronLeft className="w-3 h-3 group-hover:-translate-x-1 transition-transform" />
-                                    </button>
-                                </div>
+                                        {error}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
+                            {method === "options" ? (
                                 <div className="space-y-5">
+                                    <button
+                                        type="button"
+                                        onClick={handleGoogleSignIn}
+                                        disabled={isLoading}
+                                        className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border bg-background text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                                    >
+                                        {isLoading ? (
+                                            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                                        ) : (
+                                            <Chrome className="h-5 w-5 text-[#4285F4]" aria-hidden />
+                                        )}
+                                        <span>المتابعة بحساب Google</span>
+                                    </button>
+
+                                    <div className="relative flex items-center gap-3 py-1">
+                                        <div className="h-px flex-1 bg-border" />
+                                        <span className="shrink-0 text-xs font-medium text-muted-foreground">أو</span>
+                                        <div className="h-px flex-1 bg-border" />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setMethod("email")}
+                                            className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-4 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                                        >
+                                            <Mail className="h-5 w-5 text-primary" aria-hidden />
+                                            <span className="text-xs font-medium leading-tight">البريد الإلكتروني</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setMethod("phone")}
+                                            className="flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-4 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                                        >
+                                            <Phone className="h-5 w-5 text-primary" aria-hidden />
+                                            <span className="text-xs font-medium leading-tight">رقم الجوال</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleAuth} className="space-y-5">
+                                    <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                                                {method === "email" ? (
+                                                    <Mail className="h-4 w-4 text-primary" aria-hidden />
+                                                ) : (
+                                                    <Phone className="h-4 w-4 text-primary" aria-hidden />
+                                                )}
+                                            </div>
+                                            <span className="truncate text-sm font-medium">
+                                                {method === "email" ? "البريد الإلكتروني" : "رقم الجوال"}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setMethod("options");
+                                                setError("");
+                                            }}
+                                            className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-1"
+                                        >
+                                            <span>رجوع</span>
+                                            <ChevronLeft className="h-4 w-4" aria-hidden />
+                                        </button>
+                                    </div>
+
                                     {method === "email" ? (
-                                        <EliteInput 
+                                        <AuthFormField
                                             label="البريد الإلكتروني"
                                             name="email"
                                             icon={Mail}
@@ -238,10 +261,11 @@ export default function LoginPage() {
                                             placeholder="example@domain.com"
                                             value={email}
                                             dir="ltr"
-                                            onChange={(val: string) => setEmail(val)}
+                                            onChange={setEmail}
+                                            autoComplete="email"
                                         />
                                     ) : (
-                                        <EliteInput 
+                                        <AuthFormField
                                             label="رقم الجوال"
                                             name="phone"
                                             icon={Phone}
@@ -249,87 +273,71 @@ export default function LoginPage() {
                                             placeholder="05xxxxxxxx"
                                             value={phone}
                                             dir="ltr"
-                                            onChange={(val: string) => setPhone(val)}
+                                            onChange={setPhone}
+                                            autoComplete="tel"
                                         />
                                     )}
 
-                                    <EliteInput 
+                                    <AuthFormField
                                         label="كلمة المرور"
                                         name="password"
                                         icon={Lock}
                                         type={showPassword ? "text" : "password"}
-                                        placeholder="••••••••"
+                                        placeholder="أدخل كلمة المرور"
                                         value={password}
-                                        onChange={(val: string) => setPassword(val)}
-                                        rightElement={
-                                            <button 
+                                        onChange={setPassword}
+                                        autoComplete="current-password"
+                                        trailing={
+                                            <button
                                                 type="button"
                                                 onClick={() => setShowPassword(!showPassword)}
-                                                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                                className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                                             >
-                                                {showPassword ? <EyeOff className="w-4 h-4 text-primary" /> : <Eye className="w-4 h-4 text-primary" />}
+                                                {showPassword ? (
+                                                    <EyeOff className="h-4 w-4" aria-hidden />
+                                                ) : (
+                                                    <Eye className="h-4 w-4" aria-hidden />
+                                                )}
                                             </button>
                                         }
                                     />
-                                </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={isLoading}
-                                    className="w-full py-5 bg-primary text-white font-black text-lg rounded-2xl shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:grayscale flex items-center justify-center gap-3 mt-4"
-                                >
-                                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogIn className="w-6 h-6" />}
-                                    <span>دخول الآن</span>
-                                </button>
-                            </form>
-                        )}
-                    </GlassCard>
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                                    >
+                                        {isLoading ? (
+                                            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                                        ) : (
+                                            <LogIn className="h-5 w-5" aria-hidden />
+                                        )}
+                                        دخول
+                                    </button>
+                                </form>
+                            )}
+                        </div>
 
-                    <div className="flex flex-col items-center gap-8">
-                        <p className="text-center font-bold text-sm">
-                            <span className="text-muted-foreground">ليس لديك حساب؟</span>{" "}
-                            <Link href="/register" className="text-primary font-black hover:underline underline-offset-8 transition-all">
-                                أنشئ حساباً جديداً
+                        <div className="space-y-4 text-center text-sm">
+                            <p>
+                                <span className="text-muted-foreground">ليس لديك حساب؟ </span>
+                                <Link href="/register" className="font-medium text-primary hover:underline underline-offset-4">
+                                    إنشاء حساب
+                                </Link>
+                            </p>
+                            <Link
+                                href="/"
+                                className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                                <ArrowRight className="h-4 w-4" aria-hidden />
+                                العودة للرئيسية
                             </Link>
-                        </p>
-
-                        <Link href="/" className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-white transition-colors group">
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                            <span>العودة للرئيسية</span>
-                        </Link>
-                    </div>
-                </motion.div>
+                        </div>
+                    </motion.div>
+                </div>
             </div>
         </div>
     );
 }
 
-function EliteInput({ label, name, icon: Icon, type = "text", placeholder, value, onChange, dir, rightElement }: any) {
-    return (
-        <div className="space-y-2.5">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground px-1 flex items-center gap-2">
-                <Icon className="w-3 h-3 opacity-50" />
-                {label}
-            </label>
-            <div className="relative group">
-                <input
-                    name={name}
-                    type={type}
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder={placeholder}
-                    dir={dir}
-                    className={cn(
-                        "w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold placeholder:opacity-20 shadow-inner text-white",
-                        rightElement ? "pr-14" : ""
-                    )}
-                />
-                {rightElement && (
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                        {rightElement}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}

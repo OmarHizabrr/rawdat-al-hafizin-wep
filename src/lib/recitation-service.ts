@@ -10,7 +10,8 @@ import {
     getDocs,
     Timestamp,
     orderBy,
-    onSnapshot
+    onSnapshot,
+    writeBatch
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -23,10 +24,15 @@ export interface RecitationSession {
     creatorId: string;
     creatorName: string;
     targetType: 'group' | 'course' | 'individual' | 'all';
-    targetId?: string; // id of the group or course
-    targetStudentIds?: string[]; // specific student ids if targetType is 'individual'
+    targetId?: string; // Legacy
     createdAt: Timestamp;
     parentId: string; // Follow project nested path pattern
+}
+
+export interface SessionTarget {
+    sessionId: string;
+    targetId: string;
+    targetType: 'group' | 'course' | 'individual';
 }
 
 export interface SessionAttendance {
@@ -35,14 +41,33 @@ export interface SessionAttendance {
     joinedAt: Timestamp;
 }
 
-export const createRecitationSession = async (session: Omit<RecitationSession, 'id' | 'createdAt' | 'status' | 'parentId'>) => {
+export const createRecitationSession = async (session: Omit<RecitationSession, 'id' | 'createdAt' | 'status' | 'parentId'>, selectedTargets?: {id: string, type: 'group'|'course'|'individual'}[]) => {
     const parentId = session.targetId || 'global';
-    return await addDoc(collection(db, "recitation_sessions", parentId, "recitation_sessions"), {
+    const batch = writeBatch(db);
+    
+    // Create the session document
+    const sessionRef = doc(collection(db, "recitation_sessions", parentId, "recitation_sessions"));
+    batch.set(sessionRef, {
         ...session,
         parentId,
         status: 'active',
         createdAt: serverTimestamp()
     });
+
+    // Create target records using the nested path format: session_targets / sessionId / session_targets / targetId
+    if (selectedTargets && selectedTargets.length > 0) {
+        for (const target of selectedTargets) {
+            const targetRef = doc(db, "session_targets", sessionRef.id, "session_targets", target.id);
+            batch.set(targetRef, {
+                sessionId: sessionRef.id,
+                targetId: target.id,
+                targetType: target.type
+            });
+        }
+    }
+
+    await batch.commit();
+    return sessionRef;
 };
 
 export const endRecitationSession = async (parentId: string, sessionId: string) => {

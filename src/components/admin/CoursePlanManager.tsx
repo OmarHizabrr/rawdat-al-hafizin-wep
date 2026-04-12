@@ -80,7 +80,7 @@ export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps)
         });
 
         const q = query(
-            collection(db, "coursePlans", courseId, "coursePlans"),
+            collection(db, "course_plans", courseId, "course_plans"),
             orderBy("weekIndex", "asc"),
             orderBy("dayIndex", "asc")
         );
@@ -98,12 +98,12 @@ export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps)
     };
 
     const handleAdd = () => {
-        const lastPlan = plans[plans.length - 1];
-        let nextWeek = 1, nextDay = 1;
-        if (lastPlan) {
-            if (lastPlan.dayIndex < 7) { nextWeek = lastPlan.weekIndex; nextDay = lastPlan.dayIndex + 1; }
-            else { nextWeek = lastPlan.weekIndex + 1; nextDay = 1; }
-        }
+        const nextWeek = plans.length > 0 ? Math.max(...plans.map(p => p.weekIndex)) : 1;
+        const lastDayInWeek = plans.filter(p => p.weekIndex === nextWeek).length > 0 
+            ? Math.max(...plans.filter(p => p.weekIndex === nextWeek).map(p => p.dayIndex)) 
+            : 0;
+        const nextDay = lastDayInWeek < 7 ? lastDayInWeek + 1 : 1;
+        const actualWeek = lastDayInWeek < 7 ? nextWeek : nextWeek + 1;
 
         let initialTasks: TierTask[] = [{ tierId: 'new', label: 'حفظ جديد', type: 'hadiths', start: "", end: "", notes: [] }];
         
@@ -121,7 +121,7 @@ export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps)
         }
 
         setCurrentPlan({
-            weekIndex: nextWeek,
+            weekIndex: actualWeek,
             dayIndex: nextDay,
             tasks: initialTasks
         });
@@ -133,9 +133,9 @@ export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps)
         e.preventDefault();
         setSaving(true);
         try {
-            const planId = isEditing ? currentPlan.id! : doc(collection(db, "coursePlans", courseId, "coursePlans")).id;
+            const planId = isEditing ? currentPlan.id! : doc(collection(db, "course_plans", courseId, "course_plans")).id;
             const data = { ...currentPlan, id: planId, updatedAt: serverTimestamp() };
-            await setDoc(doc(db, "coursePlans", courseId, "coursePlans", planId), data, { merge: true });
+            await setDoc(doc(db, "course_plans", courseId, "course_plans", planId), data, { merge: true });
             setIsModalOpen(false);
             showDialog('success', 'تم الحفظ', 'تم تحديث خطة اليوم بنجاح.');
         } catch (error) {
@@ -171,12 +171,15 @@ export function CoursePlanManager({ courseId, backUrl }: CoursePlanManagerProps)
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {groupedPlans[Number(weekIdx)].map((plan) => (
-                                <GlassCard key={plan.id} className="p-6 hover:border-primary/30 transition-all group relative flex flex-col h-full bg-white/5 border-white/5 shadow-xl">
+                                <GlassCard
+                                    key={plan.id}
+                                    className="group relative flex h-full flex-col p-6 transition-colors hover:border-primary/40"
+                                >
                                     <div className="flex justify-between items-start mb-6">
                                         <div className="bg-primary/10 text-primary text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest">اليوم {plan.dayIndex}</div>
                                         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button onClick={() => { setCurrentPlan(plan); setIsEditing(true); setIsModalOpen(true); }} className="p-2 hover:bg-blue-500/10 text-blue-500 rounded-xl transition-colors"><Edit className="w-4 h-4" /></button>
-                                            <button onClick={() => showDialog('danger', 'حذف', 'هل أنت متأكد؟', async () => await deleteDoc(doc(db, "coursePlans", courseId, "coursePlans", plan.id)))} className="p-2 hover:bg-red-500/10 text-red-500 rounded-xl transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                            <button onClick={() => showDialog('danger', 'حذف', 'هل أنت متأكد؟', async () => await deleteDoc(doc(db, "course_plans", courseId, "course_plans", plan.id)))} className="p-2 hover:bg-red-500/10 text-red-500 rounded-xl transition-colors"><Trash2 className="w-4 h-4" /></button>
                                         </div>
                                     </div>
                                     <div className="space-y-4 flex-1">

@@ -1,0 +1,29 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+
+export function MainContent({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
+    const noShellPadding =
+        pathname.startsWith("/admin") ||
+        pathname.startsWith("/teachers") ||
+        pathname === "/login" ||
+        pathname === "/register" ||
+        pathname === "/access-code";
+
+    return (
+        <main
+            className={cn(
+                "flex-1 pb-10",
+                noShellPadding ? "min-h-0 px-0 pt-0" : "px-4 pt-24 md:px-6"
+            )}
+        >
+            {noShellPadding ? (
+                children
+            ) : (
+                <div className="mx-auto max-w-7xl">{children}</div>
+            )}
+        </main>
+    );
+}

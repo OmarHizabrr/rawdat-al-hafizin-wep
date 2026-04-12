@@ -63,14 +63,13 @@ export default function AdminStatistics() {
     }
 
     return (
-        <div className="space-y-8 pb-20">
-            <div>
-                <h1 className="text-2xl font-bold">إحصائيات النظام</h1>
-                <p className="text-muted-foreground mt-2">نظرة عامة على نشاط النظام وتوزيع المستخدمين.</p>
+        <div className="space-y-6 pb-20">
+            <div className="pt-2">
+                <h1 className="text-xl md:text-2xl font-black tracking-tight">إحصائيات النظام</h1>
+                <p className="text-[11px] md:text-xs text-muted-foreground mt-1 opacity-60">نظرة عامة على نشاط النظام وتوزيع المستخدمين.</p>
             </div>
 
-            {/* Summary Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard title="المستخدمين" value={stats.users} icon={Users} color="text-blue-500" bgColor="bg-blue-500/10" />
                 <StatCard title="الطلاب" value={stats.students} icon={GraduationCap} color="text-green-500" bgColor="bg-green-500/10" />
                 <StatCard title="المعلمين" value={stats.teachers} icon={School} color="text-orange-500" bgColor="bg-orange-500/10" />
@@ -79,26 +78,26 @@ export default function AdminStatistics() {
 
             <div className="grid md:grid-cols-2 gap-6">
                 {/* Role Distribution */}
-                <GlassCard className="p-6 space-y-6">
-                    <h2 className="text-xl font-bold">توزيع الأدوار</h2>
-                    <div className="space-y-4">
-                        <DistributionBar label="مشرفين" value={stats.admins} total={stats.users} color="bg-red-500" />
+                <GlassCard className="p-4 md:p-5 space-y-5 rounded-2xl">
+                    <h2 className="text-lg font-black px-1">توزيع الأدوار</h2>
+                    <div className="space-y-3 px-1 pb-1">
+                        <DistributionBar label="مشرفين" value={stats.admins} total={stats.users} color="bg-rose-500" />
                         <DistributionBar label="معلمين" value={stats.teachers} total={stats.users} color="bg-blue-500" />
-                        <DistributionBar label="طلاب" value={stats.students} total={stats.users} color="bg-green-500" />
+                        <DistributionBar label="طلاب" value={stats.students} total={stats.users} color="bg-emerald-500" />
                     </div>
                 </GlassCard>
 
                 {/* Group Stats */}
-                <GlassCard className="p-6 space-y-6">
-                    <h2 className="text-xl font-bold">إحصائيات الحلقات</h2>
+                <GlassCard className="p-4 md:p-5 space-y-5 rounded-2xl">
+                    <h2 className="text-lg font-black px-1">إحصائيات الحلقات</h2>
                     <div className="flex gap-4">
-                        <div className="flex-1 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center space-y-2">
-                            <p className="text-3xl font-bold text-blue-600">{stats.maleGroups}</p>
-                            <p className="text-sm text-blue-600/80">حلقات البنين</p>
+                        <div className="flex-1 p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/10 text-center space-y-1">
+                            <p className="text-2xl md:text-3xl font-black text-blue-500">{stats.maleGroups}</p>
+                            <p className="text-[10px] md:text-xs font-bold text-blue-500/60 uppercase tracking-widest">حلقات البنين</p>
                         </div>
-                        <div className="flex-1 p-4 rounded-xl bg-pink-500/10 border border-pink-500/20 text-center space-y-2">
-                            <p className="text-3xl font-bold text-pink-600">{stats.femaleGroups}</p>
-                            <p className="text-sm text-pink-600/80">حلقات البنات</p>
+                        <div className="flex-1 p-3.5 rounded-xl bg-pink-500/5 border border-pink-500/10 text-center space-y-1">
+                            <p className="text-2xl md:text-3xl font-black text-pink-500">{stats.femaleGroups}</p>
+                            <p className="text-[10px] md:text-xs font-bold text-pink-500/60 uppercase tracking-widest">حلقات البنات</p>
                         </div>
                     </div>
                 </GlassCard>
@@ -109,13 +108,13 @@ export default function AdminStatistics() {
 
 function StatCard({ title, value, icon: Icon, color, bgColor }: { title: string, value: number, icon: any, color: string, bgColor: string }) {
     return (
-        <GlassCard className="p-4 flex flex-col items-center justify-center text-center gap-3 hover:scale-[1.02] transition-transform">
-            <div className={`p-3 rounded-full ${bgColor} ${color}`}>
-                <Icon className="w-6 h-6" />
+        <GlassCard className="p-3 md:p-4 flex flex-col items-center justify-center text-center gap-2 group hover:scale-[1.02] transition-all rounded-xl md:rounded-2xl border-white/5 bg-white/[0.01]">
+            <div className={`p-2.5 rounded-xl ${bgColor} ${color} transition-transform group-hover:scale-110 shadow-inner`}>
+                <Icon className="w-5 h-5" />
             </div>
             <div>
-                <p className="text-2xl font-bold">{value}</p>
-                <p className="text-xs text-muted-foreground">{title}</p>
+                <p className="text-xl md:text-2xl font-black tracking-tight">{value.toLocaleString()}</p>
+                <p className="text-[9px] md:text-[10px] font-bold text-muted-foreground opacity-40 uppercase tracking-widest">{title}</p>
             </div>
         </GlassCard>
     );
@@ -124,17 +123,17 @@ function StatCard({ title, value, icon: Icon, color, bgColor }: { title: string,
 function DistributionBar({ label, value, total, color }: { label: string, value: number, total: number, color: string }) {
     const percentage = total > 0 ? (value / total) * 100 : 0;
     return (
-        <div className="space-y-1">
-            <div className="flex justify-between text-sm">
-                <span>{label}</span>
-                <span className="font-bold">{value} <span className="text-muted-foreground text-xs font-normal">({percentage.toFixed(1)}%)</span></span>
+        <div className="space-y-1.5">
+            <div className="flex justify-between text-[11px] md:text-xs">
+                <span className="font-bold opacity-70">{label}</span>
+                <span className="font-black">{value} <span className="opacity-30 font-medium ml-1">({percentage.toFixed(1)}%)</span></span>
             </div>
-            <div className="h-2 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
+            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${percentage}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className={`h-full ${color}`}
+                    transition={{ duration: 1.2, ease: "circOut" }}
+                    className={`h-full rounded-full ${color} opacity-80 shadow-[0_0_10px_rgba(0,0,0,0.5)]`}
                 />
             </div>
         </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Cairo } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
+import { MainContent } from "@/components/layout/MainContent";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const cairo = Cairo({ subsets: ["arabic"], variable: "--font-cairo" });
@@ -19,7 +20,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+const siteUrl = new URL("https://qursunnah-wep.vercel.app");
+
 export const metadata: Metadata = {
+  metadataBase: siteUrl,
   title: "روضة الحافظين | برنامج تحفيظ السنة النبوية",
   description: "برنامج علمي متكامل يُعنى بحفظ أحاديث السنة النبوية بجمع الشيخ يحيى اليحيى، وفق منهجٍ متدرّج يبدأ بأصح كتب السنة.",
   manifest: "/manifest.json",
@@ -76,11 +80,7 @@ export default function RootLayout({
               </div>
 
               <Navbar />
-              <main className="flex-1 pt-24 pb-12 px-6">
-                <div className="mx-auto max-w-7xl">
-                  {children}
-                </div>
-              </main>
+              <MainContent>{children}</MainContent>
               <Toaster position="top-center" richColors closeButton />
             </div>
           </ThemeProvider>

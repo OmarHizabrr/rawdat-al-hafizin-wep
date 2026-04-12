@@ -9,16 +9,17 @@ import {
     Users,
     Key,
     BarChart3,
-    Settings,
     LogOut,
     Menu,
     X,
     Loader2,
     BookOpen,
-    Layers
+    Layers,
+    ShieldCheck,
+    Bell,
+    Search
 } from "lucide-react";
 // import { ThemeToggle } from "@/components/theme-toggle";
-import { GlassCard } from "@/components/ui/GlassCard";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const { user, userData, loading, signOut } = useAuth();
@@ -71,71 +72,98 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ];
 
     return (
-        <div className="min-h-screen flex bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 text-foreground dir-rtl">
+        <div className="flex min-h-screen bg-muted/30 text-foreground dir-rtl">
             {/* Sidebar */}
             <aside
-                className={`fixed inset-y-0 right-0 z-50 w-64 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-l border-white/20 shadow-2xl transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "translate-x-full"
+                className={`fixed inset-y-0 right-0 z-50 w-72 border-l border-border bg-card shadow-sm transition-transform duration-200 ease-out dark:bg-card ${isSidebarOpen ? "translate-x-0" : "translate-x-full"
                     } ${isMobile ? "" : "lg:static lg:translate-x-0"}`}
             >
-                <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-800">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                        لوحة الإدارة
-                    </h1>
+                <div className="flex items-center justify-between border-b border-border p-6">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                            <ShieldCheck className="h-6 w-6" />
+                        </div>
+                        <h1 className="text-lg font-semibold tracking-tight text-foreground">لوحة الإدارة</h1>
+                    </div>
                     {isMobile && (
-                        <button onClick={() => setIsSidebarOpen(false)}>
-                            <X className="w-6 h-6" />
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted"
+                        >
+                            <X className="h-5 w-5" />
                         </button>
                     )}
                 </div>
 
-                <nav className="p-4 space-y-2">
+                <nav className="space-y-1 p-4">
+                    <p className="px-3 py-2 text-xs font-medium text-muted-foreground">القائمة</p>
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isActive
-                                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                    : "hover:bg-gray-100 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground"
+                                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive
+                                    ? "bg-primary text-primary-foreground shadow-sm"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                     }`}
                             >
-                                <item.icon className="w-5 h-5" />
-                                <span className="font-medium">{item.label}</span>
+                                <item.icon className={`h-5 w-5 shrink-0 ${isActive ? "opacity-100" : "opacity-80"}`} />
+                                <span>{item.label}</span>
                             </Link>
-                        )
+                        );
                     })}
                 </nav>
 
-                <div className="absolute bottom-0 w-full p-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="absolute bottom-0 w-full border-t border-border p-4">
                     <button
+                        type="button"
                         onClick={() => signOut()}
-                        className="flex items-center gap-3 p-3 w-full rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 text-red-600 transition-colors"
+                        className="flex w-full items-center gap-3 rounded-lg p-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
                     >
-                        <LogOut className="w-5 h-5" />
-                        <span className="font-medium">تسجيل الخروج</span>
+                        <LogOut className="h-5 w-5" />
+                        تسجيل الخروج
                     </button>
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+            <div className="flex min-h-screen flex-1 flex-col overflow-hidden bg-background">
                 {/* Header */}
-                <header className="h-16 flex items-center justify-between px-6 bg-white/50 dark:bg-black/20 backdrop-blur-sm border-b border-white/10 sticky top-0 z-40">
-                    <button
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg"
-                    >
-                        <Menu className="w-6 h-6" />
-                    </button>
-                    <div className="flex items-center gap-4 mr-auto">
-                        {/* ThemeToggle could go here */}
-                        <div className="flex items-center gap-3">
-                            <div className="text-left hidden md:block">
-                                <p className="text-sm font-bold">{userData.displayName || "Admin"}</p>
-                                <p className="text-xs text-muted-foreground">مسؤول النظام</p>
+                <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-card px-4 shadow-sm md:px-8">
+                    <div className="flex items-center gap-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </button>
+
+                        <div className="hidden items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 sm:flex">
+                            <span className="text-xs text-muted-foreground">بحث</span>
+                            <Search className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                            <Bell className="h-5 w-5" />
+                        </button>
+
+                        <div className="hidden h-6 w-px bg-border md:block" />
+
+                        <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 py-1.5 ps-3 pe-1.5">
+                            <div className="hidden text-right md:block">
+                                <p className="text-xs text-muted-foreground">مشرف</p>
+                                <p className="max-w-[140px] truncate text-sm font-medium text-foreground">
+                                    {userData.displayName || "Admin"}
+                                </p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/15 text-sm font-semibold text-primary">
                                 {(userData.displayName?.[0] || "A").toUpperCase()}
                             </div>
                         </div>
@@ -151,7 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Overlay for mobile sidebar */}
             {isMobile && isSidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
+                    className="fixed inset-0 z-40 bg-black/40"
                     onClick={() => setIsSidebarOpen(false)}
                 />
             )}

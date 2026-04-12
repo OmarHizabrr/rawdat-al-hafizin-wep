@@ -46,24 +46,19 @@ export default function TeacherHalaqaDetails() {
     useEffect(() => {
         if (!id) return;
 
-        // Fetch Group details
-        const fetchGroup = async () => {
-            const snap = await getDoc(doc(db, "groups", id));
-            if (snap.exists()) {
-                setGroup({ id: snap.id, ...snap.data() } as GroupModel);
+        void (async () => {
+            const [groupSnap, configSnap] = await Promise.all([
+                getDoc(doc(db, "groups", id)),
+                getDoc(doc(db, "points_config", "global", "points_config", "settings")),
+            ]);
+            if (groupSnap.exists()) {
+                setGroup({ id: groupSnap.id, ...groupSnap.data() } as GroupModel);
             }
-        };
-        fetchGroup();
-
-        // Fetch Points Config (Unified Path)
-        const fetchConfig = async () => {
-            const configSnap = await getDoc(doc(db, "points_config", "global", "points_config", "settings"));
             if (configSnap.exists()) setPointsConfig(configSnap.data());
-        };
-        fetchConfig();
+        })();
 
-        // Fetch Students belonging to this group
-        const q = query(collection(db, "users"), where("role", "==", "student"), where("groupId", "==", id));
+        // Fetch Students belonging to this group (Nested Subcollection Pattern)
+        const q = query(collection(db, "members", id, "members"), where("role", "==", "student"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -200,30 +195,30 @@ export default function TeacherHalaqaDetails() {
     return (
         <div className="space-y-6 pb-20">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Link href="/teachers" className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-full transition-colors">
-                    <ArrowRight className="w-6 h-6" />
+            <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 shadow-sm backdrop-blur-md">
+                <Link href="/teachers" className="p-2 hover:bg-white/10 rounded-full transition-colors group">
+                    <ArrowRight className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                 </Link>
                 <div>
-                    <h1 className="text-2xl font-bold">{group?.name || "جاري التحميل..."}</h1>
-                    <p className="text-muted-foreground">إدارة طلاب الحلقة وتقييمهم</p>
+                    <h1 className="text-xl md:text-2xl font-black tracking-tight">{group?.name || "جاري التحميل..."}</h1>
+                    <p className="text-[10px] md:text-xs text-muted-foreground font-medium opacity-60">إدارة طلاب الحلقة وتقييمهم الدوري</p>
                 </div>
             </div>
 
             {/* Actions & Search */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white/50 dark:bg-black/20 p-4 rounded-2xl border border-white/20 backdrop-blur-md">
-                <div className="flex items-center gap-2 text-primary font-bold">
-                    <Users className="w-5 h-5" />
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5 backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-primary font-black text-xs md:text-sm px-2">
+                    <Users className="w-4 h-4" />
                     <span>الطلاب ({students.length})</span>
                 </div>
-                <div className="relative w-full sm:w-72">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div className="relative w-full sm:w-64">
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
                     <input
                         type="text"
                         placeholder="ابحث عن طالب..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-4 pr-10 py-2 rounded-xl border bg-background focus:ring-2 focus:ring-primary/20 outline-none"
+                        className="w-full pl-4 pr-10 py-2 rounded-lg border border-white/10 bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none text-xs transition-all"
                     />
                 </div>
             </div>
@@ -231,10 +226,10 @@ export default function TeacherHalaqaDetails() {
             {/* Students List */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredStudents.map(student => (
-                    <GlassCard key={student.id} className="p-6 space-y-4 group">
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-purple-500 p-[2px]">
-                                <div className="w-full h-full bg-background rounded-full overflow-hidden flex items-center justify-center text-xl font-bold text-primary">
+                    <GlassCard key={student.id} className="p-4 space-y-4 group rounded-2xl hover:border-primary/30 transition-all">
+                        <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-primary to-purple-500 p-[1.5px]">
+                                <div className="w-full h-full bg-[#0a0a0a] rounded-full overflow-hidden flex items-center justify-center text-lg font-black text-primary">
                                     {student.photoURL ? (
                                         <img src={student.photoURL} alt={student.displayName} className="w-full h-full object-cover" />
                                     ) : (
@@ -242,12 +237,12 @@ export default function TeacherHalaqaDetails() {
                                     )}
                                 </div>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-lg">{student.displayName}</h3>
+                            <div className="space-y-0.5">
+                                <h3 className="font-black text-base leading-tight group-hover:text-primary transition-colors">{student.displayName}</h3>
                                 <div className="flex items-center gap-2">
-                                    <p className="text-[10px] text-muted-foreground">{student.phoneNumber || student.email}</p>
-                                    <div className="w-1 h-1 rounded-full bg-gray-300" />
-                                    <div className="flex items-center gap-1 text-amber-500 font-black text-[10px]">
+                                    <p className="text-[9px] text-muted-foreground font-medium opacity-60 truncate max-w-[120px]">{student.phoneNumber || student.email}</p>
+                                    <div className="w-1 h-1 rounded-full bg-white/10" />
+                                    <div className="flex items-center gap-1 text-amber-500 font-black text-[9px]">
                                         <Star className="w-2.5 h-2.5 fill-current" />
                                         {student.totalPoints || 0} XP
                                     </div>
@@ -255,16 +250,16 @@ export default function TeacherHalaqaDetails() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 pt-4 border-t border-gray-100 dark:border-white/5">
+                        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5">
                             <button 
                                 onClick={() => {
                                     setSelectedStudent(student);
                                     setEvalType("attendance");
                                     setEvalMark("حاضر");
                                 }}
-                                className="flex items-center justify-center gap-2 py-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 transition-colors text-sm font-bold"
+                                className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-all text-[11px] font-black"
                             >
-                                <Calendar className="w-4 h-4" />
+                                <Calendar className="w-3.5 h-3.5" />
                                 الحضور
                             </button>
                             <button 
@@ -273,9 +268,9 @@ export default function TeacherHalaqaDetails() {
                                     setEvalType("recitation");
                                     setEvalMark("ممتاز");
                                 }}
-                                className="flex items-center justify-center gap-2 py-2 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 transition-colors text-sm font-bold"
+                                className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition-all text-[11px] font-black"
                             >
-                                <BookOpen className="w-4 h-4" />
+                                <BookOpen className="w-3.5 h-3.5" />
                                 التسميع
                             </button>
                             <button 
@@ -284,9 +279,9 @@ export default function TeacherHalaqaDetails() {
                                     setEvalType("test");
                                     setEvalMark("ممتاز");
                                 }}
-                                className="flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 transition-colors text-sm font-bold col-span-2"
+                                className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-all text-[11px] font-black col-span-2"
                             >
-                                <Users className="w-4 h-4" />
+                                <Users className="w-3.5 h-3.5" />
                                 الاختبار النهائي
                             </button>
                         </div>
@@ -312,42 +307,42 @@ export default function TeacherHalaqaDetails() {
                             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
                         />
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="bg-background rounded-3xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden"
+                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            className="bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-sm relative z-10 overflow-hidden"
                         >
-                            <div className="p-6 border-b border-gray-100 dark:border-white/5 flex items-center justify-between bg-gray-50 dark:bg-white/5">
-                                <h2 className="text-xl font-bold flex items-center gap-2">
-                                    {evalType === "attendance" ? <Calendar className="w-5 h-5 text-blue-500" /> : evalType === "test" ? <Users className="w-5 h-5 text-amber-500" /> : <BookOpen className="w-5 h-5 text-green-500" />}
+                            <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/5 backdrop-blur-md">
+                                <h2 className="text-lg font-black flex items-center gap-2">
+                                    {evalType === "attendance" ? <Calendar className="w-4 h-4 text-blue-500" /> : evalType === "test" ? <Users className="w-4 h-4 text-amber-500" /> : <BookOpen className="w-4 h-4 text-emerald-500" />}
                                     {evalType === "attendance" ? "تسجيل الحضور" : evalType === "test" ? "الاختبار النهائي" : "تقييم التسميع"}
                                 </h2>
-                                <button onClick={() => setSelectedStudent(null)} className="p-2 hover:bg-white/10 rounded-full">
-                                    <XCircle className="w-6 h-6 text-muted-foreground" />
+                                <button onClick={() => setSelectedStudent(null)} className="p-1.5 hover:bg-white/10 rounded-full transition-colors">
+                                    <XCircle className="w-5 h-5 text-muted-foreground opacity-50 hover:opacity-100" />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSaveEvaluation} className="p-6 space-y-6">
-                                <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                            <form onSubmit={handleSaveEvaluation} className="p-5 space-y-5">
+                                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-black text-xs">
                                         {selectedStudent.displayName[0]}
                                     </div>
-                                    <p className="font-bold">{selectedStudent.displayName}</p>
+                                    <p className="font-black text-sm">{selectedStudent.displayName}</p>
                                 </div>
 
                                 {evalType === "attendance" ? (
-                                    <div className="space-y-3">
-                                        <label className="text-sm font-bold">حالة الحضور اليوم</label>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-50">حالة الحضور اليوم</label>
                                         <div className="grid grid-cols-3 gap-2">
                                             {['حاضر', 'غائب', 'مستأذن'].map(status => (
                                                 <button
                                                     key={status}
                                                     type="button"
                                                     onClick={() => setEvalMark(status)}
-                                                    className={`py-3 rounded-xl border font-bold text-sm transition-colors ${
+                                                    className={`py-2.5 rounded-lg border font-black text-xs transition-all ${
                                                         evalMark === status 
-                                                        ? 'bg-blue-500 text-white border-blue-500' 
-                                                        : 'hover:bg-gray-50 dark:hover:bg-white/5'
+                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/20' 
+                                                        : 'border-white/5 bg-white/5 hover:bg-white/10'
                                                     }`}
                                                 >
                                                     {status}
@@ -356,18 +351,18 @@ export default function TeacherHalaqaDetails() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="space-y-3">
-                                        <label className="text-sm font-bold">تقييم التسميع والمراجعة</label>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest opacity-50">تقييم التسميع والمراجعة</label>
                                         <div className="grid grid-cols-2 gap-2">
                                             {(evalType === "test" ? ['ممتاز', 'جيد جداً', 'جيد', 'مقبول'] : ['ممتاز', 'جيد جداً', 'جيد', 'مقبول', 'ضعيف', 'لم يسمع']).map(mark => (
                                                 <button
                                                     key={mark}
                                                     type="button"
                                                     onClick={() => setEvalMark(mark)}
-                                                    className={`py-2 rounded-xl border text-sm font-bold transition-colors ${
+                                                    className={`py-2 rounded-lg border text-xs font-black transition-all ${
                                                         evalMark === mark 
-                                                        ? (evalType === 'test' ? 'bg-amber-500 text-white border-amber-500' : 'bg-green-500 text-white border-green-500')
-                                                        : 'hover:bg-gray-50 dark:hover:bg-white/5'
+                                                        ? (evalType === 'test' ? 'bg-amber-500 text-white border-amber-500' : 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-500/20')
+                                                        : 'border-white/5 bg-white/5 hover:bg-white/10'
                                                     }`}
                                                 >
                                                     {mark}
@@ -378,11 +373,11 @@ export default function TeacherHalaqaDetails() {
                                 )}
 
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold block">ملاحظات المعلم (اختياري)</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-50 block">ملاحظات المعلم (اختياري)</label>
                                     <textarea
                                         value={evalNotes}
                                         onChange={e => setEvalNotes(e.target.value)}
-                                        className="w-full h-24 p-3 rounded-xl border bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                                        className="w-full h-20 p-3 rounded-xl border border-white/5 bg-white/5 outline-none focus:ring-2 focus:ring-primary/20 resize-none text-xs"
                                         placeholder="اكتب ملاحظاتك عن أداء الطالب اليوم..."
                                     />
                                 </div>
@@ -390,9 +385,9 @@ export default function TeacherHalaqaDetails() {
                                 <button
                                     disabled={saving}
                                     type="submit"
-                                    className="w-full py-4 rounded-xl bg-primary text-white font-bold hover:shadow-lg hover:shadow-primary/30 transition-all flex items-center justify-center gap-2"
+                                    className="w-full py-3.5 rounded-xl bg-primary text-white font-black text-sm hover:shadow-xl hover:shadow-primary/30 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:grayscale"
                                 >
-                                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     حفظ السجل
                                 </button>
                             </form>

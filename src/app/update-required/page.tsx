@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Monitor, Download, Headset, ShieldCheck, Zap, Sparkles, Loader2 } from "lucide-react";
+import { Monitor, Download, Headset, ShieldCheck, Zap, Sparkles, Loader2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 function UpdateRequiredContent() {
@@ -18,54 +18,55 @@ function UpdateRequiredContent() {
 
     return (
         <div className="min-h-[80vh] flex items-center justify-center p-4">
-            <GlassCard className="max-w-lg w-full text-center space-y-8 p-8 border-yellow-200 dark:border-yellow-900/50">
+            <GlassCard className="w-full max-w-md space-y-6 border-amber-500/40 p-6 text-center">
                 <div className="relative">
-                    <div className="absolute inset-0 flex items-center justify-center animate-ping opacity-20">
-                        <div className="w-24 h-24 bg-yellow-500 rounded-full" />
+                    <div className="absolute inset-0 flex items-center justify-center animate-ping opacity-10">
+                        <div className="w-16 h-16 bg-yellow-500 rounded-full" />
                     </div>
-                    <div className="relative w-20 h-20 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mx-auto text-yellow-500">
-                        <Zap className="w-10 h-10 fill-current" />
+                    <div className="relative w-14 h-14 bg-yellow-100 dark:bg-yellow-900/20 rounded-2xl flex items-center justify-center mx-auto text-yellow-500 shadow-inner">
+                        <Zap className="w-6 h-6 fill-current" />
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                <div className="space-y-3">
+                    <h1 className="text-xl font-semibold text-foreground md:text-2xl">
                         تحديث ضروري للمتابعة
                     </h1>
-                    <p className="text-muted-foreground leading-relaxed">
+                    <p className="text-[11px] md:text-xs text-muted-foreground leading-relaxed px-4 opacity-70">
                         {customMessage || "إصدار التطبيق لديك أصبح قديماً. لضمان أفضل تجربة وحماية لبياناتك، يرجى تحديث التطبيق الآن."}
                     </p>
 
                     {(currentVersion || requiredVersion) && (
-                        <div className="flex items-center justify-center gap-4 text-sm font-mono bg-gray-50 dark:bg-white/5 py-2 rounded-lg">
-                            {currentVersion && <span>Current: v{currentVersion}</span>}
-                            {requiredVersion && <span>Required: v{requiredVersion}</span>}
+                        <div className="flex items-center justify-center gap-3 text-[10px] font-mono bg-gray-50 dark:bg-white/5 py-1.5 rounded-lg border border-gray-100 dark:border-white/5">
+                            {currentVersion && <span className="opacity-50">v{currentVersion}</span>}
+                            <ArrowRight className="w-3 h-3 opacity-20" />
+                            {requiredVersion && <span className="text-primary font-bold">New: v{requiredVersion}</span>}
                         </div>
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 text-left">
-                    <FeatureItem icon={ShieldCheck} title="حماية أعلى" desc="تحديثات أمنية هامة لحماية بياناتك" />
-                    <FeatureItem icon={Sparkles} title="ميزات جديدة" desc="استمتع بأحدث الميزات والتحسينات" />
+                <div className="grid grid-cols-1 gap-2 text-left">
+                    <FeatureItem icon={ShieldCheck} title="حماية رقمية متطورة" desc="تحديثات أمنية هامة لحماية بياناتك" />
+                    <FeatureItem icon={Sparkles} title="مميزات حصرية" desc="استمتع بأحدث التحسينات المضافة" />
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2 pt-2">
                     <Link
                         href={updateUrl}
                         target="_blank"
-                        className="flex items-center justify-center gap-2 w-full p-4 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors font-bold shadow-lg shadow-primary/20"
+                        className="flex items-center justify-center gap-2 w-full py-3.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all font-black text-xs shadow-lg shadow-primary/20 active:scale-[0.98]"
                     >
-                        <Download className="w-5 h-5" />
+                        <Download className="w-4 h-4" />
                         <span>تحديث التطبيق الآن</span>
                     </Link>
 
                     <Link
                         href={whatsappUrl}
                         target="_blank"
-                        className="flex items-center justify-center gap-2 w-full p-4 bg-gray-100 dark:bg-white/10 text-foreground rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-colors font-medium"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
                     >
-                        <Headset className="w-5 h-5" />
-                        <span>طلب رابط التحديث</span>
+                        <Headset className="w-4 h-4" />
+                        <span>طلب مساعدة تقنية</span>
                     </Link>
                 </div>
             </GlassCard>
@@ -75,13 +76,13 @@ function UpdateRequiredContent() {
 
 function FeatureItem({ icon: Icon, title, desc }: { icon: any, title: string, desc: string }) {
     return (
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5">
+        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50/50 dark:bg-white/[0.02] border border-gray-100 dark:border-white/5">
             <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <Icon className="w-5 h-5" />
+                <Icon className="w-4 h-4" />
             </div>
             <div>
-                <h3 className="font-bold text-sm">{title}</h3>
-                <p className="text-xs text-muted-foreground">{desc}</p>
+                <h3 className="text-xs font-medium text-foreground">{title}</h3>
+                <p className="text-[9px] text-muted-foreground opacity-60">{desc}</p>
             </div>
         </div>
     );

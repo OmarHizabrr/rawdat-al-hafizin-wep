@@ -111,16 +111,16 @@ export default function AppUpdatesDashboard() {
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-center md:text-right space-y-4 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 backdrop-blur-md shadow-2xl relative overflow-hidden"
+                className="text-center md:text-right space-y-4 bg-white/5 p-4 md:p-6 rounded-2xl border border-white/10 backdrop-blur-md shadow-xl relative overflow-hidden"
             >
-                <div className="absolute -top-10 -left-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
-                <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
-                    <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-inner">
-                        <Smartphone className="w-8 h-8 text-blue-500" />
+                <div className="absolute top-0 left-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -ml-16 -mt-16" />
+                <div className="flex flex-col md:flex-row items-center gap-5 relative z-10">
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20 shadow-inner">
+                        <Smartphone className="w-6 h-6 text-blue-500" />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">إدارة التحديثات الذكية</h1>
-                        <p className="text-muted-foreground mt-1 max-w-xl">تحكم في التحديثات الإجبارية وإصدارات تطبيق الاندرويد والايفون.</p>
+                        <h1 className="text-xl md:text-2xl font-black tracking-tight">إدارة التحديثات الذكية</h1>
+                        <p className="text-[11px] md:text-xs text-muted-foreground opacity-60">تحكم في التحديثات الإجبارية وإصدارات تطبيق الاندرويد والايفون.</p>
                     </div>
                 </div>
             </motion.div>
@@ -131,14 +131,14 @@ export default function AppUpdatesDashboard() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.1 }}
             >
-                <GlassCard className="bg-red-500/5 border-red-500/20 p-6 flex gap-5 items-center">
-                    <div className="w-14 h-14 rounded-22xl bg-red-500/10 flex items-center justify-center flex-shrink-0 animate-pulse">
-                        <AlertTriangle className="w-7 h-7 text-red-600" />
+                <GlassCard className="bg-red-500/5 border-red-500/10 p-4 flex gap-4 items-center rounded-xl md:rounded-2xl">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
-                        <h4 className="font-bold text-red-600 dark:text-red-400 mb-1">تحذير الرادع (Version Code Constraint)</h4>
-                        <p className="text-xs text-red-900/70 dark:text-red-100/70 leading-relaxed font-medium">
-                            أي مستخدم يملك (Version Code) أقل من الرقم الذي ستضعه هنا، سيتوقف تطبيقه فوراً وسيظهر له زر التحديث. يرجى مراجعة الرقم جيداً قبل الحفظ.
+                        <h4 className="font-black text-red-600 dark:text-red-400 mb-0.5 text-xs">تحذير الرادع (Version Code Constraint)</h4>
+                        <p className="text-[10px] text-red-900/60 dark:text-red-100/60 leading-relaxed font-medium">
+                            أي مستخدم يملك (Version Code) أقل من الرقم الذي ستضعه هنا، سيتوقف تطبيقه فوراً وسيظهر له زر التحديث.
                         </p>
                     </div>
                 </GlassCard>
@@ -146,95 +146,95 @@ export default function AppUpdatesDashboard() {
 
             {/* Form Zone */}
             <form onSubmit={handleSave} className="space-y-8">
-                <GlassCard className="p-10 space-y-8 bg-white/5 border-white/10 rounded-[2.5rem] shadow-2xl backdrop-blur-sm">
-                    <div className="grid md:grid-cols-2 gap-8">
+                <GlassCard className="p-6 md:p-8 space-y-6 bg-white/5 border-white/10 rounded-2xl shadow-xl backdrop-blur-sm">
+                    <div className="grid md:grid-cols-2 gap-6">
                         <div className="space-y-2 group">
-                            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1 flex items-center gap-2 group-focus-within:text-primary transition-colors">
                                 <Tag className="w-3 h-3" />
-                                رقم النسخة المرئي (Example: v1.02)
+                                رقم النسخة المرئي
                             </label>
                             <input
                                 required
                                 type="text"
                                 value={config.version}
                                 onChange={e => setConfig({ ...config, version: e.target.value })}
-                                className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono"
+                                className="w-full py-3 px-4 rounded-xl border border-white/5 bg-white/[0.02] focus:ring-4 focus:ring-primary/5 outline-none transition-all font-mono text-sm"
                                 placeholder="v1.0.0"
                             />
                         </div>
                         <div className="space-y-2 group">
-                            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1 flex items-center gap-2 group-focus-within:text-primary transition-colors">
                                 <Hash className="w-3 h-3" />
-                                رقم الإصدار البرمجي (Numeric Code)
+                                رقم الإصدار البرمجي
                             </label>
                             <input
                                 required
                                 type="number"
                                 value={config.versionCode}
                                 onChange={e => setConfig({ ...config, versionCode: parseInt(e.target.value) || 0 })}
-                                className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono font-bold text-lg"
+                                className="w-full py-3 px-4 rounded-xl border border-white/5 bg-white/[0.02] focus:ring-4 focus:ring-primary/5 outline-none transition-all font-mono font-black text-base"
                                 placeholder="21"
                             />
                         </div>
                     </div>
 
                     <div className="space-y-2 group">
-                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1 flex items-center gap-2 group-focus-within:text-primary transition-colors">
                             <Download className="w-3 h-3" />
-                            رابط تحميل النسخة الجديدة (Update URL)
+                            رابط تحميل النسخة الجديدة
                         </label>
                         <input
                             required
                             type="url"
                             value={config.updateUrl}
                             onChange={e => setConfig({ ...config, updateUrl: e.target.value })}
-                            className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all dir-ltr"
+                            className="w-full py-3 px-4 rounded-xl border border-white/5 bg-white/[0.02] focus:ring-4 focus:ring-primary/5 outline-none transition-all dir-ltr text-xs"
                             placeholder="https://rawdat.com/download/app.apk"
                         />
                     </div>
 
                     <div className="space-y-2 group">
-                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1 flex items-center gap-2 group-focus-within:text-primary transition-colors">
                             <MessageSquare className="w-3 h-3" />
-                            محتوى رسالة التحديث للمستخدمين
+                            رسالة التحديث للمستخدمين
                         </label>
                         <textarea
                             value={config.customMessage || ""}
                             onChange={e => setConfig({ ...config, customMessage: e.target.value })}
-                            className="w-full h-32 p-5 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all resize-none leading-relaxed"
-                            placeholder="عزيزي المستخدم، نرجو منك تحديث التطبيق للحصول على آخر المميزات والأمان..."
+                            className="w-full h-24 p-4 rounded-xl border border-white/5 bg-white/[0.02] focus:ring-4 focus:ring-primary/5 outline-none transition-all resize-none leading-relaxed text-xs"
+                            placeholder="صف التحديث الجديد..."
                         />
                     </div>
 
                     <div className="space-y-2 group">
-                        <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 px-2 flex items-center gap-2 group-focus-within:text-primary transition-colors">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-1 flex items-center gap-2 group-focus-within:text-primary transition-colors">
                             <Phone className="w-3 h-3" />
-                            رقم واتس لدعم الإصدار (Support ID)
+                            رقم واتس الدعم المرجعي
                         </label>
                         <input
                             type="text"
                             value={config.supportPhone || ""}
                             onChange={e => setConfig({ ...config, supportPhone: e.target.value })}
-                            className="w-full p-4 rounded-2xl border bg-background/50 focus:ring-4 focus:ring-primary/10 outline-none transition-all font-mono"
+                            className="w-full py-3 px-4 rounded-xl border border-white/5 bg-white/[0.02] focus:ring-4 focus:ring-primary/5 outline-none transition-all font-mono text-sm"
                             placeholder="967777xxx..."
                         />
                     </div>
 
-                    <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="text-[10px] text-muted-foreground/50 opacity-40 italic">
-                            سيتم منع تسجيل الدخول فور تفعيل هذا التحديث لجميع النسخ القديمة.
+                    <div className="pt-4 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="text-[9px] text-muted-foreground/40 italic">
+                            سيتم منع تسجيل الدخول للنسخ القديمة فور النشر.
                         </div>
                         <button
                             type="submit"
                             disabled={saving}
-                            className={`px-10 py-5 bg-primary text-white rounded-2xl font-bold shadow-2xl transition-all flex items-center justify-center gap-3 w-full md:w-auto hover:-translate-y-1 active:translate-y-0 ${saving ? 'opacity-70 pointer-events-none' : 'hover:shadow-primary/40'}`}
+                            className={`px-8 py-3.5 bg-primary text-white rounded-xl font-black shadow-lg transition-all flex items-center justify-center gap-3 w-full md:w-auto active:scale-95 ${saving ? 'opacity-70 pointer-events-none' : 'hover:shadow-primary/20'}`}
                         >
                             {saving ? (
-                                <Loader2 className="w-6 h-6 animate-spin" />
+                                <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
-                                <ArrowUpCircle className="w-6 h-6" />
+                                <ArrowUpCircle className="w-5 h-5" />
                             )}
-                            <span className="text-lg">نشر التحديث الإجباري الآن</span>
+                            <span className="text-sm">نشر التحديث الإجباري</span>
                         </button>
                     </div>
                 </GlassCard>

@@ -43,16 +43,18 @@ export default function AdminRecitationManagement() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     
-    // Create Form State
     const [title, setTitle] = useState("");
     const [url, setUrl] = useState("");
     const [type, setType] = useState<'video' | 'audio'>('video');
     const [targetType, setTargetType] = useState<'group' | 'course' | 'individual' | 'all'>('group');
-    const [targetId, setTargetId] = useState("");
+    const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+    const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
     
+    // Students handling
     const [groupStudents, setGroupStudents] = useState<any[]>([]);
     const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
+    const [studentSearchQ, setStudentSearchQ] = useState("");
     
     // Attendance Report State
     const [reportSession, setReportSession] = useState<RecitationSession | null>(null);
@@ -85,39 +87,49 @@ export default function AdminRecitationManagement() {
         return () => unsubscribe();
     }, []);
 
-    // Fetch Students when targetId changes and targetType is individual
+    // Fetch Students when targetType is individual (fetch all globally for admin)
     useEffect(() => {
-        if (targetType !== 'individual' || !targetId) {
+        if (targetType !== 'individual') {
             setGroupStudents([]);
             return;
         }
         
         const fetchStudents = async () => {
             setLoadingStudents(true);
-            const q = query(collection(db, "users"), where("groupId", "==", targetId), where("role", "==", "student"));
+            // Limit 500 to avoid crash, fetching all students
+            const q = query(collection(db, "users"), where("role", "==", "student"));
             const snap = await getDocs(q);
             setGroupStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             setLoadingStudents(false);
         };
         fetchStudents();
-    }, [targetId, targetType]);
+    }, [targetType]);
+
+    // Derived state for searching students locally
+    const filteredStudents = groupStudents.filter(s => 
+        (s.displayName || "").toLowerCase().includes(studentSearchQ.toLowerCase()) ||
+        (s.email || "").toLowerCase().includes(studentSearchQ.toLowerCase())
+    ).slice(0, 50); // Show max 50 for UI performance
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !title || !url) return;
         setSaving(true);
         try {
-            await createRecitationSession({
-                title,
-                url,
-                type,
-                creatorId: user.uid,
-                creatorName: user.displayName || "المشرف العام",
-                targetType,
-                targetId: targetType === 'all' ? 'global' : targetId,
-                targetStudentIds: targetType === 'individual' ? selectedStudentIds : []
-            });
-            setIsModalOpen(false);
+                const selectedTargets: {id: string, type: 'group'|'course'|'individual'}[] = [];
+                if (targetType === 'group') selectedGroupIds.forEach(id => selectedTargets.push({id, type: 'group'}));
+                if (targetType === 'course') selectedCourseIds.forEach(id => selectedTargets.push({id, type: 'course'}));
+                if (targetType === 'individual') selectedStudentIds.forEach(id => selectedTargets.push({id, type: 'individual'}));
+
+                await createRecitationSession({
+                    title,
+                    url,
+                    type,
+                    creatorId: user.uid,
+                    creatorName: user.displayName || "المشرف العام",
+                    targetType
+                }, selectedTargets);
+                setIsModalOpen(false);
             resetForm();
         } catch (error) {
             console.error(error);
@@ -127,7 +139,7 @@ export default function AdminRecitationManagement() {
     };
 
     const resetForm = () => {
-        setTitle(""); setUrl(""); setTargetType('group'); setTargetId(""); setSelectedStudentIds([]);
+        setTitle(""); setUrl(""); setTargetType('group'); setSelectedGroupIds([]); setSelectedCourseIds([]); setSelectedStudentIds([]); setStudentSearchQ("");
     };
 
     const handleEnd = async (parentId: string, id: string) => {
@@ -307,7 +319,7 @@ export default function AdminRecitationManagement() {
                                             {id: 'individual', label: 'طلاب', icon: Users}
                                         ].map(target => (
                                             <button
-                                                key={target.id} type="button" onClick={() => { setTargetType(target.id as any); setTargetId(""); }}
+                                                key={target.id} type="button" onClick={() => { setTargetType(target.id as any); setSelectedGroupIds([]); setSelectedCourseIds([]); setSelectedStudentIds([]); setStudentSearchQ(""); }}
                                                 className={cn(
                                                     "py-4 rounded-2xl border flex flex-col items-center justify-center gap-2 font-black text-xs transition-all",
                                                     targetType === target.id ? "bg-primary/20 border-primary text-primary" : "bg-white/5 border-white/10 opacity-40"
@@ -320,32 +332,71 @@ export default function AdminRecitationManagement() {
                                     </div>
                                 </div>
 
-                                {targetType !== 'all' && (
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-black opacity-40 px-1">{targetType === 'course' ? 'اختر الدورة' : 'اختر الحلقة'}</label>
-                                        <select 
-                                            required value={targetId} onChange={e => setTargetId(e.target.value)}
-                                            className="w-full p-4 rounded-2xl border bg-white/5 outline-none font-bold"
-                                        >
-                                            <option value="">-- اضغط للاختيار --</option>
-                                            {targetType === 'course' ? courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>) : groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                        </select>
+                                {targetType === 'course' && (
+                                    <div className="space-y-3 p-6 bg-white/5 rounded-3xl border border-white/10">
+                                        <label className="text-xs font-black opacity-60 uppercase flex justify-between">
+                                            <span>أشر لعدة دورات</span>
+                                            <span>المحدد: {selectedCourseIds.length}</span>
+                                        </label>
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                                            {courses.map(course => (
+                                                <button
+                                                    key={course.id} type="button"
+                                                    onClick={() => setSelectedCourseIds(prev => prev.includes(course.id) ? prev.filter(id => id !== course.id) : [...prev, course.id])}
+                                                    className={cn("p-4 rounded-2xl border flex items-center justify-between text-xs font-bold transition-all", selectedCourseIds.includes(course.id) ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10 hover:border-white/30")}
+                                                >
+                                                    <span className="truncate">{course.name}</span>
+                                                    {selectedCourseIds.includes(course.id) && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
 
-                                {targetType === 'individual' && targetId && (
+                                {targetType === 'group' && (
                                     <div className="space-y-3 p-6 bg-white/5 rounded-3xl border border-white/10">
-                                        <label className="text-[10px] font-black opacity-60 uppercase mb-4 block">تحديد طلاب معينين بالقائمة</label>
+                                        <label className="text-xs font-black opacity-60 uppercase flex justify-between">
+                                            <span>أشر لعدة حلقات</span>
+                                            <span>المحدد: {selectedGroupIds.length}</span>
+                                        </label>
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                                            {groups.map(group => (
+                                                <button
+                                                    key={group.id} type="button"
+                                                    onClick={() => setSelectedGroupIds(prev => prev.includes(group.id) ? prev.filter(id => id !== group.id) : [...prev, group.id])}
+                                                    className={cn("p-4 rounded-2xl border flex items-center justify-between text-xs font-bold transition-all", selectedGroupIds.includes(group.id) ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10 hover:border-white/30")}
+                                                >
+                                                    <span className="truncate">{group.name}</span>
+                                                    {selectedGroupIds.includes(group.id) && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {targetType === 'individual' && (
+                                    <div className="space-y-4 p-6 bg-white/5 rounded-3xl border border-white/10">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <input 
+                                                type="text" placeholder="ابحث عن اسم الطالب من كافة الحلقات..." value={studentSearchQ} onChange={e => setStudentSearchQ(e.target.value)}
+                                                className="flex-1 p-3 rounded-2xl border bg-black/10 focus:ring-2 focus:ring-primary/20 outline-none font-bold text-sm"
+                                            />
+                                            <span className="text-[10px] font-black opacity-60 uppercase shrink-0">المحدد: {selectedStudentIds.length}</span>
+                                        </div>
                                         {loadingStudents ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
-                                            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                                                {groupStudents.map(student => (
+                                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                                {filteredStudents.map(student => (
                                                     <button
                                                         key={student.id} type="button" onClick={() => setSelectedStudentIds(prev => prev.includes(student.id) ? prev.filter(id => id !== student.id) : [...prev, student.id])}
-                                                        className={cn("p-3 rounded-xl border flex items-center gap-2 text-[10px] font-bold transition-all", selectedStudentIds.includes(student.id) ? "bg-primary/20 border-primary text-primary" : "bg-white/5 border-white/10")}
+                                                        className={cn("p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition-all", selectedStudentIds.includes(student.id) ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-white/5 border-white/10 hover:border-white/30")}
                                                     >
-                                                        {student.displayName}
+                                                        <span className="truncate">{student.displayName}</span>
+                                                        {selectedStudentIds.includes(student.id) && <CheckCircle2 className="w-4 h-4 shrink-0" />}
                                                     </button>
                                                 ))}
+                                                {filteredStudents.length === 0 && (
+                                                    <p className="col-span-full py-8 text-center text-xs opacity-40 font-bold">لم يتم العثور على طالب يطابق البحث...</p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -372,8 +423,9 @@ export default function AdminRecitationManagement() {
 
 function targetTypeLabel(session: RecitationSession, groups: Target[], courses: Target[]) {
     if (session.targetType === 'all') return "الكل (Global)";
-    if (session.targetType === 'group' || session.targetType === 'individual') return groups.find(g => g.id === session.targetId)?.name || "حلقة";
-    if (session.targetType === 'course') return courses.find(c => c.id === session.targetId)?.name || "دورة";
+    if (session.targetType === 'individual') return "طلاب مخصصين";
+    if (session.targetType === 'group') return `تحديد حلقات`;
+    if (session.targetType === 'course') return `تحديد دورات`;
     return session.targetType;
 }
 

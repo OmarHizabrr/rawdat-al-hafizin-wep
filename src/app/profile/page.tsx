@@ -171,35 +171,35 @@ export default function ProfilePage() {
     return (
         <div className="max-w-4xl mx-auto p-6 space-y-12 pb-32">
             {/* Elite Header */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-8 pt-8">
-                <div className="flex items-center gap-6">
-                    <button onClick={() => router.back()} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 transition-all text-muted-foreground hover:text-white group">
-                        <ArrowRight className="w-6 h-6 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-4">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => router.back()} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-all text-muted-foreground hover:text-white group">
+                        <ArrowRight className="w-5 h-5 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
                     </button>
-                    <div className="space-y-1">
-                        <h1 className="text-4xl font-black tracking-tight">ملفي الأكاديمي</h1>
-                        <p className="text-xs font-black text-primary uppercase tracking-[0.3em] opacity-60">Elite Identification & Academic Seal</p>
+                    <div className="space-y-0.5">
+                        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">ملفي الأكاديمي</h1>
+                        <p className="text-xs text-muted-foreground">البيانات الشخصية والإنجازات</p>
                     </div>
                 </div>
 
-                <div className="flex p-1.5 bg-white/5 border border-white/10 rounded-[2rem] w-full md:w-auto">
+                <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl w-full md:w-auto">
                     <button 
                         onClick={() => setActiveTab('academic')} 
                         className={cn(
-                            "flex-1 md:flex-none py-3 px-8 rounded-[1.8rem] text-sm font-black transition-all flex items-center justify-center gap-2",
-                            activeTab === 'academic' ? "bg-primary text-white shadow-xl shadow-primary/20" : "text-muted-foreground hover:text-white"
+                            "flex-1 md:flex-none py-2 px-6 rounded-lg md:rounded-xl text-[11px] md:text-xs font-black transition-all flex items-center justify-center gap-2",
+                            activeTab === 'academic' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-white"
                         )}
                     >
-                        <GraduationCap className="w-5 h-5" /> السجل العلمي
+                        <GraduationCap className="w-4 h-4" /> السجل العلمي
                     </button>
                     <button 
                         onClick={() => setActiveTab('profile')} 
                         className={cn(
-                            "flex-1 md:flex-none py-3 px-8 rounded-[1.8rem] text-sm font-black transition-all flex items-center justify-center gap-2",
-                            activeTab === 'profile' ? "bg-white/10 text-white shadow-lg" : "text-muted-foreground hover:text-white"
+                            "flex-1 md:flex-none py-2 px-6 rounded-lg md:rounded-xl text-[11px] md:text-xs font-black transition-all flex items-center justify-center gap-2",
+                            activeTab === 'profile' ? "bg-white/10 text-white shadow-md font-black" : "text-muted-foreground hover:text-white"
                         )}
                     >
-                        <User className="w-5 h-5" /> تعديل البيانات
+                        <User className="w-4 h-4" /> الإعدادات
                     </button>
                 </div>
             </div>
@@ -207,52 +207,52 @@ export default function ProfilePage() {
             {activeTab === 'academic' ? (
                 <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     {/* Elite Student Card */}
-                    <GlassCard className="p-10 md:p-14 relative overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-purple-800 text-white border-none shadow-[0_30px_60px_rgba(0,0,0,0.3)] rounded-[3.5rem]">
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[100px] rounded-full -mr-32 -mt-32" />
-                        <div className="absolute bottom-0 left-0 w-80 h-80 bg-black/20 blur-[80px] rounded-full -ml-32 -mb-32" />
+                    <GlassCard className="p-6 md:p-10 relative overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-purple-800 text-white border-none shadow-[0_20px_40px_rgba(0,0,0,0.3)] rounded-[1.5rem] md:rounded-[2.5rem]">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full -mr-16 -mt-16" />
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/20 blur-[80px] rounded-full -ml-16 -mb-16" />
                         
-                        <div className="relative z-10 grid md:grid-cols-12 gap-12 items-center">
-                            <div className="md:col-span-4 flex flex-col items-center gap-6">
-                                <div className="w-40 h-40 md:w-48 md:h-48 rounded-[3.5rem] p-1.5 bg-white/20 backdrop-blur-md shadow-2xl relative group">
-                                    <div className="w-full h-full rounded-[3.3rem] overflow-hidden bg-background border-4 border-white/20 relative">
+                        <div className="relative z-10 grid md:grid-cols-12 gap-8 md:gap-12 items-center">
+                            <div className="md:col-span-4 flex flex-col items-center gap-5">
+                                <div className="w-28 h-28 md:w-36 md:h-36 rounded-2xl md:rounded-[2.5rem] p-1 bg-white/20 backdrop-blur-md shadow-2xl relative group">
+                                    <div className="w-full h-full rounded-xl md:rounded-[2.3rem] overflow-hidden bg-background border-2 border-white/20 relative">
                                         {formData.photoURL ? (
                                             <img src={formData.photoURL} alt="Student" className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-primary/20"><User className="w-20 h-20" /></div>
+                                            <div className="w-full h-full flex items-center justify-center text-primary/20"><User className="w-12 h-12 md:w-16 md:h-16" /></div>
                                         )}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
-                                            <Camera className="w-6 h-6 text-white cursor-pointer" onClick={() => setActiveTab('profile')} />
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Camera className="w-5 h-5 text-white cursor-pointer" onClick={() => setActiveTab('profile')} />
                                         </div>
                                     </div>
-                                    <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-amber-500 rounded-3xl flex items-center justify-center shadow-xl border-4 border-primary z-20 animate-bounce">
-                                        <Star className="w-8 h-8 text-white fill-current" />
+                                    <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shadow-xl border-2 border-primary z-20 animate-bounce">
+                                        <Star className="w-5 h-5 text-white fill-current" />
                                     </div>
                                 </div>
-                                <div className="text-center space-y-2">
-                                    <div className="px-4 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-white/10">ID: {user?.uid.substring(0, 12).toUpperCase()}</div>
-                                    <h2 className="text-3xl font-black">{formData.displayName}</h2>
-                                    <p className="text-white/60 font-medium">طالب في حلقات السنة النبوية</p>
+                                <div className="text-center space-y-1">
+                                    <div className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-[0.2em] border border-white/10 w-fit mx-auto">ID: {user?.uid.substring(0, 10).toUpperCase()}</div>
+                                    <h2 className="text-2xl md:text-3xl font-black">{formData.displayName}</h2>
+                                    <p className="text-white/60 font-medium text-xs">طالب في حلقات السنة النبوية</p>
                                 </div>
                             </div>
 
                             <div className="md:col-span-8 space-y-10">
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                                     <AcademicMetric icon={TrendingUp} label="همّة اليوم" value={`${userData?.streak || 0} يوم`} />
                                     <AcademicMetric icon={Award} label="إجمالي النقاط" value={`${userData?.totalPoints || 0}`} />
                                     <AcademicMetric icon={Star} label="المستوى" value={getLevelInfo(userData?.totalPoints || 0).label} />
                                     <AcademicMetric icon={FileSpreadsheet} label="الاختبارات" value={exams.length} />
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     <div className="flex justify-between items-center px-1">
-                                        <p className="text-xs font-black uppercase tracking-widest text-white/60 flex items-center gap-2">
-                                            <TrendingUp className="w-4 h-4" /> التقدم نحو المستوى التالي
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-white/50 flex items-center gap-2">
+                                            <TrendingUp className="w-3.5 h-3.5" /> التقدم للمستوى التالي
                                         </p>
-                                        <p className="text-xs font-black text-amber-400">
+                                        <p className="text-[10px] font-black text-amber-400">
                                             {userData?.totalPoints || 0} / {getLevelInfo(userData?.totalPoints || 0).next || 'Max'} XP
                                         </p>
                                     </div>
-                                    <div className="h-4 w-full bg-white/10 rounded-full p-1 overflow-hidden backdrop-blur-md border border-white/10">
+                                    <div className="h-3 w-full bg-white/10 rounded-full p-1 overflow-hidden backdrop-blur-md border border-white/10">
                                         <motion.div 
                                             initial={{ width: 0 }}
                                             animate={{ 
@@ -266,13 +266,13 @@ export default function ProfilePage() {
                                     </div>
                                 </div>
 
-                                <div className="p-6 bg-white/5 backdrop-blur-md rounded-[2.5rem] border border-white/10 flex items-center gap-6">
-                                    <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center shrink-0">
-                                        <ScrollText className="w-7 h-7 text-amber-400" />
+                                <div className="p-4 bg-white/5 backdrop-blur-md rounded-xl md:rounded-2xl border border-white/10 flex items-center gap-4">
+                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                                        <ScrollText className="w-5 h-5 md:w-6 md:h-6 text-amber-400" />
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-xs font-black text-white/40 uppercase tracking-widest">ميثاق طالب العلم</p>
-                                        <p className="font-bold text-sm italic">"من سلك طريقاً يلتمس فيه علماً سهّل الله له به طريقاً إلى الجنة"</p>
+                                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">ميثاق طالب العلم</p>
+                                        <p className="font-bold text-[11px] md:text-xs italic opacity-80 leading-relaxed">"من سلك طريقاً يلتمس فيه علماً سهّل الله له به طريقاً إلى الجنة"</p>
                                     </div>
                                 </div>
                             </div>
@@ -288,7 +288,7 @@ export default function ProfilePage() {
                                 <div className="h-px flex-1 bg-gradient-to-l from-primary/20 to-transparent mx-4" />
                             </div>
 
-                            <GlassCard className="p-0 overflow-hidden border-white/5 bg-white/[0.01]">
+                            <GlassCard className="overflow-hidden rounded-xl p-0 md:rounded-2xl">
                                 {fetchingExams ? (
                                     <div className="p-24 flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /></div>
                                 ) : exams.length === 0 ? (
@@ -304,25 +304,25 @@ export default function ProfilePage() {
                                         <table className="w-full text-right border-collapse">
                                             <thead>
                                                 <tr className="bg-white/[0.03] border-b border-white/5">
-                                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">العنوان</th>
-                                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60 text-center">الدرجة</th>
-                                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60 text-left">التاريخ</th>
+                                                    <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-50">العنوان</th>
+                                                    <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-50 text-center">الدرجة</th>
+                                                    <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-50 text-left">التاريخ</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {exams.map((exam, idx) => (
                                                     <tr key={idx} className="group hover:bg-white/[0.04] transition-colors">
-                                                        <td className="px-8 py-6">
-                                                            <div className="font-black text-lg group-hover:text-primary transition-colors">{exam.title}</div>
-                                                            <div className="text-[10px] font-bold opacity-30 uppercase tracking-widest">{exam.courseId || 'عام'}</div>
+                                                        <td className="px-6 py-3 md:py-4">
+                                                            <div className="font-black text-sm md:text-base group-hover:text-primary transition-colors">{exam.title}</div>
+                                                            <div className="text-[9px] font-bold opacity-30 uppercase tracking-tighter">{exam.courseId || 'عام'}</div>
                                                         </td>
-                                                        <td className="px-8 py-6">
-                                                            <div className="mx-auto w-16 py-1.5 bg-green-500/10 text-green-500 rounded-xl font-black text-lg border border-green-500/20 text-center shadow-inner">
+                                                        <td className="px-6 py-3 md:py-4 text-center">
+                                                            <div className="mx-auto w-10 md:w-12 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg font-black text-sm border border-emerald-500/20 shadow-inner">
                                                                 {exam.mark}
                                                             </div>
                                                         </td>
-                                                        <td className="px-8 py-6 text-left">
-                                                            <p className="text-xs font-black opacity-30">{new Date(exam.createdAt?.toDate ? exam.createdAt.toDate() : exam.createdAt).toLocaleDateString('ar-EG')}</p>
+                                                        <td className="px-6 py-3 md:py-4 text-left">
+                                                            <p className="text-[9px] md:text-[10px] font-black opacity-20">{new Date(exam.createdAt?.toDate ? exam.createdAt.toDate() : exam.createdAt).toLocaleDateString('ar-EG')}</p>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -339,43 +339,43 @@ export default function ProfilePage() {
                                 <h3 className="text-xl font-bold">خزانة الأوسمة</h3>
                             </div>
 
-                            <GlassCard className="p-8 space-y-6 border-white/5 bg-white/[0.01]">
+                            <GlassCard className="space-y-6 rounded-xl p-6 md:rounded-2xl">
                                 {fetchingGamification ? (
                                     <div className="py-20 flex justify-center"><Loader2 className="animate-spin opacity-20" /></div>
                                 ) : myBadges.length > 0 ? (
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-3 md:gap-4">
                                         {myBadges.map((badge, idx) => {
                                             const Icon = AVAILABLE_ICONS.find(i => i.key === badge.iconKey)?.icon || Star;
                                             return (
                                                 <div key={idx} className="group relative">
                                                     <div className={cn(
-                                                        "p-4 rounded-2xl border border-white/5 bg-white/5 flex flex-col items-center text-center gap-2 hover:bg-white/10 transition-all hover:-translate-y-1",
+                                                        "p-3 md:p-4 rounded-xl border border-white/5 bg-white/5 flex flex-col items-center text-center gap-2 hover:bg-white/10 transition-all hover:-translate-y-1",
                                                         badge.rarity === 'gold' ? "border-amber-500/20 bg-amber-500/5" : ""
                                                     )}>
-                                                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center text-white bg-gradient-to-br shadow-lg", badge.color || "from-primary to-purple-600")}>
-                                                            <Icon className="w-6 h-6" />
+                                                        <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center text-white bg-gradient-to-br shadow-lg", badge.color || "from-primary to-purple-600")}>
+                                                            <Icon className="w-5 h-5 md:w-6 md:h-6" />
                                                         </div>
-                                                        <span className="text-[10px] font-black truncate w-full">{badge.name}</span>
+                                                        <span className="text-[9px] md:text-[10px] font-black truncate w-full">{badge.name}</span>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="py-10 text-center opacity-20 italic text-xs">لا توجد أوسمة محققة حالياً</div>
+                                    <div className="py-10 text-center opacity-20 italic text-[10px]">لا توجد أوسمة محققة حالياً</div>
                                 )}
                                 
                                 <div className="pt-4 border-t border-white/5">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-4 px-2">آخر الأنشطة الحيوية</h4>
-                                    <div className="space-y-3">
+                                    <h4 className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-3 px-1">آخر الأنشطة</h4>
+                                    <div className="space-y-2">
                                         {pointsLogs.map((log, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
-                                                <div className="flex items-center gap-3">
+                                            <div key={idx} className="flex items-center justify-between p-2.5 bg-white/5 rounded-lg border border-white/5">
+                                                <div className="flex items-center gap-2.5">
                                                     <div className={cn(
-                                                        "w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black",
+                                                        "w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black",
                                                         log.amount > 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
                                                     )}>{log.amount > 0 ? `+${log.amount}` : log.amount}</div>
-                                                    <span className="text-[10px] font-bold opacity-60 truncate max-w-[120px]">{log.reason}</span>
+                                                    <span className="text-[9px] font-bold opacity-60 truncate max-w-[100px]">{log.reason}</span>
                                                 </div>
                                                 <TrendingUp className="w-3 h-3 opacity-20" />
                                             </div>
@@ -392,67 +392,67 @@ export default function ProfilePage() {
                         {/* Image Section */}
                         <div className="flex justify-center">
                              <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                                <div className="w-44 h-44 rounded-[3.5rem] overflow-hidden border-8 border-white/5 bg-white/5 p-1 backdrop-blur-md shadow-2xl relative">
+                                <div className="w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] md:rounded-[3rem] overflow-hidden border-4 border-white/5 bg-white/5 p-1 backdrop-blur-md shadow-2xl relative">
                                     {formData.photoURL ? (
-                                        <img src={formData.photoURL} alt="Profile" className="w-full h-full object-cover rounded-[3rem]" />
+                                        <img src={formData.photoURL} alt="Profile" className="w-full h-full object-cover rounded-[2.2rem] md:rounded-[2.7rem]" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-muted-foreground/20">
-                                            <User className="w-20 h-20" />
+                                            <User className="w-12 h-12 md:w-16 md:h-16" />
                                         </div>
                                     )}
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Camera className="w-10 h-10 text-white" />
+                                        <Camera className="w-6 h-6 md:w-8 md:h-8 text-white" />
                                     </div>
                                 </div>
-                                <div className="absolute -bottom-2 right-0 bg-primary text-white p-2.5 rounded-2xl shadow-xl border-4 border-background">
-                                    <Save className="w-4 h-4" />
+                                <div className="absolute -bottom-1 right-1 bg-primary text-white p-2 rounded-xl shadow-xl border-2 border-background">
+                                    <Save className="w-3.5 h-3.5" />
                                 </div>
                                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                             </div>
                         </div>
 
                         {/* Form Fields */}
-                        <GlassCard className="p-10 space-y-8 border-white/5 bg-white/[0.01]">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-3">
-                                    <label className="text-xs font-black uppercase tracking-widest opacity-40 px-1">الاسم الكامل</label>
+                        <GlassCard className="space-y-5 rounded-2xl p-6 md:space-y-6 md:p-8 md:rounded-2xl">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">الاسم الكامل</label>
                                     <div className="group relative">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"><User className="w-5 h-5" /></div>
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"><User className="w-4 h-4" /></div>
                                         <input
                                             type="text"
                                             value={formData.displayName}
                                             onChange={(e) => handleChange('displayName', e.target.value)}
-                                            className="w-full p-4 pl-12 rounded-2xl border bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all font-bold"
+                                            className="w-full p-3 pl-11 rounded-xl border border-white/10 bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all font-bold text-sm"
                                             placeholder="أدخل اسمك الكامل"
                                             required
                                         />
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <label className="text-xs font-black uppercase tracking-widest opacity-40 px-1">رقم الهاتف</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">رقم الهاتف</label>
                                     <div className="group relative">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"><Phone className="w-5 h-5" /></div>
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"><Phone className="w-4 h-4" /></div>
                                         <input
                                             type="tel"
                                             value={formData.phoneNumber}
                                             onChange={(e) => handleChange('phoneNumber', e.target.value)}
-                                            className="w-full p-4 pl-12 rounded-2xl border bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all text-left font-mono"
+                                            className="w-full p-3 pl-11 rounded-xl border border-white/10 bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all text-left font-mono text-sm"
                                             placeholder="+963..."
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <label className="text-xs font-black uppercase tracking-widest opacity-40 px-1">كلمة المرور الشخصية</label>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">كلمة المرور</label>
                                 <div className="group relative">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"><Lock className="w-5 h-5" /></div>
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors"><Lock className="w-4 h-4" /></div>
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         value={formData.password}
                                         onChange={(e) => handleChange('password', e.target.value)}
-                                        className="w-full p-4 pl-12 pr-12 rounded-2xl border bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all font-mono"
+                                        className="w-full p-3 pl-11 pr-11 rounded-xl border border-white/10 bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all font-mono text-sm"
                                         placeholder="••••••••"
                                     />
                                     <button
@@ -460,18 +460,18 @@ export default function ProfilePage() {
                                         onClick={() => setShowPassword(!showPassword)}
                                         className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
                                     >
-                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <label className="text-xs font-black uppercase tracking-widest opacity-40 px-1">نبذة تعريفية (Bio)</label>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">نبذة تعريفية (Bio)</label>
                                 <textarea
                                     value={formData.bio}
                                     onChange={(e) => handleChange('bio', e.target.value)}
-                                    className="w-full p-6 rounded-[2rem] border bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all h-40 resize-none font-medium leading-relaxed"
-                                    placeholder="اكتب نبذة مختصرة عن تجاربك أو أهدافك في حفظ السنة..."
+                                    className="w-full p-4 rounded-xl border border-white/10 bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none transition-all h-28 md:h-32 resize-none font-medium leading-relaxed text-xs md:text-sm"
+                                    placeholder="اكتب نبذة مختصرة عن أهدافك العلمية..."
                                 />
                             </div>
                         </GlassCard>
@@ -479,10 +479,10 @@ export default function ProfilePage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-5 bg-primary hover:bg-primary/90 text-white font-black text-xl rounded-2xl shadow-2xl shadow-primary/30 hover:shadow-primary/40 transition-all flex items-center justify-center gap-4 group"
+                            className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-black text-lg rounded-xl shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all flex items-center justify-center gap-3 group active:scale-[0.98]"
                         >
-                            {loading ? <Loader2 className="animate-spin" /> : <Save className="w-6 h-6 group-hover:scale-110 transition-transform" />}
-                            <span>حفـظ البيـانات الآن</span>
+                            {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5 group-hover:rotate-12 transition-transform" />}
+                            <span>حفـظ التغـييرات التقـنية</span>
                         </button>
                     </form>
                 </div>
@@ -493,12 +493,12 @@ export default function ProfilePage() {
 
 function AcademicMetric({ icon: Icon, label, value }: { icon: any, label: string, value: string | number }) {
     return (
-        <div className="p-6 bg-white/10 backdrop-blur-sm rounded-[2rem] border border-white/10 flex flex-col items-center text-center space-y-2 hover:bg-white/15 transition-colors">
-            <div className="p-3 bg-white/10 rounded-xl text-white shadow-inner mb-1">
-                <Icon className="w-5 h-5" />
+        <div className="p-4 md:p-6 bg-white/10 backdrop-blur-sm rounded-[1.5rem] md:rounded-[2rem] border border-white/10 flex flex-col items-center text-center space-y-1 md:space-y-2 hover:bg-white/15 transition-colors">
+            <div className="p-2 md:p-3 bg-white/10 rounded-lg md:rounded-xl text-white shadow-inner mb-0.5 md:mb-1">
+                <Icon className="w-4 h-4 md:w-5 md:h-5" />
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-40">{label}</p>
-            <p className="text-xl font-black">{value}</p>
+            <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-40">{label}</p>
+            <p className="text-lg md:text-xl font-black">{value}</p>
         </div>
     );
 }
