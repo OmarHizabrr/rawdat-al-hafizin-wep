@@ -272,7 +272,7 @@ export default function AdminRecitationManagement() {
             {/* Create Modal */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 sm:pt-[max(1rem,env(safe-area-inset-top))] sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setIsModalOpen(false)}
@@ -280,16 +280,17 @@ export default function AdminRecitationManagement() {
                         />
                         <motion.div 
                             initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-                            className="bg-background rounded-[3rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] w-full max-w-2xl relative z-10 overflow-hidden"
+                            className="relative z-10 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-full min-h-0 flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 bg-background shadow-[0_0_50px_rgba(0,0,0,0.5)] sm:max-h-[min(88dvh,calc(100dvh-2rem))] sm:rounded-[3rem] max-w-2xl"
                         >
-                            <div className="p-10 border-b border-white/5 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <h3 className="text-3xl font-black">جلسة إشرافية جديدة</h3>
+                            <div className="flex shrink-0 items-center justify-between border-b border-white/5 p-6 md:p-10">
+                                <div className="min-w-0 flex-1 space-y-1 pe-3">
+                                    <h3 className="text-2xl font-black md:text-3xl">جلسة إشرافية جديدة</h3>
                                     <p className="text-xs text-primary font-bold tracking-widest uppercase">Global Recitation Control</p>
                                 </div>
-                                <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 bg-white/5 hover:bg-red-500/10 hover:text-red-500 rounded-2xl flex items-center justify-center transition-all"><X className="w-6 h-6" /></button>
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 transition-all hover:bg-red-500/10 hover:text-red-500"><X className="h-6 w-6" /></button>
                             </div>
-                            <form onSubmit={handleCreate} className="p-10 space-y-8">
+                            <form onSubmit={handleCreate} className="flex min-h-0 flex-1 flex-col">
+                            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-6 md:space-y-8 md:p-10 custom-scrollbar">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-2">
                                         <label className="text-xs font-black opacity-40 px-1 uppercase tracking-widest">عنوان البرمجة</label>
@@ -402,13 +403,16 @@ export default function AdminRecitationManagement() {
                                     </div>
                                 )}
 
+                            </div>
+                                <div className="shrink-0 border-t border-white/5 bg-background/95 p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] backdrop-blur-sm md:p-10 md:pt-6">
                                 <button 
                                     disabled={saving} type="submit"
-                                    className="w-full py-6 bg-primary text-white font-black rounded-3xl shadow-2xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    className="flex w-full items-center justify-center gap-3 rounded-3xl bg-primary py-6 font-black text-white shadow-2xl transition-all hover:scale-[1.02] active:scale-[0.98]"
                                 >
-                                    {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Shield className="w-6 h-6" />}
+                                    {saving ? <Loader2 className="h-6 w-6 animate-spin" /> : <Shield className="h-6 w-6" />}
                                     تنشيط البث فوراً عبر النظام
                                 </button>
+                                </div>
                             </form>
                         </motion.div>
                     </div>
@@ -472,14 +476,14 @@ function AttendanceModal({ reportSession, attendance, loading, onClose }: any) {
     return (
         <AnimatePresence>
             {reportSession && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 sm:pt-[max(1rem,env(safe-area-inset-top))] sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-xl" />
-                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-background rounded-[3rem] border border-white/10 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden">
-                        <div className="p-10 border-b border-white/5 flex items-center justify-between">
-                            <h3 className="text-2xl font-black">سجل التفاعل الحي</h3>
-                            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-full min-h-0 flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 bg-background shadow-2xl sm:max-h-[min(88dvh,calc(100dvh-2rem))] sm:rounded-[3rem] max-w-2xl">
+                        <div className="flex shrink-0 items-center justify-between border-b border-white/5 p-6 md:p-10">
+                            <h3 className="text-xl font-black md:text-2xl">سجل التفاعل الحي</h3>
+                            <button type="button" onClick={onClose} className="shrink-0 rounded-full p-2 transition-colors hover:bg-white/10"><X className="h-6 w-6" /></button>
                         </div>
-                        <div className="p-10 max-h-[60vh] overflow-y-auto">
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 md:p-10 custom-scrollbar">
                             {loading ? <div className="py-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" /></div> : attendance.length > 0 ? (
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between p-6 bg-primary/5 rounded-[2rem] border border-primary/10 mb-8">

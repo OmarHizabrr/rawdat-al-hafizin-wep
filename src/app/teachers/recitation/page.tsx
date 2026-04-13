@@ -253,7 +253,7 @@ export default function TeacherRecitationManagement() {
             {/* Create Modal */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 sm:pt-[max(1rem,env(safe-area-inset-top))] sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setIsModalOpen(false)}
@@ -261,13 +261,14 @@ export default function TeacherRecitationManagement() {
                         />
                          <motion.div 
                              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                             className="bg-background rounded-[2rem] md:rounded-[2.5rem] border border-white/10 shadow-2xl w-full max-w-xl relative z-10 overflow-hidden"
+                             className="relative z-10 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-full min-h-0 flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 bg-background shadow-2xl sm:max-h-[min(88dvh,calc(100dvh-2rem))] sm:rounded-[2rem] md:rounded-[2.5rem] max-w-xl"
                          >
-                             <div className="p-5 md:p-8 border-b border-white/5 bg-white/5 flex items-center justify-between">
+                             <div className="flex shrink-0 items-center justify-between border-b border-white/5 bg-white/5 p-5 md:p-8">
                                  <h3 className="text-xl md:text-2xl font-black flex items-center gap-2 md:gap-3"><Radio className="w-5 h-5 md:w-6 md:h-6 text-red-500" /> إنشاء جلسة تسميع</h3>
-                                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
+                                 <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
                              </div>
-                             <form onSubmit={handleCreate} className="p-5 md:p-8 space-y-5 md:space-y-6">
+                             <form onSubmit={handleCreate} className="flex min-h-0 flex-1 flex-col">
+                             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 md:p-8 space-y-5 md:space-y-6 custom-scrollbar">
                                 <div className="space-y-2">
                                     <label className="text-sm font-black opacity-60 px-1">عنوان الجلسة</label>
                                     <input 
@@ -388,6 +389,8 @@ export default function TeacherRecitationManagement() {
                                         )}
                                     </div>
                                 )}
+                             </div>
+                                <div className="shrink-0 border-t border-white/5 bg-background/95 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:p-8 md:pt-5 backdrop-blur-sm">
                                 <button 
                                     disabled={saving} type="submit"
                                     className="w-full py-5 bg-primary text-white font-black rounded-2xl shadow-2xl shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all"
@@ -395,6 +398,7 @@ export default function TeacherRecitationManagement() {
                                     {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Shield className="w-6 h-6" />}
                                     تفعيل الجلسة فوراً
                                 </button>
+                                </div>
                             </form>
                         </motion.div>
                     </div>
@@ -404,7 +408,7 @@ export default function TeacherRecitationManagement() {
             {/* Attendance Report Modal */}
             <AnimatePresence>
                 {reportSession && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 sm:pt-[max(1rem,env(safe-area-inset-top))] sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setReportSession(null)}
@@ -412,16 +416,16 @@ export default function TeacherRecitationManagement() {
                         />
                         <motion.div 
                             initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                            className="bg-background rounded-[2.5rem] border border-white/10 shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden"
+                            className="relative z-10 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-full min-h-0 flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 bg-background shadow-2xl sm:max-h-[min(88dvh,calc(100dvh-2rem))] sm:rounded-[2.5rem] max-w-2xl"
                         >
-                             <div className="p-5 md:p-8 border-b border-white/5 bg-white/5 flex items-center justify-between">
-                                 <div className="space-y-0.5 md:space-y-1">
+                             <div className="flex shrink-0 items-center justify-between border-b border-white/5 bg-white/5 p-5 md:p-8">
+                                 <div className="space-y-0.5 md:space-y-1 min-w-0 pe-2">
                                      <h3 className="text-xl md:text-2xl font-black">تقرير المشاركة والحضور</h3>
-                                     <p className="text-xs md:text-sm text-primary font-bold">{reportSession.title}</p>
+                                     <p className="text-xs md:text-sm text-primary font-bold truncate">{reportSession.title}</p>
                                  </div>
-                                 <button onClick={() => setReportSession(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
+                                 <button type="button" onClick={() => setReportSession(null)} className="shrink-0 p-2 hover:bg-white/10 rounded-full transition-colors"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
                              </div>
-                             <div className="p-5 md:p-8 max-h-[60vh] overflow-y-auto">
+                             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 md:p-8 custom-scrollbar">
                                  {loadingReport ? (
                                      <div className="py-16 md:py-20 text-center"><Loader2 className="w-8 h-8 md:w-10 md:h-10 animate-spin mx-auto opacity-20" /></div>
                                  ) : attendance.length > 0 ? (
