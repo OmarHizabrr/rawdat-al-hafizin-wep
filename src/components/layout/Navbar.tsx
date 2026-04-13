@@ -15,10 +15,13 @@ import {
     User,
     ShieldCheck,
     LayoutDashboard,
-    Sparkles
+    Sparkles,
+    Bell,
+    Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { UserMenuDropdown } from "@/components/layout/UserMenuDropdown";
 import { useEffect } from "react";
 
 export function Navbar() {
@@ -115,31 +118,7 @@ export function Navbar() {
 
                     <div className="hidden items-center gap-3 md:flex">
                         {user ? (
-                            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 py-1 pe-1 ps-3">
-                                <Link href="/profile" className="group/profile flex items-center gap-2">
-                                    <div className="hidden text-right lg:block">
-                                        <p className="text-xs text-muted-foreground">حسابي</p>
-                                        <p className="max-w-[120px] truncate text-sm font-medium text-foreground">
-                                            {userData?.displayName || "طالب العلم"}
-                                        </p>
-                                    </div>
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary/15 text-sm font-semibold text-primary ring-1 ring-border">
-                                        {userData?.photoURL ? (
-                                            <img src={userData.photoURL} alt="" className="h-full w-full object-cover" />
-                                        ) : (
-                                            (userData?.displayName?.[0] || "U").toUpperCase()
-                                        )}
-                                    </div>
-                                </Link>
-                                <button
-                                    type="button"
-                                    onClick={handleLogout}
-                                    className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                                    title="خروج"
-                                >
-                                    <LogOut className="h-4 w-4" />
-                                </button>
-                            </div>
+                            <UserMenuDropdown variant="navbar" />
                         ) : (
                             <Link
                                 href="/login"
@@ -233,6 +212,22 @@ export function Navbar() {
                                 {user && (
                                     <div className="space-y-1 border-t border-border pt-3">
                                         <p className="px-2 py-1 text-xs font-medium text-muted-foreground">حسابي</p>
+                                        <Link
+                                            href="/notifications"
+                                            onClick={() => setIsOpen(false)}
+                                            className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        >
+                                            <Bell className="h-5 w-5 shrink-0" />
+                                            الإشعارات والمحادثات
+                                        </Link>
+                                        <Link
+                                            href="/settings"
+                                            onClick={() => setIsOpen(false)}
+                                            className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        >
+                                            <Settings className="h-5 w-5 shrink-0" />
+                                            الإعدادات
+                                        </Link>
                                         <Link
                                             href="/profile"
                                             onClick={() => setIsOpen(false)}

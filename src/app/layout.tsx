@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const cairo = Cairo({ subsets: ["arabic"], variable: "--font-cairo" });
 
 import { AuthProvider } from "@/lib/auth-context";
+import { NotificationsProvider } from "@/lib/notifications-context";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 
@@ -66,6 +67,7 @@ export default function RootLayout({
         className={`${inter.variable} ${cairo.variable} font-cairo min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary`}
       >
         <AuthProvider>
+          <NotificationsProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -84,6 +86,7 @@ export default function RootLayout({
               <Toaster position="top-center" richColors closeButton />
             </div>
           </ThemeProvider>
+          </NotificationsProvider>
         </AuthProvider>
       </body>
     </html>

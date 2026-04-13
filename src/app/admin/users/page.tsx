@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
     collection,
@@ -49,7 +50,9 @@ interface UserProfile {
     groupId?: string;
 }
 
-export default function UserManagement() {
+function UserManagementInner() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -88,6 +91,18 @@ export default function UserManagement() {
 
         return () => unsubscribe();
     }, []);
+
+    const userIdFromQuery = searchParams.get("userId");
+    useEffect(() => {
+        if (!userIdFromQuery || users.length === 0) return;
+        const u = users.find((x) => x.id === userIdFromQuery);
+        if (u) {
+            setSelectedUser(u);
+            setEditForm({ ...u });
+            setIsEditOpen(true);
+        }
+        router.replace("/admin/users", { scroll: false });
+    }, [userIdFromQuery, users, router]);
 
     const showDialog = (type: 'success' | 'danger' | 'warning', title: string, description: string, onConfirm?: () => void) => {
         setDialogConfig({ isOpen: true, type, title, description, onConfirm });
@@ -461,5 +476,19 @@ export default function UserManagement() {
                 confirmText={dialogConfig.onConfirm ? "نعم، متأكد" : "حسناً"}
             />
         </div>
+    );
+}
+
+export default function UserManagementPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            }
+        >
+            <UserManagementInner />
+        </Suspense>
     );
 }

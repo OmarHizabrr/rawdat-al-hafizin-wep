@@ -14,6 +14,7 @@ import {
     Bell,
     Search
 } from "lucide-react";
+import { UserMenuDropdown } from "@/components/layout/UserMenuDropdown";
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
     const { user, userData, loading, signOut } = useAuth();
     const router = useRouter();
@@ -56,6 +57,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
 
     const navItems = [
         { href: "/teachers", label: "الحلقات", icon: LayoutDashboard },
+        { href: "/notifications", label: "الإشعارات والمحادثات", icon: Bell },
     ];
 
     return (
@@ -85,7 +87,9 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                 <nav className="space-y-1 p-4">
                     <p className="px-3 py-2 text-xs font-medium text-muted-foreground">القائمة</p>
                     {navItems.map((item) => {
-                        const isActive = pathname === item.href;
+                        const isActive =
+                            pathname === item.href ||
+                            (item.href === "/notifications" && pathname.startsWith("/notifications"));
                         return (
                             <Link
                                 key={item.href}
@@ -138,26 +142,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode 
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                        >
-                            <Bell className="h-5 w-5" />
-                        </button>
-
-                        <div className="hidden h-6 w-px bg-border md:block" />
-
-                        <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 py-1.5 ps-3 pe-1.5">
-                            <div className="hidden text-right md:block">
-                                <p className="text-xs text-muted-foreground">معلم</p>
-                                <p className="max-w-[140px] truncate text-sm font-medium text-foreground">
-                                    {userData.displayName || "المعلم"}
-                                </p>
-                            </div>
-                            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/15 text-sm font-semibold text-primary">
-                                {(userData.displayName?.[0] || "T").toUpperCase()}
-                            </div>
-                        </div>
+                        <UserMenuDropdown />
                     </div>
                 </header>
 
