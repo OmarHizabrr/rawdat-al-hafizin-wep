@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { countries, Country } from "@/lib/countries";
 import { EliteDialog } from "@/components/ui/EliteDialog";
 import { cn } from "@/lib/utils";
@@ -227,9 +228,17 @@ export default function StudentProfile() {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-16 -mt-16" />
                 <div className="relative z-10">
                     <h1 className="text-3xl font-black bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                        الملف الأكاديمي الشامل
+                        استمارة الملف الشخصي وطلب الالتحاق
                     </h1>
-                    <p className="text-sm text-muted-foreground font-medium mt-1">يرجى تحري الدقة الكاملة عند إدخال بياناتك</p>
+                    <p className="text-sm text-muted-foreground font-medium mt-1">
+                        للسجل الأكاديمي الكامل (تقييمات، نقاط، أوسمة) استخدم{" "}
+                        <Link
+                            href="/students/records"
+                            className="font-semibold text-primary underline-offset-2 hover:underline"
+                        >
+                            السجل الأكاديمي الشامل
+                        </Link>
+                    </p>
                 </div>
                 
                 <button

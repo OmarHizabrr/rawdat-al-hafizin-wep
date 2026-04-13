@@ -30,7 +30,7 @@ function formatTime(iso?: string) {
     }
 }
 
-export type MessengerUser = { id: string; displayName?: string | null };
+export type MessengerUser = { id: string; displayName?: string | null; photoURL?: string | null };
 
 export type MessengerConversation = {
     id: string;
@@ -58,8 +58,27 @@ export type MessengerMessage = {
     replyToSenderName?: string;
 };
 
+function avatarForMessage(
+    mine: boolean,
+    m: MessengerMessage,
+    actorPhotoURL: string | null | undefined,
+    allUsers: MessengerUser[],
+    actorId: string
+) {
+    const url = mine
+        ? actorPhotoURL
+        : m.senderPhotoURL ||
+          allUsers.find((u) => u.id === m.senderId)?.photoURL;
+    if (url) return url;
+    const name = mine
+        ? allUsers.find((u) => u.id === actorId)?.displayName || "أنا"
+        : m.senderName || "?";
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(String(name).slice(0, 24))}&background=6366f1&color=fff`;
+}
+
 type Props = {
     actorId: string;
+    actorPhotoURL?: string | null;
     allUsers: MessengerUser[];
     conversations: MessengerConversation[];
     selectedConversation: MessengerConversation | null;
@@ -79,6 +98,7 @@ type Props = {
 
 export function MessengerPanel({
     actorId,
+    actorPhotoURL,
     allUsers,
     conversations,
     selectedConversation,
@@ -238,16 +258,35 @@ export function MessengerPanel({
                         </div>
                     </div>
 
-                    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3">
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">
                         {messages.map((m) => {
                             const mine = m.senderId === actorId;
+                            const src = avatarForMessage(
+                                mine,
+                                m,
+                                actorPhotoURL,
+                                allUsers,
+                                actorId
+                            );
                             return (
                                 <div
                                     key={m.id}
-                                    className={cn("flex", mine ? "justify-start" : "justify-end")}
+                                    className={cn(
+                                        "flex items-end gap-2",
+                                        mine ? "justify-start" : "justify-end"
+                                    )}
                                     onTouchStart={(e) => handleTouchStart(e, m)}
                                     onTouchEnd={(e) => handleTouchEnd(e, m)}
                                 >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={src}
+                                        alt=""
+                                        className={cn(
+                                            "h-9 w-9 shrink-0 rounded-full border border-border object-cover",
+                                            mine ? "order-first" : "order-last"
+                                        )}
+                                    />
                                     <div
                                         className={cn(
                                             "max-w-[min(100%,20rem)] rounded-2xl border px-3 py-2 text-sm shadow-sm",

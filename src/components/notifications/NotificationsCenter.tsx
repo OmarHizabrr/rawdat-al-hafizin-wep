@@ -662,6 +662,7 @@ export function NotificationsCenter({ actorId, displayName, photoURL, role }: Pr
                     <div className="p-3 md:p-4">
                         <MessengerPanel
                             actorId={actorId}
+                            actorPhotoURL={photoURL}
                             allUsers={allUsers}
                             conversations={conversations}
                             selectedConversation={selectedConversation}

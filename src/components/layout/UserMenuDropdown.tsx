@@ -3,16 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-    Bell,
-    Settings,
-    User,
-    LogOut,
-    ChevronDown,
-    Volume2,
-} from "lucide-react";
+import { Bell, Settings, User, LogOut, Volume2, ScrollText } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useNotificationBadge } from "@/lib/notifications-context";
+import { NotificationBellLink } from "@/components/layout/NotificationBellLink";
 import { cn } from "@/lib/utils";
 function resolvePaths(role: string | undefined) {
     if (role === "student" || role === "applicant") {
@@ -81,8 +75,13 @@ export function UserMenuDropdown({ variant = "toolbar", className }: Props) {
             ? "flex items-center gap-2 rounded-lg border border-border bg-muted/30 py-1 pe-2 ps-3 hover:bg-muted/50"
             : "flex items-center gap-3 rounded-lg border border-border bg-muted/30 py-1.5 pe-2 ps-3 hover:bg-muted/50";
 
+    const isStudentPortal =
+        userData?.role === "student" || userData?.role === "applicant";
+
     return (
-        <div className={cn("relative", className)} ref={wrapRef}>
+        <div className={cn("flex items-center gap-1.5", className)}>
+            <NotificationBellLink className="h-10 w-10" />
+            <div className="relative" ref={wrapRef}>
             <button
                 type="button"
                 className={cn(triggerClasses, "text-start transition-colors")}
@@ -100,12 +99,6 @@ export function UserMenuDropdown({ variant = "toolbar", className }: Props) {
                     alt=""
                     className="h-9 w-9 shrink-0 rounded-md object-cover ring-1 ring-border"
                 />
-                <ChevronDown
-                    className={cn(
-                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                        open && "rotate-180"
-                    )}
-                />
             </button>
 
             {open && (
@@ -122,6 +115,17 @@ export function UserMenuDropdown({ variant = "toolbar", className }: Props) {
                         <User className="h-4 w-4 shrink-0 opacity-80" />
                         الملف الشخصي
                     </Link>
+                    {isStudentPortal && (
+                        <Link
+                            role="menuitem"
+                            href="/students/records"
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-muted"
+                            onClick={() => setOpen(false)}
+                        >
+                            <ScrollText className="h-4 w-4 shrink-0 opacity-80" />
+                            السجل الأكاديمي الشامل
+                        </Link>
+                    )}
                     <Link
                         role="menuitem"
                         href={paths.notifications}
@@ -171,6 +175,7 @@ export function UserMenuDropdown({ variant = "toolbar", className }: Props) {
                     </button>
                 </div>
             )}
+            </div>
         </div>
     );
 }

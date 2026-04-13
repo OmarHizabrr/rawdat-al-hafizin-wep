@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { UserMenuDropdown } from "@/components/layout/UserMenuDropdown";
+import { NotificationBellLink } from "@/components/layout/NotificationBellLink";
 import { useEffect } from "react";
 
 export function Navbar() {
@@ -74,6 +75,11 @@ export function Navbar() {
     if (hideNavbar) {
         return null;
     }
+
+    const studentLike =
+        userData?.role === "student" || userData?.role === "applicant";
+    const drawerProfileHref = studentLike ? "/students/profile" : "/profile";
+    const drawerRecordsHref = studentLike ? "/students/records" : "/records";
 
     return (
         <>
@@ -129,13 +135,16 @@ export function Navbar() {
                         )}
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => setIsOpen(!isOpen)}
-                        className="relative z-50 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background text-foreground md:hidden"
-                    >
-                        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                    </button>
+                    <div className="flex items-center gap-2 md:hidden">
+                        {user ? <NotificationBellLink className="h-10 w-10" /> : null}
+                        <button
+                            type="button"
+                            onClick={() => setIsOpen(!isOpen)}
+                            className="relative z-50 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background text-foreground"
+                        >
+                            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                        </button>
+                    </div>
                 </div>
             </nav>
 
@@ -229,7 +238,7 @@ export function Navbar() {
                                             الإعدادات
                                         </Link>
                                         <Link
-                                            href="/profile"
+                                            href={drawerProfileHref}
                                             onClick={() => setIsOpen(false)}
                                             className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                                         >
@@ -237,12 +246,14 @@ export function Navbar() {
                                             الملف الشخصي
                                         </Link>
                                         <Link
-                                            href="/records"
+                                            href={drawerRecordsHref}
                                             onClick={() => setIsOpen(false)}
                                             className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                                         >
                                             <LayoutDashboard className="h-5 w-5 shrink-0" />
-                                            سجل الإنجازات
+                                            {studentLike
+                                                ? "السجل الأكاديمي الشامل"
+                                                : "سجل الإنجازات"}
                                         </Link>
                                     </div>
                                 )}

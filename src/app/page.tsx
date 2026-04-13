@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { GlassCard } from "@/components/ui/GlassCard";
+import type { LucideIcon } from "lucide-react";
 import {
   Users,
   BookOpen,
@@ -10,23 +11,21 @@ import {
   LogIn,
   Sparkles,
   Calendar,
-  Activity,
   Star,
-  CheckCircle2,
   Trophy,
   Target,
   User as UserIcon,
-  Layout, Quote, HelpCircle, Mail, Globe, Search,
-  Lock as LockIcon, Hash, TrendingUp,
-  ArrowUpRight, Clock3, ArrowRight, Settings
+  Quote,
+  ArrowRight,
+  Settings,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
-import { cn } from "@/lib/utils";
+import type { UserDocument } from "@/lib/user-document";
 
 interface Testimonial {
     id: string;
@@ -34,6 +33,29 @@ interface Testimonial {
     content: string;
     studentPhoto?: string;
 }
+
+type FeatureCardProps = {
+    icon: LucideIcon;
+    title: string;
+    desc: string;
+    color: string;
+    bg: string;
+};
+
+type StatCardProps = {
+    title: string;
+    value: string;
+    icon: LucideIcon;
+    color: string;
+};
+
+type DashboardCardProps = {
+    title: string;
+    desc: string;
+    icon: LucideIcon;
+    href: string;
+    color: string;
+};
 
 const container = {
   hidden: { opacity: 0 },
@@ -199,7 +221,7 @@ function GuestView() {
                                 <div className="flex gap-1 text-amber-400 mb-4">
                                     {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
                                 </div>
-                                <p className="text-base leading-relaxed mb-6 font-medium">"{t.content}"</p>
+                                <p className="text-base leading-relaxed mb-6 font-medium">{`"${t.content}"`}</p>
                                 <div className="flex items-center gap-3 border-t border-gray-100 dark:border-white/5 pt-4">
                                     <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-purple-500 p-[1px]">
                                         <div className="w-full h-full rounded-lg bg-background overflow-hidden relative">
@@ -240,7 +262,7 @@ function GuestView() {
     );
 }
 
-function FeatureCard({ icon: Icon, title, desc, color, bg }: any) {
+function FeatureCard({ icon: Icon, title, desc, color, bg }: FeatureCardProps) {
     return (
         <GlassCard className="p-6 md:p-8 hover:-translate-y-1.5 transition-transform text-center flex flex-col items-center gap-4 rounded-3xl">
             <div className={`p-3 md:p-4 rounded-xl md:rounded-2xl ${bg} ${color}`}>
@@ -252,7 +274,7 @@ function FeatureCard({ icon: Icon, title, desc, color, bg }: any) {
     );
 }
 
-function UserDashboard({ userData }: { userData: any }) {
+function UserDashboard({ userData }: { userData: UserDocument | null }) {
     const greeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return "صباح الخير والبركة";
@@ -261,6 +283,10 @@ function UserDashboard({ userData }: { userData: any }) {
     };
 
     const isAdmin = userData?.role === 'admin' || userData?.role === 'committee';
+    const isStudentPortal =
+        userData?.role === "student" || userData?.role === "applicant";
+    const profileQuickHref = isStudentPortal ? "/students/profile" : "/profile";
+    const recordsHref = isStudentPortal ? "/students/records" : "/records";
 
     return (
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-12">
@@ -307,7 +333,7 @@ function UserDashboard({ userData }: { userData: any }) {
                     </div>
 
                     <div className="shrink-0 flex gap-3">
-                         <Link href="/profile" className="p-4 bg-white/10 hover:bg-white/20 rounded-xl border border-white/10 transition-all hover:scale-105 active:scale-95 shadow-xl">
+                         <Link href={profileQuickHref} className="p-4 bg-white/10 hover:bg-white/20 rounded-xl border border-white/10 transition-all hover:scale-105 active:scale-95 shadow-xl">
                             <Settings className="w-5 h-5 md:w-6 md:h-6" />
                          </Link>
                     </div>
@@ -344,17 +370,17 @@ function UserDashboard({ userData }: { userData: any }) {
                     />
                 )}
                 <DashboardCard 
-                    title="سجل الإنجازات" 
-                    desc="الأوسمة المحققة، الشهادات الصادرة، وتاريخ النشاط" 
+                    title={isStudentPortal ? "السجل الأكاديمي الشامل" : "سجل الإنجازات"} 
+                    desc={isStudentPortal ? "التقييمات، النقاط، الأوسمة، وأرشيف نشاطك الدراسي" : "الأوسمة المحققة، الشهادات الصادرة، وتاريخ النشاط"} 
                     icon={Trophy} 
-                    href="/records" 
+                    href={recordsHref} 
                     color="from-amber-500 to-orange-600" 
                 />
                 <DashboardCard 
-                    title="الملف الأكاديمي" 
-                    desc="تعديل البيانات الشخصية، الخبرات، وصورة البروفايل" 
+                    title={isStudentPortal ? "استمارة الملف الشخصي" : "الملف الأكاديمي"} 
+                    desc={isStudentPortal ? "بياناتك، طلب الالتحاق، وتعديل صورة البروفايل" : "تعديل البيانات الشخصية، الخبرات، وصورة البروفايل"} 
                     icon={UserIcon} 
-                    href="/profile" 
+                    href={isStudentPortal ? "/students/profile" : "/profile"} 
                     color="from-purple-500 to-pink-600" 
                 />
                 {userData?.role === 'pending' && (
@@ -396,7 +422,7 @@ function UserDashboard({ userData }: { userData: any }) {
                             <Quote className="absolute top-4 right-4 md:top-5 md:right-5 w-6 h-6 md:w-8 md:h-8 text-primary/10 -scale-x-100" />
                             <div className="relative z-10 space-y-4">
                                 <p className="text-xl md:text-3xl font-black leading-snug !bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent italic selection:bg-primary/30 px-4 md:px-8">
-                                    "نَضَّرَ اللَّهُ امْرَأً سَمِعَ مَقَالَتِي فَوَعَاهَا فَأَدَّاهَا كَمَا سَمِعَهَا"
+                                    {`"نَضَّرَ اللَّهُ امْرَأً سَمِعَ مَقَالَتِي فَوَعَاهَا فَأَدَّاهَا كَمَا سَمِعَهَا"`}
                                 </p>
                                 <div className="flex items-center justify-center gap-3 md:gap-4">
                                     <div className="h-px w-6 md:w-8 bg-primary/30" />
@@ -413,7 +439,7 @@ function UserDashboard({ userData }: { userData: any }) {
     );
 }
 
-function StatCard({ title, value, icon: Icon, color }: any) {
+function StatCard({ title, value, icon: Icon, color }: StatCardProps) {
     return (
         <GlassCard className="relative overflow-hidden group hover:border-primary/50 transition-colors rounded-[1.5rem]">
             <div className="absolute -top-4 -right-4 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -432,7 +458,7 @@ function StatCard({ title, value, icon: Icon, color }: any) {
     );
 }
 
-function DashboardCard({ title, desc, icon: Icon, href, color }: any) {
+function DashboardCard({ title, desc, icon: Icon, href, color }: DashboardCardProps) {
   return (
     <Link href={href}>
       <GlassCard className="group h-full hover:border-primary/50 transition-all hover:shadow-2xl hover:-translate-y-1.5 relative overflow-hidden bg-white/[0.02] rounded-[1.5rem]">

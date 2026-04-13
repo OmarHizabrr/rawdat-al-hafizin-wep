@@ -27,6 +27,8 @@ import { SUNNAH_VOLUMES, SunnahVolume } from "@/lib/volumes";
 import { PlanTemplate, PlanTierDefinition, TierTask } from "@/types/plan";
 import { logSessionAttendance } from "@/lib/recitation-service";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { NotificationBellLink } from "@/components/layout/NotificationBellLink";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ActivityChart } from "../../components/students/ActivityChart";
 import { EliteModal } from "@/components/ui/EliteModal";
@@ -769,7 +771,8 @@ export default function StudentsDashboard() {
                     <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 shadow-inner group transition-all hover:bg-white/10">
                         <ActivityChart logs={lastWeekLogs} />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
+                        <NotificationBellLink className="h-11 w-11 border-white/10 bg-white/5 hover:bg-primary/20 hover:border-primary/30 text-muted-foreground hover:text-primary" />
                         <motion.button 
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -817,12 +820,40 @@ export default function StudentsDashboard() {
 
             {/* Courses & Groups */}
             <div className="space-y-12">
-                {joinedCourseIds.size > 0 && (
-                    <section className="space-y-6">
-                        <h3 className="text-2xl font-black flex items-center gap-3 px-2"><BookOpen className="w-6 h-6 text-primary" /> دوراتي الحالية</h3>
+                <section className="space-y-6">
+                    <h3 className="text-2xl font-black flex items-center gap-3 px-2">
+                        <BookOpen className="w-6 h-6 text-primary" /> دوراتي الحالية
+                    </h3>
+                    {joinedCourseIds.size > 0 ? (
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {courses.filter(c => joinedCourseIds.has(c.id)).map(course => (
                                 <CourseCard key={course.id} course={course} isJoined={true} isActive={activeCourse?.id === course.id} onSelect={() => setActiveCourse(course)} />
+                            ))}
+                        </div>
+                    ) : (
+                        <GlassCard className="p-8 md:p-10 text-center space-y-3 rounded-2xl border-dashed border-white/10 bg-white/[0.02]">
+                            <BookOpen className="w-10 h-10 mx-auto text-primary/40" />
+                            <p className="text-sm md:text-base font-bold text-foreground">لا توجد دورات مسجّل بها حالياً</p>
+                            <p className="text-xs md:text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                                إن كنت منضماً لحلقة دون تسجيل في دورة، قد تظهر حلقتك أدناه. يمكنك استكشاف الدورات المتاحة أو التواصل مع الإدارة لتأكيد اشتراكك.
+                            </p>
+                        </GlassCard>
+                    )}
+                </section>
+
+                {joinedGroupIds.size > 0 && (
+                    <section className="space-y-6">
+                        <h3 className="text-2xl font-black flex items-center gap-3 px-2">
+                            <Users className="w-6 h-6 text-violet-400" /> حلقاتي
+                        </h3>
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {groups.filter((g) => joinedGroupIds.has(g.id)).map((g) => (
+                                <GlassCard key={g.id} className="p-5 rounded-xl border-white/10 bg-white/[0.03]">
+                                    <p className="font-black text-base">{g.name}</p>
+                                    <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">
+                                        {g.gender === "female" ? "حلقة نسائية" : "حلقة رجالية"}
+                                    </p>
+                                </GlassCard>
                             ))}
                         </div>
                     </section>
@@ -1037,7 +1068,15 @@ export default function StudentsDashboard() {
                     </div>
                 </div>
                 <div className="lg:col-span-1 space-y-6">
-                    <h3 className="text-xl font-black flex items-center gap-3 text-primary px-4"><Zap className="w-5 h-5" /> السجل الأكاديمي</h3>
+                    <div className="flex flex-col gap-2 px-4 sm:flex-row sm:items-center sm:justify-between">
+                        <h3 className="text-xl font-black flex items-center gap-3 text-primary"><Zap className="w-5 h-5" /> السجل الأكاديمي</h3>
+                        <Link
+                            href="/students/records"
+                            className="text-xs font-bold text-primary hover:underline underline-offset-2 w-fit"
+                        >
+                            عرض السجل الأكاديمي الشامل ←
+                        </Link>
+                    </div>
                     <GlassCard className="p-6 bg-primary/5 space-y-4 rounded-xl">
                         <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                             {pointsLogs.map(log => (
