@@ -1,30 +1,65 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-    collection, query, onSnapshot, doc, setDoc, 
-    serverTimestamp, updateDoc, increment, 
-    getDocs, where, writeBatch, getDoc, orderBy, limit,
-    collectionGroup, addDoc, deleteDoc
+import {
+    collection,
+    query,
+    onSnapshot,
+    doc,
+    setDoc,
+    serverTimestamp,
+    updateDoc,
+    increment,
+    getDocs,
+    where,
+    writeBatch,
+    getDoc,
+    orderBy,
+    limit,
+    collectionGroup,
+    addDoc,
+    deleteDoc,
+    Timestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-    Award, Star, Heart, MessageCircle, Clock, 
-    Calendar, CheckCircle, Timer, Sparkles, 
-    User as UserIcon, Settings, Target, 
-    MessageSquarePlus, ChevronDown, 
-    ArrowRight, Info, CreditCard, Users, 
-    Download, ScrollText, Loader2, X,
-    Layout, Quote, HelpCircle, Mail, Globe, Search,
-    Lock as LockIcon, Hash, BookOpen, TrendingUp,
-    GraduationCap, ArrowUpRight, Clock3, Trophy, ScrollText as ScrollTextIcon,
-    Library, Radio, Zap, Shield, Coins, Flame,
-    ArrowLeftRight, FileCheck, Layers as LayersIcon
+import {
+    Award,
+    Star,
+    Heart,
+    MessageCircle,
+    Clock,
+    Calendar,
+    CheckCircle,
+    Sparkles,
+    User as UserIcon,
+    Settings,
+    Target,
+    MessageSquarePlus,
+    Users,
+    Loader2,
+    X,
+    Quote,
+    Globe,
+    Search,
+    Hash,
+    BookOpen,
+    GraduationCap,
+    ArrowUpRight,
+    Clock3,
+    Trophy,
+    Library,
+    Radio,
+    Zap,
+    Shield,
+    Coins,
+    Flame,
+    FileCheck,
+    Layers as LayersIcon,
 } from "lucide-react";
 import { SUNNAH_VOLUMES, SunnahVolume } from "@/lib/volumes";
-import { PlanTemplate, PlanTierDefinition, TierTask } from "@/types/plan";
+import { PlanTemplate, TierTask } from "@/types/plan";
 import { logSessionAttendance } from "@/lib/recitation-service";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -32,17 +67,60 @@ import { NotificationBellLink } from "@/components/layout/NotificationBellLink";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ActivityChart } from "../../components/students/ActivityChart";
 import { EliteModal } from "@/components/ui/EliteModal";
-import { EliteDialog } from "@/components/ui/EliteDialog";
 import { cn } from "@/lib/utils";
+import type { UserDocument } from "@/lib/user-document";
+
+type DailyLogDoc = {
+    userId: string;
+    courseId: string;
+    date: string;
+    pages?: number;
+    completedTasks: string[];
+    completed: boolean;
+};
+
+type RecitationSessionRow = {
+    id: string;
+    targetType?: string;
+    targetId?: string;
+    url?: string;
+    title?: string;
+    creatorName?: string;
+    type?: string;
+};
+
+type BadgeRow = {
+    id: string;
+    name?: string;
+    iconKey?: string;
+    color?: string;
+    rarity?: string;
+    requiredPoints?: number;
+};
+
+type PointsLogRow = {
+    id: string;
+    amount?: number;
+    reason?: string;
+    type?: string;
+    timestamp?: { toDate: () => Date };
+};
+
+type LeaderboardRow = {
+    id: string;
+    displayName?: string;
+    photoURL?: string;
+    totalPoints?: number;
+};
 
 interface Course {
     id: string;
     title: string;
     description: string;
-    startDate: any;
-    endDate: any;
-    registrationEnd: any;
-    visibility?: 'public' | 'private';
+    startDate?: Timestamp | null;
+    endDate?: Timestamp | null;
+    registrationEnd?: Timestamp | null;
+    visibility?: "public" | "private";
     folderId?: string;
     selectedVolumeIds?: string[];
     planTemplateId?: string;
@@ -104,30 +182,20 @@ export default function StudentsDashboard() {
     const [activeCourse, setActiveCourse] = useState<Course | null>(null);
     const [loading, setLoading] = useState(true);
     const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
-    const [timeLeftToRegister, setTimeLeftToRegister] = useState({ d: '00', h: '00', m: '00' });
-    const [timeLeftToStart, setTimeLeftToStart] = useState({ d: '00', h: '00', m: '00' });
-    
+
     const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
     const [newTestimonialContent, setNewTestimonialContent] = useState("");
     const [isSubmittingTestimonial, setIsSubmittingTestimonial] = useState(false);
     const [myLikedPostIds, setMyLikedPostIds] = useState<Set<string>>(new Set());
 
-    const [dailyLog, setDailyLog] = useState<{ userId: string, courseId: string, date: string, pages: number, completedTasks: string[], completed: boolean } | null>(null);
-    const [lastWeekLogs, setLastWeekLogs] = useState<any[]>([]);
+    const [dailyLog, setDailyLog] = useState<DailyLogDoc | null>(null);
+    const [lastWeekLogs, setLastWeekLogs] = useState<Record<string, unknown>[]>([]);
     const [todayPlan, setTodayPlan] = useState<PlanDay | null>(null);
-    const [userData, setUserData] = useState<any>(null);
-    const [leaderboard, setLeaderboard] = useState<any[]>([]);
-    const [showLevelUp, setShowLevelUp] = useState(false);
-    const [lastRank, setLastRank] = useState<number | null>(null);
-    const [streak, setStreak] = useState(0);
+    const [userData, setUserData] = useState<UserDocument | null>(null);
+    const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+    const [, setLastRank] = useState<number | null>(null);
     const [isLoggingDaily, setIsLoggingDaily] = useState(false);
-    const [completedEnrollments, setCompletedEnrollments] = useState<any[]>([]);
     const isEnrolled = activeCourse ? joinedCourseIds.has(activeCourse.id) : false;
-    const [showCelebrate, setShowCelebrate] = useState(false);
-
-    const [progressPercent, setProgressPercent] = useState(0);
-    const [daysRemaining, setDaysRemaining] = useState(0);
-    const [totalDays, setTotalDays] = useState(0);
 
     const [dialogConfig, setDialogConfig] = useState({
         isOpen: false,
@@ -136,15 +204,12 @@ export default function StudentsDashboard() {
         description: ''
     });
     const [volumeProgress, setVolumeProgress] = useState<Record<string, number>>({});
-    const [fetchingVolumes, setFetchingVolumes] = useState(false);
-    const [activeSessions, setActiveSessions] = useState<any[]>([]);
+    const [activeSessions, setActiveSessions] = useState<RecitationSessionRow[]>([]);
 
-    // New Gamification States
-    const [pointsSettings, setPointsSettings] = useState<any>({ dailyTask: 5 });
-    const [badgesLibrary, setBadgesLibrary] = useState<any[]>([]);
-    const [myBadges, setMyBadges] = useState<any[]>([]);
-    const [pointsLogs, setPointsLogs] = useState<any[]>([]);
-    const [isCheckingBadges, setIsCheckingBadges] = useState(false);
+    const [pointsSettings, setPointsSettings] = useState<Record<string, unknown>>({ dailyTask: 5 });
+    const [badgesLibrary, setBadgesLibrary] = useState<BadgeRow[]>([]);
+    const [myBadges, setMyBadges] = useState<BadgeRow[]>([]);
+    const [pointsLogs, setPointsLogs] = useState<PointsLogRow[]>([]);
     const [activeTemplate, setActiveTemplate] = useState<PlanTemplate | null>(null);
     const [templateVolumes, setTemplateVolumes] = useState<{volumeId: string, tierId?: string}[]>([]);
     const [courseVolumes, setCourseVolumes] = useState<string[]>([]);
@@ -232,7 +297,7 @@ export default function StudentsDashboard() {
                 // Fetch Daily Log
                 const logRef = doc(db, "daily_logs", user.uid, "daily_logs", todayStr);
                 const logSnap = await getDoc(logRef);
-                if (logSnap.exists()) setDailyLog(logSnap.data() as any);
+                if (logSnap.exists()) setDailyLog(logSnap.data() as DailyLogDoc);
                 else setDailyLog(null);
 
                 // Fetch Last Week for Sparkline
@@ -250,21 +315,21 @@ export default function StudentsDashboard() {
 
                 // Fetch User Data for points/streak
                 const uSnap = await getDoc(doc(db, "users", user.uid));
-                if (uSnap.exists()) setUserData(uSnap.data());
+                if (uSnap.exists()) setUserData(uSnap.data() as UserDocument);
 
                 // Fetch Gamification Config (Standardized Nested Paths)
                 const settingsRef = doc(db, "points_config", "global", "points_config", "settings");
                 const settingsSnap = await getDoc(settingsRef);
-                if (settingsSnap.exists()) setPointsSettings(settingsSnap.data());
+                if (settingsSnap.exists()) setPointsSettings(settingsSnap.data() as Record<string, unknown>);
 
                 // Fetch Badges Library
                 const libSnap = await getDocs(collection(db, "badges_library", "global", "badges_library"));
-                setBadgesLibrary(libSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setBadgesLibrary(libSnap.docs.map((d) => ({ id: d.id, ...d.data() } as BadgeRow)));
 
                 // Fetch My Earned Badges
                 const myBadgesRef = collection(db, "badges", user.uid, "badges");
                 const myBadgesSnap = await getDocs(myBadgesRef);
-                setMyBadges(myBadgesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setMyBadges(myBadgesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as BadgeRow)));
 
                 // Fetch My Points Logs (Last 10)
                 const logsRef = query(
@@ -273,7 +338,7 @@ export default function StudentsDashboard() {
                     limit(10)
                 );
                 const pLogsSnap = await getDocs(logsRef);
-                setPointsLogs(pLogsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setPointsLogs(pLogsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as PointsLogRow)));
 
                 // Fetch Leaderboard (Top 5)
                 const qLeaderboard = query(
@@ -283,7 +348,9 @@ export default function StudentsDashboard() {
                     limit(5)
                 );
                 const lbSnap = await getDocs(qLeaderboard);
-                setLeaderboard(lbSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                setLeaderboard(
+                    lbSnap.docs.map((d) => ({ id: d.id, ...d.data() } as LeaderboardRow))
+                );
 
             } catch (error) {
                 console.error("Error fetching dashboard data", error);
@@ -329,33 +396,31 @@ export default function StudentsDashboard() {
         // Fetch All Volumes Progress
         const fetchVolumesProgress = async () => {
             if (!user) return;
-            setFetchingVolumes(true);
             try {
                 const q = query(collection(db, "volume_progress", user.uid, "volume_progress"));
                 const snap = await getDocs(q);
-                
+
                 const aggProgress: Record<string, number> = {};
-                snap.forEach(doc => {
-                    aggProgress[doc.id] = Number(doc.data().completedPages || 0);
+                snap.forEach((d) => {
+                    aggProgress[d.id] = Number(d.data().completedPages || 0);
                 });
-                
-                // Detect newly completed volumes
+
                 Object.entries(aggProgress).forEach(([vid, completed]) => {
-                    const vol = SUNNAH_VOLUMES.find(v => v.id === vid);
-                    if (vol && completed >= vol.totalPages && !volumeProgress[vid]) {
-                        // Only celebrate if it was previously not complete or not in state yet
-                        // To avoid repeat popups on load, we can compare with previous state if it exists
-                        if (volumeProgress[vid] !== undefined) {
-                             setCelebratedVolume(vol);
-                        }
+                    const vol = SUNNAH_VOLUMES.find((v) => v.id === vid);
+                    const prev = volumeProgress[vid];
+                    if (
+                        vol &&
+                        completed >= vol.totalPages &&
+                        prev !== undefined &&
+                        prev < vol.totalPages
+                    ) {
+                        setCelebratedVolume(vol);
                     }
                 });
 
                 setVolumeProgress(aggProgress);
             } catch (error) {
                 console.error("Error fetching volumes progress:", error);
-            } finally {
-                setFetchingVolumes(false);
             }
         };
         fetchVolumesProgress();
@@ -379,29 +444,39 @@ export default function StudentsDashboard() {
         const fetchPointsConfig = async () => {
             const docRef = doc(db, "points_config", "global", "points_config", "settings");
             const snap = await getDoc(docRef);
-            if (snap.exists()) setPointsSettings(snap.data());
+            if (snap.exists()) setPointsSettings(snap.data() as Record<string, unknown>);
         };
         fetchPointsConfig();
 
         // Listen for Live Recitation Sessions using nested path collection group
         const qLive = query(collectionGroup(db, "recitation_sessions"), where("status", "==", "active"));
         const unsubscribeLive = onSnapshot(qLive, async (snapshot) => {
-            const sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-            
-            const mySessions: any[] = [];
+            const sessions = snapshot.docs.map(
+                (d) => ({ id: d.id, ...d.data() } as RecitationSessionRow)
+            );
+
+            const mySessions: RecitationSessionRow[] = [];
             for (const s of sessions) {
-                if (s.targetType === 'all') {
+                if (s.targetType === "all") {
                     mySessions.push(s);
                     continue;
                 }
-                
-                // Fetch junction linked targets for this session
-                const targetsSnap = await getDocs(collection(db, "session_targets", s.id, "session_targets"));
-                const targetIds = targetsSnap.docs.map(d => d.data()?.targetId).filter(Boolean);
 
-                const isMyGroup = s.targetType === 'group' && (s.targetId === userData?.groupId || targetIds.includes(userData?.groupId || ""));
-                const isMyCourse = s.targetType === 'course' && (joinedCourseIds.has(s.targetId) || targetIds.some(id => joinedCourseIds.has(id)));
-                const isMe = s.targetType === 'individual' && targetIds.includes(user.uid);
+                const targetsSnap = await getDocs(collection(db, "session_targets", s.id, "session_targets"));
+                const targetIds = targetsSnap.docs
+                    .map((d) => d.data()?.targetId)
+                    .filter((id): id is string => typeof id === "string");
+
+                const gid = userData?.groupId;
+                const isMyGroup =
+                    s.targetType === "group" &&
+                    ((typeof s.targetId === "string" && s.targetId === gid) ||
+                        (typeof gid === "string" && targetIds.includes(gid)));
+                const isMyCourse =
+                    s.targetType === "course" &&
+                    ((typeof s.targetId === "string" && joinedCourseIds.has(s.targetId)) ||
+                        targetIds.some((id) => joinedCourseIds.has(id)));
+                const isMe = s.targetType === "individual" && targetIds.includes(user.uid);
 
                 if (isMyGroup || isMyCourse || isMe) {
                     mySessions.push(s);
@@ -413,24 +488,26 @@ export default function StudentsDashboard() {
         return () => {
             unsubscribeLive();
         };
+    // volumeProgress مقصود استبعاده لتجنب حلقات إعادة الجلب عند كل تحديث تقدم
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- يعتمد على لقطة volumeProgress داخل المعالج فقط
     }, [user, activeCourse, todayStr, courses, userData?.groupId, joinedCourseIds]);
 
-    const handleJoinSession = async (session: any) => {
+    const handleJoinSession = async (session: RecitationSessionRow) => {
         if (!user) return;
-        await logSessionAttendance(session.id!, user.uid, user.displayName || userData?.displayName || "طالب");
-        window.open(session.url, "_blank");
+        await logSessionAttendance(session.id, user.uid, user.displayName || userData?.displayName || "طالب");
+        if (session.url) window.open(session.url, "_blank");
     };
 
-    // Level Up Celebration Effect
     useEffect(() => {
         if (!userData) return;
         const currentRank = getLevelInfo(userData.totalPoints || 0).rank;
-        if (lastRank !== null && currentRank > lastRank) {
-            setShowLevelUp(true);
-            setTimeout(() => setShowLevelUp(false), 5000);
-        }
-        setLastRank(currentRank);
-    }, [userData?.totalPoints]);
+        setLastRank((prev) => {
+            if (prev !== null && currentRank > prev) {
+                /* يمكن لاحقاً إظهار احتفال بالترقية */
+            }
+            return currentRank;
+        });
+    }, [userData]);
 
     const handleToggleTask = async (taskData: string | TierTask, isCompleted: boolean) => {
         if (!user || !activeCourse || !todayPlan) return;
@@ -466,7 +543,7 @@ export default function StudentsDashboard() {
 
             if (isCompleted) {
                 const userRef = doc(db, "users", user.uid);
-                const rewardPoints = pointsSettings?.dailyTask || 5;
+                const rewardPoints = Number(pointsSettings?.dailyTask) || 5;
                 
                 batch.update(userRef, {
                     totalPoints: increment(rewardPoints),
@@ -482,7 +559,8 @@ export default function StudentsDashboard() {
                 });
 
                 // Streak Correction
-                const lastDate = userData?.lastActiveDate?.toDate()?.toISOString()?.split('T')[0];
+                const lastActiveTs = userData?.lastActiveDate as Timestamp | undefined;
+                const lastDate = lastActiveTs?.toDate?.()?.toISOString()?.split("T")[0];
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
                 const yesterdayStr = yesterday.toISOString().split('T')[0];
@@ -535,10 +613,13 @@ export default function StudentsDashboard() {
             setDailyLog({ ...currentLog, completedTasks: newTasks, completed: isDayCompleted });
             
             if (isCompleted) {
-                const newTotalPoints = (userData?.totalPoints || 0) + (pointsSettings?.dailyTask || 5);
-                const eligibleBadges = badgesLibrary.filter(b => 
-                    newTotalPoints >= b.requiredPoints && 
-                    !myBadges.some(mb => mb.id === b.id)
+                const newTotalPoints =
+                    (userData?.totalPoints || 0) + (Number(pointsSettings?.dailyTask) || 5);
+                const eligibleBadges = badgesLibrary.filter(
+                    (b) =>
+                        b.requiredPoints != null &&
+                        newTotalPoints >= b.requiredPoints &&
+                        !myBadges.some((mb) => mb.id === b.id)
                 );
 
                 if (eligibleBadges.length > 0) {
@@ -552,10 +633,6 @@ export default function StudentsDashboard() {
                 }
             }
 
-            if (isDayCompleted && !dailyLog?.completed) {
-                setShowCelebrate(true);
-                setTimeout(() => setShowCelebrate(false), 3000);
-            }
         } catch (error) {
             console.error("Error toggling task", error);
         } finally {
@@ -691,7 +768,9 @@ export default function StudentsDashboard() {
                             </div>
                         </div>
                         <div className="pt-8">
-                            <p className="text-sm text-muted-foreground italic font-medium">"سيتم إشعارك فور قبول طلبك، نسأل الله لك التوفيق والسداد."</p>
+                            <p className="text-sm text-muted-foreground italic font-medium">
+                                {`"سيتم إشعارك فور قبول طلبك، نسأل الله لك التوفيق والسداد."`}
+                            </p>
                         </div>
                     </GlassCard>
                     <button onClick={() => router.push('/students/profile')} className="w-full py-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-black transition-all flex items-center justify-center gap-3">
@@ -757,7 +836,7 @@ export default function StudentsDashboard() {
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-3">
                             <div className="flex items-center gap-2 text-orange-500 font-black text-[9px] md:text-xs px-3 py-1.5 bg-orange-500/10 rounded-xl border border-orange-500/20 shadow-lg shadow-orange-500/5">
                                 <Flame className="w-3.5 h-3.5 animate-bounce" />
-                                <span>الالتزام: {userData?.streak || 0} يوم</span>
+                                <span>الالتزام: {Number(userData?.streak) || 0} يوم</span>
                             </div>
                             <div className="flex items-center gap-1.5 text-[9px] font-black opacity-60 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10 uppercase tracking-widest">
                                 <Target className="w-3 h-3 text-primary" />
@@ -821,9 +900,14 @@ export default function StudentsDashboard() {
             {/* Courses & Groups */}
             <div className="space-y-12">
                 <section className="space-y-6">
-                    <h3 className="text-2xl font-black flex items-center gap-3 px-2">
-                        <BookOpen className="w-6 h-6 text-primary" /> دوراتي الحالية
-                    </h3>
+                    <div className="space-y-1 px-2">
+                        <h3 className="text-2xl font-black flex items-center gap-3">
+                            <BookOpen className="w-6 h-6 text-primary" /> دوراتي الحالية
+                        </h3>
+                        <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
+                            استخدم «متابعة المنهج اليومي» للدخول إلى الخطة والمهام، أو «تفاصيل الدورة» للموارد والمستويات. يمكنك أيضاً النقر على البطاقة لتعيين الدورة النشطة في البوابة.
+                        </p>
+                    </div>
                     {joinedCourseIds.size > 0 ? (
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {courses.filter(c => joinedCourseIds.has(c.id)).map(course => (
@@ -847,14 +931,68 @@ export default function StudentsDashboard() {
                             <Users className="w-6 h-6 text-violet-400" /> حلقاتي
                         </h3>
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {groups.filter((g) => joinedGroupIds.has(g.id)).map((g) => (
-                                <GlassCard key={g.id} className="p-5 rounded-xl border-white/10 bg-white/[0.03]">
-                                    <p className="font-black text-base">{g.name}</p>
-                                    <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">
-                                        {g.gender === "female" ? "حلقة نسائية" : "حلقة رجالية"}
-                                    </p>
-                                </GlassCard>
-                            ))}
+                            {groups.filter((g) => joinedGroupIds.has(g.id)).map((g) => {
+                                const isPrimaryGroup = userData?.groupId === g.id;
+                                const firstEnrolledCourse = courses.find((c) =>
+                                    joinedCourseIds.has(c.id)
+                                );
+                                return (
+                                    <GlassCard
+                                        key={g.id}
+                                        className="flex flex-col gap-4 p-5 rounded-xl border-white/10 bg-white/[0.03]"
+                                    >
+                                        <div>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="font-black text-base">{g.name}</p>
+                                                {isPrimaryGroup && (
+                                                    <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">
+                                                        حلقتك
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">
+                                                {g.gender === "female" ? "حلقة نسائية" : "حلقة رجالية"}
+                                            </p>
+                                            <div className="mt-3 space-y-1.5 text-[10px] font-bold text-muted-foreground/80">
+                                                <p className="flex items-center gap-2">
+                                                    <Clock3 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                                    {g.schedule.startTime} – {g.schedule.endTime}
+                                                </p>
+                                                <p className="flex items-center gap-2">
+                                                    <Calendar className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                                    <span className="truncate">
+                                                        {g.schedule.recitationDays?.join(" • ") || "—"}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-auto flex flex-col gap-2 border-t border-white/5 pt-4">
+                                            {firstEnrolledCourse && (
+                                                <Link
+                                                    href={`/students/courses/${firstEnrolledCourse.id}/plan`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-center text-[10px] font-black text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
+                                                >
+                                                    متابعة المنهج اليومي
+                                                    <ArrowUpRight className="h-3.5 w-3.5" />
+                                                </Link>
+                                            )}
+                                            <Link
+                                                href="/students#student-daily-plan"
+                                                className="flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-center text-[10px] font-black text-foreground transition-colors hover:bg-white/10"
+                                            >
+                                                ورد اليوم في البوابة
+                                            </Link>
+                                            <Link
+                                                href="/notifications"
+                                                className="flex w-full items-center justify-center rounded-xl border border-white/10 px-3 py-2 text-center text-[9px] font-bold text-muted-foreground transition-colors hover:text-primary"
+                                            >
+                                                التواصل مع الطاقم
+                                            </Link>
+                                        </div>
+                                    </GlassCard>
+                                );
+                            })}
                         </div>
                     </section>
                 )}
@@ -874,7 +1012,9 @@ export default function StudentsDashboard() {
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2 md:px-4">
                     <div className="space-y-2">
                         <h3 className="text-xl md:text-2xl font-black flex items-center gap-3 text-primary"><Library className="w-6 h-6" /> مسار إنجاز المجلدات المطلوبة</h3>
-                        <p className="text-muted-foreground text-xs md:text-sm font-medium italic">"وخيرُ العلم ما ضُبطت أصولُه.."</p>
+                        <p className="text-muted-foreground text-xs md:text-sm font-medium italic">
+                            {`"وخيرُ العلم ما ضُبطت أصولُه.."`}
+                        </p>
                     </div>
                     
                     {/* Aggregated Progress Card */}
@@ -993,13 +1133,18 @@ export default function StudentsDashboard() {
                 )}
             </section>
 
-            {/* Daily ورد */}
-            {isEnrolled && todayPlan && (
+            {/* Daily ورد — مرساة للتنقل من بطاقات الحلقة/الدورة */}
+            <section
+                id="student-daily-plan"
+                className="scroll-mt-28 space-y-6"
+                aria-label="ورد اليوم والمتابعة اليومية"
+            >
+            {isEnrolled && todayPlan ? (
                 <div className="space-y-8">
                     <div className="flex justify-between items-end px-4">
                         <div className="space-y-2">
                              <h3 className="text-2xl font-black flex items-center gap-3 text-primary"><Calendar className="w-6 h-6" /> ورد اليوم {todayPlan.dayIndex}</h3>
-                             <p className="text-muted-foreground italic font-medium">"نور العلم في العمل به.."</p>
+                             <p className="text-muted-foreground italic font-medium">{`"نور العلم في العمل به.."`}</p>
                         </div>
                         {dailyLog?.completed && <div className="px-6 py-3 bg-emerald-500 text-white font-black rounded-2xl">تم الإنجاز بنجاح ✨</div>}
                     </div>
@@ -1046,14 +1191,39 @@ export default function StudentsDashboard() {
                         })}
                     </div>
                 </div>
+            ) : (
+                <GlassCard className="space-y-4 p-6 md:p-8 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+                    <Calendar className="mx-auto h-9 w-9 text-primary/40" />
+                    <h3 className="text-base font-black text-foreground">ورد اليوم والمهام اليومية</h3>
+                    <p className="mx-auto max-w-md text-xs leading-relaxed text-muted-foreground">
+                        عند تسجيلك في دورة وتفعيلها من «دوراتي الحالية» يظهر هنا وردك ومهامك. يمكنك فتح المنهج مباشرة من زر «متابعة المنهج اليومي» على بطاقة الدورة.
+                    </p>
+                    {courses.some((c) => joinedCourseIds.has(c.id)) && (
+                        <div className="flex flex-wrap justify-center gap-2 pt-2">
+                            {courses
+                                .filter((c) => joinedCourseIds.has(c.id))
+                                .map((c) => (
+                                    <Link
+                                        key={c.id}
+                                        href={`/students/courses/${c.id}/plan`}
+                                        className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-[10px] font-black text-primary-foreground shadow-md transition-colors hover:bg-primary/90"
+                                    >
+                                        منهج: {c.title}
+                                        <ArrowUpRight className="h-3.5 w-3.5" />
+                                    </Link>
+                                ))}
+                        </div>
+                    )}
+                </GlassCard>
             )}
+            </section>
 
             {/* Gamification: Badges & History */}
             <div className="grid lg:grid-cols-3 gap-8 pt-6">
                 <div className="lg:col-span-2 space-y-6">
                     <h3 className="text-xl font-black flex items-center gap-3 text-amber-500 px-4"><Award className="w-6 h-6" /> خزانة الأوسمة الملكية</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {myBadges.length > 0 ? myBadges.map((badge, idx) => {
+                        {myBadges.length > 0 ? myBadges.map((badge) => {
                             const IconComp = AVAILABLE_ICONS.find(i => i.key === badge.iconKey)?.icon || Star;
                             return (
                                 <GlassCard key={badge.id} className="p-5 flex flex-col items-center text-center gap-3 group hover:-translate-y-1 transition-all rounded-xl">
@@ -1082,8 +1252,8 @@ export default function StudentsDashboard() {
                             {pointsLogs.map(log => (
                                 <div key={log.id} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
                                     <div className="flex items-center gap-2.5">
-                                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black", log.type === 'penalty' ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-500")}>{log.amount > 0 ? `+${log.amount}` : log.amount}</div>
-                                        <div><p className="text-[10px] font-bold">{log.reason}</p><p className="text-[8px] opacity-30">{log.timestamp?.toDate().toLocaleDateString('ar-EG')}</p></div>
+                                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black", log.type === 'penalty' ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-500")}>{Number(log.amount) > 0 ? `+${log.amount}` : String(log.amount ?? "")}</div>
+                                        <div><p className="text-[10px] font-bold">{log.reason}</p><p className="text-[8px] opacity-30">{log.timestamp?.toDate?.().toLocaleDateString("ar-EG")}</p></div>
                                     </div>
                                 </div>
                             ))}
@@ -1136,7 +1306,7 @@ export default function StudentsDashboard() {
                         <GlassCard key={t.id} className="p-6 md:p-8 h-full flex flex-col justify-between hover:border-primary/40 transition-all rounded-2xl relative overflow-hidden">
                             <div className="space-y-4">
                                 <Quote className="w-8 h-8 text-primary opacity-20" />
-                                <p className="text-sm md:text-base italic font-medium leading-relaxed">"{t.content}"</p>
+                                <p className="text-sm md:text-base italic font-medium leading-relaxed">{`"${t.content}"`}</p>
                             </div>
                             <div className="flex items-center justify-between pt-6 border-t border-white/5 mt-6">
                                 <div className="flex items-center gap-3">
@@ -1242,7 +1412,7 @@ export default function StudentsDashboard() {
                                 <div className="flex justify-center gap-2 md:gap-3 py-4 md:py-6">
                                     {[1, 2, 3, 4, 5].map((i) => (
                                         <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.1 }}>
-                                            <Star className="w-6 h-6 md:w-8 h-8 text-amber-500 fill-current drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+                                            <Star className="h-6 w-6 text-amber-500 fill-current drop-shadow-[0_0_10px_rgba(245,158,11,0.5)] md:h-8 md:w-8" />
                                         </motion.div>
                                     ))}
                                 </div>
@@ -1263,7 +1433,9 @@ export default function StudentsDashboard() {
                                     <Sparkles className="w-5 h-5 md:w-6 md:h-6 animate-pulse" />
                                     تابِع مسير البركة
                                 </button>
-                                <p className="text-xs md:text-sm opacity-50 font-black tracking-wide italic">"فإذا فرغت فانصب وإلى ربك فارغب"</p>
+                                <p className="text-xs md:text-sm opacity-50 font-black tracking-wide italic">
+                                    {`"فإذا فرغت فانصب وإلى ربك فارغب"`}
+                                </p>
                             </div>
                         </motion.div>
                     </div>
@@ -1278,9 +1450,10 @@ function CourseCard({ course, isJoined, isActive, onSelect, onJoin }: { course: 
         <GlassCard 
             className={cn(
                 "p-0 flex flex-col h-full transition-all duration-500 hover:-translate-y-1.5 border-white/5 card-shine group rounded-[1.5rem] md:rounded-[2rem] overflow-hidden", 
-                isActive ? "border-primary ring-4 ring-primary/5 bg-primary/5 shadow-2xl shadow-primary/10" : "hover:border-primary/30"
+                isActive ? "border-primary ring-4 ring-primary/5 bg-primary/5 shadow-2xl shadow-primary/10" : "hover:border-primary/30",
+                isJoined && onSelect ? "cursor-pointer" : ""
             )} 
-            onClick={onSelect}
+            onClick={isJoined ? () => onSelect?.() : undefined}
         >
             <div className="p-6 md:p-8 space-y-4 md:space-y-6 flex-1">
                 <div className="flex justify-between items-start">
@@ -1299,69 +1472,48 @@ function CourseCard({ course, isJoined, isActive, onSelect, onJoin }: { course: 
                     <p className="text-[12px] md:text-sm text-muted-foreground font-medium opacity-60 line-clamp-2 md:line-clamp-3 leading-relaxed">{course.description}</p>
                 </div>
             </div>
-            <div className="px-6 py-4 md:px-8 md:py-6 bg-white/[0.02] border-t border-white/5 flex justify-between items-center relative overflow-hidden mt-auto">
-                <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
-                    <Users className="w-3.5 h-3.5 md:w-4 md:h-4" /> 
-                    <span>مجتمع المعرفة</span>
-                </div>
-                {isJoined ? (
-                    <motion.span 
-                        whileHover={{ x: -5 }}
-                        className="text-primary text-[10px] md:text-xs font-black flex items-center gap-1.5 md:gap-2"
-                    >
-                        دخول <ArrowUpRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                    </motion.span>
-                ) : (
-                    <button 
-                        onClick={e => { e.stopPropagation(); onJoin?.(); }} 
-                        className="px-4 py-2 md:px-6 md:py-2.5 bg-primary text-white text-[9px] md:text-[10px] font-black rounded-lg md:rounded-xl shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all btn-elite"
-                    >
-                        التحاق
-                    </button>
+            <div
+                className={cn(
+                    "mt-auto border-t border-white/5 bg-white/[0.02] px-6 py-4 md:px-8 md:py-6",
+                    isJoined ? "flex flex-col gap-3 sm:flex-row sm:items-stretch" : "flex items-center justify-between"
                 )}
-            </div>
-        </GlassCard>
-    );
-}
-
-function GroupCard({ group, isJoined }: { group: Group, isJoined: boolean }) {
-    return (
-        <GlassCard className="p-0 space-y-0 group hover:-translate-y-1.5 transition-all duration-500 h-full flex flex-col rounded-[1.5rem] md:rounded-[2rem] border-white/5 card-shine overflow-hidden">
-            <div className="p-6 md:p-8 space-y-4 md:space-y-6 flex-1">
-                <div className="flex justify-between items-center">
-                    <div className={cn(
-                        "px-3 py-1 rounded-full text-[8px] md:text-[9px] font-black text-white uppercase tracking-widest shadow-lg", 
-                        group.gender === 'male' ? "bg-blue-600 shadow-blue-500/20" : "bg-rose-600 shadow-rose-500/20"
-                    )}>
-                        {group.gender === 'male' ? 'قسم الرجال' : 'قسم النساء'}
-                    </div>
-                    {isJoined && (
-                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                            <CheckCircle className="text-emerald-500 w-4 h-4 md:w-5 md:h-5 shadow-emerald-500/20 shadow-lg" />
-                        </div>
-                    )}
-                </div>
-                <h4 className="text-lg md:text-xl font-black tracking-tight group-hover:text-primary transition-colors">{group.name}</h4>
-                <div className="space-y-2 md:space-y-3 text-[10px] md:text-[11px] font-black uppercase tracking-widest opacity-60">
-                    <div className="flex items-center gap-2.5 md:gap-3 bg-white/5 p-2 md:p-3 rounded-lg md:rounded-xl border border-white/5">
-                        <Clock3 className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" /> 
-                        <span>{group.schedule.startTime} - {group.schedule.endTime}</span>
-                    </div>
-                    <div className="flex items-center gap-2.5 md:gap-3 bg-white/5 p-2 md:p-3 rounded-lg md:rounded-xl border border-white/5">
-                        <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" /> 
-                        <span className="truncate">{group.schedule.recitationDays?.join(" • ")}</span>
-                    </div>
-                </div>
-            </div>
-            <div className="px-6 py-4 md:px-8 md:py-6 bg-white/[0.02] border-t border-white/5 mt-auto relative overflow-hidden">
+            >
                 {isJoined ? (
-                    <button className="w-full py-3 md:py-4 bg-primary/5 text-primary text-[10px] md:text-xs font-black rounded-xl md:rounded-2xl border border-primary/20 hover:bg-primary/10 transition-all">
-                        عرض المنجزات
-                    </button>
+                    <>
+                        <Link
+                            href={`/students/courses/${course.id}/plan`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-center text-[10px] font-black text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90"
+                        >
+                            متابعة المنهج اليومي
+                            <ArrowUpRight className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                        </Link>
+                        <Link
+                            href={`/students/courses/${course.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-center text-[10px] font-black text-primary transition-colors hover:bg-white/10"
+                        >
+                            تفاصيل الدورة
+                            <GraduationCap className="h-3.5 w-3.5 md:h-4 md:w-4 opacity-80" />
+                        </Link>
+                    </>
                 ) : (
-                    <button className="w-full py-3 md:py-4 bg-white/5 border border-white/10 text-[10px] md:text-xs font-black rounded-xl md:rounded-2xl hover:bg-white/10 transition-all">
-                        مراسلة المشرف
-                    </button>
+                    <>
+                        <div className="flex items-center gap-2 md:gap-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
+                            <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            <span>مجتمع المعرفة</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onJoin?.();
+                            }}
+                            className="px-4 py-2 md:px-6 md:py-2.5 bg-primary text-white text-[9px] md:text-[10px] font-black rounded-lg md:rounded-xl shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all btn-elite"
+                        >
+                            التحاق
+                        </button>
+                    </>
                 )}
             </div>
         </GlassCard>
