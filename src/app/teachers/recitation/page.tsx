@@ -25,6 +25,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { detectMeetingProvider, meetingProviderOptions, normalizeMeetingUrl } from "@/lib/meeting-links";
 
 interface Group {
     id: string;
@@ -50,6 +51,7 @@ export default function TeacherRecitationManagement() {
     const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
     const [studentSearchQ, setStudentSearchQ] = useState("");
+    const [urlFeedback, setUrlFeedback] = useState("");
     
     // Attendance Report State
     const [reportSession, setReportSession] = useState<RecitationSession | null>(null);
@@ -109,6 +111,11 @@ export default function TeacherRecitationManagement() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !title || !url) return;
+        const normalizedUrl = normalizeMeetingUrl(url);
+        if (normalizedUrl.error) {
+            setUrlFeedback(normalizedUrl.error);
+            return;
+        }
         setSaving(true);
         try {
             const selectedTargets: {id: string, type: 'group'|'course'|'individual'}[] = [];
@@ -117,7 +124,7 @@ export default function TeacherRecitationManagement() {
 
             await createRecitationSession({
                 title,
-                url,
+                url: normalizedUrl.normalized,
                 type,
                 creatorId: user.uid,
                 creatorName: user.displayName || "معلم",
@@ -130,6 +137,30 @@ export default function TeacherRecitationManagement() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handlePasteFromClipboard = async () => {
+        if (!navigator.clipboard) {
+            setUrlFeedback("المتصفح لا يدعم القراءة من الحافظة.");
+            return;
+        }
+        try {
+            const clipboardText = await navigator.clipboard.readText();
+            const normalized = normalizeMeetingUrl(clipboardText);
+            if (normalized.error) {
+                setUrlFeedback("لم يتم العثور على رابط صالح في الحافظة.");
+                return;
+            }
+            setUrl(normalized.normalized);
+            setUrlFeedback("تم جلب الرابط من الحافظة بنجاح.");
+        } catch {
+            setUrlFeedback("تعذر الوصول للحافظة. اسمح بالإذن أو الصق يدوياً.");
+        }
+    };
+
+    const handleProviderClick = async (providerUrl: string) => {
+        window.open(providerUrl, "_blank", "noopener,noreferrer");
+        await handlePasteFromClipboard();
     };
 
     const handleEnd = async (parentId: string, id: string) => {
@@ -279,14 +310,50 @@ export default function TeacherRecitationManagement() {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-black opacity-60 px-1">رابط الاجتماع (Google Meet / Zoom / etc.)</label>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {meetingProviderOptions.map((provider) => (
+                                            <button
+                                                key={provider.id}
+                                                type="button"
+                                                onClick={() => handleProviderClick(provider.createUrl)}
+                                                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold transition-colors hover:border-primary/40 hover:bg-primary/10"
+                                            >
+                                                {provider.label}
+                                            </button>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            onClick={handlePasteFromClipboard}
+                                            className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-black text-primary transition-colors hover:bg-primary/20"
+                                        >
+                                            جلب من الحافظة
+                                        </button>
+                                    </div>
                                     <div className="relative">
                                         <ExternalLink className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" />
                                         <input 
-                                            required type="url" value={url} onChange={e => setUrl(e.target.value)}
+                                            required type="text" value={url}
+                                            onChange={e => { setUrl(e.target.value); setUrlFeedback(""); }}
+                                            onBlur={() => {
+                                                if (!url.trim()) return;
+                                                const normalized = normalizeMeetingUrl(url);
+                                                if (normalized.error) {
+                                                    setUrlFeedback(normalized.error);
+                                                    return;
+                                                }
+                                                setUrl(normalized.normalized);
+                                                setUrlFeedback("");
+                                            }}
                                             placeholder="https://meet.google.com/..."
                                             className="w-full pl-6 pr-12 py-4 rounded-2xl border bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none font-bold ltr text-right"
                                         />
                                     </div>
+                                    {urlFeedback && <p className="text-xs font-bold text-amber-500 px-1">{urlFeedback}</p>}
+                                    {!urlFeedback && url && (
+                                        <p className="text-[11px] font-bold text-primary/80 px-1">
+                                            المنصة: {detectMeetingProvider(url) === "google-meet" ? "Google Meet" : detectMeetingProvider(url) === "zoom" ? "Zoom" : detectMeetingProvider(url) === "teams" ? "Microsoft Teams" : "رابط عام"}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">

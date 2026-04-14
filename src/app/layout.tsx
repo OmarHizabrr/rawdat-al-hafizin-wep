@@ -3,6 +3,7 @@ import { Inter, Cairo } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { MainContent } from "@/components/layout/MainContent";
+import { ScrollRestoration } from "@/components/layout/ScrollRestoration";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const cairo = Cairo({ subsets: ["arabic"], variable: "--font-cairo" });
@@ -82,6 +83,7 @@ export default function RootLayout({
               </div>
 
               <Navbar />
+              <ScrollRestoration />
               <MainContent>{children}</MainContent>
               <Toaster position="top-center" richColors closeButton />
             </div>
