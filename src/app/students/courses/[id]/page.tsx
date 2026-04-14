@@ -580,6 +580,7 @@ function DailyWirdSection({
     const [pagesCount, setPagesCount] = useState(1);
     const [fromPage, setFromPage] = useState(1);
     const [toPage, setToPage] = useState(1);
+    const [rangeHint, setRangeHint] = useState<string>("");
 
     const todayKey = new Date().toISOString().split("T")[0];
 
@@ -600,6 +601,41 @@ function DailyWirdSection({
         };
         void loadToday();
     }, [courseId, todayKey, userId]);
+
+    useEffect(() => {
+        if (!trackId || mode !== "range") {
+            setRangeHint("");
+            return;
+        }
+        const suggestRangeFromLastEntry = async () => {
+            const snap = await getDocs(collection(db, "daily_wird", courseId, "users", userId, "entries"));
+            const sameTrack = snap.docs
+                .map((entry) => entry.data())
+                .filter((entry) => entry.trackId === trackId && typeof entry.date === "string")
+                .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+            const latest = sameTrack[0];
+            if (!latest) {
+                setRangeHint("اقتراح البداية: 1");
+                return;
+            }
+
+            if (latest.mode === "range" && latest.toPage) {
+                const nextFrom = Number(latest.toPage) + 1;
+                const defaultCount = Number(latest.computedPages || 5) || 5;
+                setFromPage(nextFrom);
+                setToPage(nextFrom + defaultCount - 1);
+                setRangeHint(`مقترح تلقائي: من ${nextFrom} إلى ${nextFrom + defaultCount - 1}`);
+                return;
+            }
+
+            const fallbackCount = Number(latest.computedPages || 5) || 5;
+            setFromPage(1);
+            setToPage(fallbackCount);
+            setRangeHint(`مقترح تلقائي: من 1 إلى ${fallbackCount}`);
+        };
+        void suggestRangeFromLastEntry();
+    }, [courseId, mode, trackId, userId]);
 
     const handleSaveWird = async () => {
         if (!trackId) return;
@@ -628,6 +664,8 @@ function DailyWirdSection({
     };
 
     const hasPlanTracks = planTracks.length > 0;
+    const selectedTrack = planTracks.find((track) => track.id === trackId);
+    const effectiveDailyMin = Number(selectedTrack?.dailyRequiredPages || dailyMinPages || 1);
 
     return (
         <GlassCard className="p-6 md:p-8 border-primary/20 bg-primary/5 space-y-5">
@@ -637,13 +675,13 @@ function DailyWirdSection({
                     <p className="text-xs text-muted-foreground mt-1">{courseTitle}</p>
                 </div>
                 <span className="px-3 py-1 rounded-full bg-white/10 text-xs font-black">
-                    الحد الأدنى: {dailyMinPages} صفحة
+                    الحد الأدنى: {effectiveDailyMin} صفحة
                 </span>
             </div>
 
             <div className="p-4 rounded-xl border border-white/10 bg-white/5 text-sm font-bold">
                 {loading ? "جارٍ تحميل إنجاز اليوم..." : `إنجازك اليوم: ${todayEntry?.computedPages || 0} صفحة`}
-                {!loading && (todayEntry?.computedPages || 0) >= dailyMinPages && (
+                {!loading && (todayEntry?.computedPages || 0) >= effectiveDailyMin && (
                     <span className="text-emerald-500 text-xs ms-2">ممتاز، أكملت الحد الأدنى اليومي</span>
                 )}
             </div>
@@ -660,7 +698,7 @@ function DailyWirdSection({
                     <select disabled={!hasPlanTracks} value={trackId} onChange={(e) => setTrackId(e.target.value)} className="w-full p-3 rounded-xl border bg-background/60 font-bold text-sm disabled:opacity-50">
                         <option value="">اختر المجلد</option>
                         {planTracks.map(track => (
-                            <option key={track.id} value={track.id}>{track.title} ({track.totalPages})</option>
+                            <option key={track.id} value={track.id}>{track.title} ({track.totalPages} صفحة - المطلوب {track.dailyRequiredPages || dailyMinPages} يومياً)</option>
                         ))}
                     </select>
                 </div>
@@ -688,6 +726,7 @@ function DailyWirdSection({
                         <label className="text-xs font-black opacity-60">إلى صفحة</label>
                         <input type="number" min={fromPage} value={toPage} onChange={(e) => setToPage(Number(e.target.value) || fromPage)} className="w-full p-3 rounded-xl border bg-background/60 font-bold" />
                     </div>
+                    <p className="md:col-span-2 text-[11px] font-bold text-primary/80 px-1">{rangeHint || "سيتم اقتراح النطاق تلقائياً بعد اختيار المجلد."}</p>
                 </div>
             )}
 

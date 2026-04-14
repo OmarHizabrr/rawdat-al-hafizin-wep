@@ -633,6 +633,49 @@ export default function CoursesDashboard() {
                         </div>
 
                         <div className="space-y-6 border-t border-white/10 pt-8">
+                            <div className="space-y-4 p-6 bg-orange-500/5 rounded-[2rem] border border-orange-500/20">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[11px] font-black flex items-center gap-2">
+                                        <Info className="w-4 h-4 text-orange-500" /> شروط التسجيل في الدورة
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setConditionsInput([...(conditionsInput || []), ""])}
+                                        className="px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-500 text-[10px] font-black hover:bg-orange-500/20 transition-colors"
+                                    >
+                                        + إضافة شرط
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">هذه الشروط تظهر للطالب ويجب الموافقة عليها قبل التسجيل الذاتي.</p>
+                                <div className="space-y-2">
+                                    {conditionsInput?.map((condition, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                value={condition}
+                                                onChange={(e) => {
+                                                    const next = [...(conditionsInput || [])];
+                                                    next[index] = e.target.value;
+                                                    setConditionsInput(next);
+                                                }}
+                                                placeholder={`الشرط رقم ${index + 1}`}
+                                                className="w-full p-3 rounded-xl border border-white/10 bg-slate-900 text-xs font-bold"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setConditionsInput((conditionsInput || []).filter((_, i) => i !== index))}
+                                                className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {(!conditionsInput || conditionsInput.length === 0) && (
+                                        <p className="text-[10px] opacity-60 p-3 rounded-xl border border-dashed border-white/10">لا توجد شروط مضافة.</p>
+                                    )}
+                                </div>
+                            </div>
+
                             <label className="text-base font-black flex items-center gap-3">
                                 <Globe className="w-5 h-5 text-primary" /> قنوات التواصل والشبكات
                             </label>

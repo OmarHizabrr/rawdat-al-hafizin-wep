@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import {
     collection,
@@ -13,7 +13,9 @@ import {
     Timestamp,
     getDoc,
     writeBatch,
-    getDocs
+    getDocs,
+    query,
+    where
 } from "firebase/firestore";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -33,13 +35,49 @@ import {
     CheckCircle2,
     BookOpen,
     Info,
-    Layout
+    Layout,
+    BarChart3,
+    Users,
+    RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import { EliteDialog } from "@/components/ui/EliteDialog";
 import { getTargetActiveRecitationSessions, RecitationSession } from "@/lib/recitation-service";
 import { CoursePlanTrack, DEFAULT_COURSE_TRACKS } from "@/lib/daily-wird";
+
+function getLastNDaysISO(n: number): string[] {
+    const out: string[] = [];
+    for (let i = n - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        out.push(d.toISOString().split("T")[0]);
+    }
+    return out;
+}
+
+function dayComplianceFromEntries(
+    dayEntries: { trackId?: string; computedPages?: unknown; date?: string }[],
+    tracks: CoursePlanTrack[],
+    fallbackMin: number
+): boolean {
+    if (!tracks.length) {
+        const total = dayEntries.reduce((s, e) => s + Number(e.computedPages || 0), 0);
+        return total >= Math.max(1, fallbackMin);
+    }
+    const byTrack: Record<string, number> = {};
+    dayEntries.forEach((e) => {
+        const tid = typeof e.trackId === "string" ? e.trackId : "";
+        if (!tid) return;
+        byTrack[tid] = (byTrack[tid] || 0) + Number(e.computedPages || 0);
+    });
+    for (const t of tracks) {
+        const need = Math.max(1, Number(t.dailyRequiredPages ?? fallbackMin));
+        const got = byTrack[t.id] || 0;
+        if (got < need) return false;
+    }
+    return true;
+}
 
 interface Resource {
     id: string;
@@ -65,6 +103,14 @@ interface CourseModel {
     planTracks?: CoursePlanTrack[];
 }
 
+type WirdComplianceRow = {
+    userId: string;
+    displayName: string;
+    daysMet: number;
+    daysTotal: number;
+    rate: number;
+};
+
 export default function CourseDetailsManagement() {
     const { id } = useParams() as { id: string };
     const [course, setCourse] = useState<CourseModel | null>(null);
@@ -85,6 +131,9 @@ export default function CourseDetailsManagement() {
     const [loadingRecitations, setLoadingRecitations] = useState(true);
     const [dailyMinPages, setDailyMinPages] = useState<number>(1);
     const [planTracks, setPlanTracks] = useState<CoursePlanTrack[]>([]);
+    const [complianceRows, setComplianceRows] = useState<WirdComplianceRow[]>([]);
+    const [complianceLoading, setComplianceLoading] = useState(false);
+    const [complianceRange, setComplianceRange] = useState<{ from: string; to: string } | null>(null);
 
     // Dialog state
     const [dialogConfig, setDialogConfig] = useState<{
@@ -141,6 +190,69 @@ export default function CourseDetailsManagement() {
         void loadRecitations();
     }, [id]);
 
+    const loadComplianceReport = useCallback(async () => {
+        if (!id) return;
+        setComplianceLoading(true);
+        try {
+            const courseSnap = await getDoc(doc(db, "courses", id));
+            const raw = courseSnap.exists() ? courseSnap.data() : {};
+            const tracks = Array.isArray(raw.planTracks) ? (raw.planTracks as CoursePlanTrack[]) : [];
+            const fallbackMin = Number(raw.dailyMinPages || 1);
+            const days = getLastNDaysISO(7);
+            const start = days[0];
+            const end = days[days.length - 1];
+            setComplianceRange({ from: start, to: end });
+
+            const enrollSnap = await getDocs(collection(db, "enrollments", id, "enrollments"));
+            const rows: WirdComplianceRow[] = await Promise.all(
+                enrollSnap.docs.map(async (enDoc) => {
+                    const data = enDoc.data() as Record<string, unknown>;
+                    const userId = typeof data.userId === "string" ? data.userId : enDoc.id;
+                    const displayName =
+                        (typeof data.studentName === "string" && data.studentName) ||
+                        (typeof data.displayName === "string" && data.displayName) ||
+                        userId.slice(0, 8);
+                    const entriesQ = query(
+                        collection(db, "daily_wird", id, "users", userId, "entries"),
+                        where("date", ">=", start),
+                        where("date", "<=", end)
+                    );
+                    const snap = await getDocs(entriesQ);
+                    const all = snap.docs.map((d) => d.data());
+                    let daysMet = 0;
+                    for (const day of days) {
+                        const dayEntries = all.filter((e) => e.date === day);
+                        if (dayComplianceFromEntries(dayEntries, tracks, fallbackMin)) daysMet++;
+                    }
+                    const daysTotal = days.length;
+                    return {
+                        userId,
+                        displayName,
+                        daysMet,
+                        daysTotal,
+                        rate: daysTotal ? Math.round((daysMet / daysTotal) * 100) : 0,
+                    };
+                })
+            );
+            setComplianceRows(rows.sort((a, b) => a.rate - b.rate));
+        } catch (e) {
+            console.error(e);
+            setDialogConfig({
+                isOpen: true,
+                type: "warning",
+                title: "تعذر تحميل التقرير",
+                description: "تحقق من الاتصال أو صلاحيات القراءة لسجلات الورد.",
+            });
+        } finally {
+            setComplianceLoading(false);
+        }
+    }, [id]);
+
+    useEffect(() => {
+        if (!id || loading) return;
+        void loadComplianceReport();
+    }, [id, loading, loadComplianceReport]);
+
     const showDialog = (type: 'success' | 'danger' | 'warning', title: string, description: string, onConfirm?: () => void) => {
         setDialogConfig({ isOpen: true, type, title, description, onConfirm });
     };
@@ -150,11 +262,12 @@ export default function CourseDetailsManagement() {
         if (dailyMinPages < 1) setDailyMinPages(1);
     };
 
-    const handleTrackField = (index: number, field: "title" | "totalPages", value: string | number) => {
+    const handleTrackField = (index: number, field: "title" | "totalPages" | "dailyRequiredPages", value: string | number) => {
         setPlanTracks(prev => prev.map((track, idx) => {
             if (idx !== index) return track;
             if (field === "title") return { ...track, title: String(value) };
-            return { ...track, totalPages: Number(value) || 0 };
+            if (field === "dailyRequiredPages") return { ...track, dailyRequiredPages: Math.max(1, Number(value) || 1) };
+            return { ...track, totalPages: Math.max(1, Number(value) || 1) };
         }));
     };
 
@@ -162,7 +275,8 @@ export default function CourseDetailsManagement() {
         setPlanTracks(prev => [...prev, {
             id: `track-${Date.now()}`,
             title: "",
-            totalPages: 0
+            totalPages: 1,
+            dailyRequiredPages: 1
         }]);
     };
 
@@ -173,7 +287,12 @@ export default function CourseDetailsManagement() {
     const handleSaveDailyPlan = async () => {
         if (!course) return;
         const validTracks = planTracks
-            .map(track => ({ ...track, title: track.title.trim(), totalPages: Number(track.totalPages) || 0 }))
+            .map(track => ({
+                ...track,
+                title: track.title.trim(),
+                totalPages: Math.max(1, Number(track.totalPages) || 1),
+                dailyRequiredPages: Math.max(1, Number(track.dailyRequiredPages ?? dailyMinPages) || 1)
+            }))
             .filter(track => track.title && track.totalPages > 0);
 
         if (validTracks.length === 0) {
@@ -190,6 +309,7 @@ export default function CourseDetailsManagement() {
                 updatedAt: serverTimestamp()
             });
             showDialog("success", "تم حفظ الخطة", "تم تحديث الحد الأدنى اليومي وخطة مجلدات الحفظ بنجاح.");
+            void loadComplianceReport();
         } catch (error) {
             console.error(error);
             showDialog("danger", "تعذر الحفظ", "حدث خطأ أثناء حفظ إعدادات الخطة.");
@@ -350,7 +470,7 @@ export default function CourseDetailsManagement() {
                     </div>
                     <div className="grid gap-3">
                         {planTracks.map((track, index) => (
-                            <div key={track.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_44px] gap-2 items-center p-3 rounded-xl border border-white/10 bg-white/5">
+                            <div key={track.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_120px_44px] gap-2 items-center p-3 rounded-xl border border-white/10 bg-white/5">
                                 <input
                                     value={track.title}
                                     onChange={(e) => handleTrackField(index, "title", e.target.value)}
@@ -363,6 +483,14 @@ export default function CourseDetailsManagement() {
                                     value={track.totalPages}
                                     onChange={(e) => handleTrackField(index, "totalPages", Number(e.target.value))}
                                     placeholder="عدد الصفحات"
+                                    className="w-full p-2.5 rounded-lg border bg-background/60 text-sm font-bold"
+                                />
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={track.dailyRequiredPages ?? dailyMinPages}
+                                    onChange={(e) => handleTrackField(index, "dailyRequiredPages", Number(e.target.value))}
+                                    placeholder="المطلوب يومياً"
                                     className="w-full p-2.5 rounded-lg border bg-background/60 text-sm font-bold"
                                 />
                                 <button onClick={() => handleRemoveTrack(index)} className="w-11 h-11 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center">
@@ -379,6 +507,96 @@ export default function CourseDetailsManagement() {
                 <button disabled={saving} onClick={handleSaveDailyPlan} className="w-full py-3.5 rounded-xl bg-primary text-white font-black text-sm shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
                     {saving ? "جارٍ الحفظ..." : "حفظ إعدادات خطة الورد"}
                 </button>
+            </GlassCard>
+
+            <GlassCard className="p-6 md:p-8 space-y-4 border-emerald-500/20 bg-emerald-500/5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10">
+                            <BarChart3 className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-black text-emerald-800 dark:text-emerald-400">تقرير الالتزام بالورد (آخر 7 أيام)</h2>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                يُحتسب اليوم «مكتملاً» عند تحقيق المطلوب لكل مجلد، أو إجمالي الحد الأدنى إن لم تُعرَّف مجلدات.
+                                {complianceRange && (
+                                    <span className="block mt-1 font-bold opacity-80">
+                                        من {complianceRange.from} إلى {complianceRange.to}
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                            href={`/admin/courses/${id}/members`}
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-black hover:bg-white/10"
+                        >
+                            <Users className="h-4 w-4" />
+                            الأعضاء
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={() => void loadComplianceReport()}
+                            disabled={complianceLoading}
+                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white shadow-md hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                            {complianceLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                            تحديث التقرير
+                        </button>
+                    </div>
+                </div>
+
+                {complianceLoading && complianceRows.length === 0 ? (
+                    <div className="flex items-center gap-2 text-xs opacity-70 py-6">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        جارِ تحميل بيانات الالتزام...
+                    </div>
+                ) : complianceRows.length === 0 ? (
+                    <p className="text-sm opacity-70 py-4">لا يوجد طلاب مسجّلون في هذه الدورة بعد.</p>
+                ) : (
+                    <div className="overflow-x-auto rounded-xl border border-white/10">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-white/10 bg-white/5 text-right">
+                                    <th className="p-3 font-black text-xs">الطالب</th>
+                                    <th className="p-3 font-black text-xs whitespace-nowrap">أيام مكتملة</th>
+                                    <th className="p-3 font-black text-xs">النسبة</th>
+                                    <th className="p-3 font-black text-xs">الملاحظة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {complianceRows.map((row) => {
+                                    const needsAttention = row.rate < 70;
+                                    return (
+                                        <tr key={row.userId} className="border-b border-white/5 hover:bg-white/[0.03]">
+                                            <td className="p-3 font-bold max-w-[200px] truncate">{row.displayName}</td>
+                                            <td className="p-3 font-mono text-xs whitespace-nowrap">
+                                                {row.daysMet} / {row.daysTotal}
+                                            </td>
+                                            <td className="p-3">
+                                                <span
+                                                    className={
+                                                        row.rate >= 85
+                                                            ? "rounded-lg bg-emerald-500/20 px-2 py-1 text-xs font-black text-emerald-700 dark:text-emerald-400"
+                                                            : row.rate >= 70
+                                                              ? "rounded-lg bg-amber-500/20 px-2 py-1 text-xs font-black text-amber-700 dark:text-amber-400"
+                                                              : "rounded-lg bg-red-500/20 px-2 py-1 text-xs font-black text-red-600"
+                                                    }
+                                                >
+                                                    {row.rate}%
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-xs font-bold">
+                                                {needsAttention ? <span className="text-red-500">يحتاج متابعة</span> : <span className="opacity-50">—</span>}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </GlassCard>
 
             <GlassCard className="p-6 space-y-4 border-red-500/20 bg-red-500/5">

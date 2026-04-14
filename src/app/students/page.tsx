@@ -69,6 +69,7 @@ import { ActivityChart } from "../../components/students/ActivityChart";
 import { EliteModal } from "@/components/ui/EliteModal";
 import { cn } from "@/lib/utils";
 import type { UserDocument } from "@/lib/user-document";
+import type { CoursePlanTrack } from "@/lib/daily-wird";
 
 type DailyLogDoc = {
     userId: string;
@@ -110,7 +111,20 @@ type CourseWirdStatus = {
     courseId: string;
     totalTodayPages: number;
     dailyMinPages: number;
+    usesPerTrackTargets: boolean;
+    tracksComplete: number;
+    tracksTotal: number;
+    incompleteTrackLabels: string[];
 };
+
+function isDailyWirdDoneForCourse(status: CourseWirdStatus | undefined, course: Course): boolean {
+    if (!status) return false;
+    if (status.usesPerTrackTargets && status.tracksTotal > 0) {
+        return status.tracksComplete >= status.tracksTotal;
+    }
+    const min = status.dailyMinPages || Number(course.dailyMinPages || 1);
+    return (status.totalTodayPages || 0) >= min;
+}
 
 type LeaderboardRow = {
     id: string;
@@ -131,6 +145,7 @@ interface Course {
     selectedVolumeIds?: string[];
     planTemplateId?: string;
     dailyMinPages?: number;
+    planTracks?: CoursePlanTrack[];
 }
 
 interface Group {
@@ -291,10 +306,46 @@ export default function StudentsDashboard() {
                 );
                 const snap = await getDocs(entriesQ);
                 const totalTodayPages = snap.docs.reduce((sum, entry) => sum + Number(entry.data().computedPages || 0), 0);
+                const fallbackMin = Number(course.dailyMinPages || 1);
+                const tracks = course.planTracks?.length ? course.planTracks : [];
+
+                if (tracks.length === 0) {
+                    return {
+                        courseId: course.id,
+                        totalTodayPages,
+                        dailyMinPages: fallbackMin,
+                        usesPerTrackTargets: false,
+                        tracksComplete: 0,
+                        tracksTotal: 0,
+                        incompleteTrackLabels: [],
+                    };
+                }
+
+                const byTrack: Record<string, number> = {};
+                snap.docs.forEach((entry) => {
+                    const data = entry.data();
+                    const tid = typeof data.trackId === "string" ? data.trackId : "";
+                    if (!tid) return;
+                    byTrack[tid] = (byTrack[tid] || 0) + Number(data.computedPages || 0);
+                });
+
+                let tracksComplete = 0;
+                const incompleteTrackLabels: string[] = [];
+                for (const t of tracks) {
+                    const need = Math.max(1, Number(t.dailyRequiredPages ?? fallbackMin));
+                    const got = byTrack[t.id] || 0;
+                    if (got >= need) tracksComplete += 1;
+                    else incompleteTrackLabels.push(`${t.title} (${got}/${need})`);
+                }
+
                 return {
                     courseId: course.id,
                     totalTodayPages,
-                    dailyMinPages: Number(course.dailyMinPages || 1)
+                    dailyMinPages: fallbackMin,
+                    usesPerTrackTargets: true,
+                    tracksComplete,
+                    tracksTotal: tracks.length,
+                    incompleteTrackLabels,
                 };
             }));
             setDailyWirdStatuses(statuses);
@@ -818,6 +869,31 @@ export default function StudentsDashboard() {
 
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-12 pb-32 font-arabic" dir="rtl">
+            <section className="grid gap-4 md:grid-cols-2">
+                <GlassCard className="p-5 rounded-2xl border-primary/20 bg-primary/5">
+                    <h2 className="text-lg font-black mb-2 flex items-center gap-2"><BookOpen className="w-5 h-5 text-primary" /> وصول سريع للدورات</h2>
+                    <p className="text-xs text-muted-foreground mb-3">ادخل مباشرة إلى تفاصيل دورتك وسجل الورد اليومي من نفس الصفحة.</p>
+                    <div className="flex flex-wrap gap-2">
+                        {courses.filter(c => joinedCourseIds.has(c.id)).slice(0, 4).map(c => (
+                            <Link key={`quick-course-${c.id}`} href={`/students/courses/${c.id}`} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black hover:bg-primary/10">
+                                {c.title}
+                            </Link>
+                        ))}
+                    </div>
+                </GlassCard>
+                <GlassCard className="p-5 rounded-2xl border-violet-500/20 bg-violet-500/5">
+                    <h2 className="text-lg font-black mb-2 flex items-center gap-2"><Users className="w-5 h-5 text-violet-400" /> وصول سريع للحلقات</h2>
+                    <p className="text-xs text-muted-foreground mb-3">تظهر حلقاتك المسجلة هنا مباشرة بدون بحث.</p>
+                    <div className="flex flex-wrap gap-2">
+                        {groups.filter(g => joinedGroupIds.has(g.id)).slice(0, 4).map(g => (
+                            <span key={`quick-group-${g.id}`} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black">
+                                {g.name}
+                            </span>
+                        ))}
+                    </div>
+                </GlassCard>
+            </section>
+
             {/* Motivation Header */}
             <motion.div 
                 initial={{ opacity: 0, y: -30 }} 
@@ -942,15 +1018,16 @@ export default function StudentsDashboard() {
                                 .sort((a, b) => {
                                     const aStatus = dailyWirdStatuses.find(s => s.courseId === a.id);
                                     const bStatus = dailyWirdStatuses.find(s => s.courseId === b.id);
-                                    const aDone = (aStatus?.totalTodayPages || 0) >= (aStatus?.dailyMinPages || Number(a.dailyMinPages || 1));
-                                    const bDone = (bStatus?.totalTodayPages || 0) >= (bStatus?.dailyMinPages || Number(b.dailyMinPages || 1));
+                                    const aDone = isDailyWirdDoneForCourse(aStatus, a);
+                                    const bDone = isDailyWirdDoneForCourse(bStatus, b);
                                     return Number(aDone) - Number(bDone);
                                 })
                                 .map((course) => {
                                 const status = dailyWirdStatuses.find(s => s.courseId === course.id);
                                 const todayPages = status?.totalTodayPages || 0;
                                 const minPages = status?.dailyMinPages || Number(course.dailyMinPages || 1);
-                                const done = todayPages >= minPages;
+                                const done = isDailyWirdDoneForCourse(status, course);
+                                const perTrack = status?.usesPerTrackTargets && (status.tracksTotal || 0) > 0;
                                 return (
                                     <GlassCard key={`daily-${course.id}`} className={cn("p-5 rounded-2xl border", done ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5")}>
                                         <div className="flex items-center justify-between gap-2">
@@ -959,7 +1036,22 @@ export default function StudentsDashboard() {
                                                 {done ? "مكتمل" : "قيد المتابعة"}
                                             </span>
                                         </div>
-                                        <p className="text-xs opacity-70 mt-2">اليوم: {todayPages} / {minPages} صفحة</p>
+                                        {perTrack ? (
+                                            <>
+                                                <p className="text-xs opacity-70 mt-2">
+                                                    المجلدات اليوم: {status?.tracksComplete ?? 0} / {status?.tracksTotal} مكتملة
+                                                </p>
+                                                <p className="text-[11px] opacity-60 mt-1">إجمالي الصفحات المسجّلة: {todayPages}</p>
+                                                {!done && (status?.incompleteTrackLabels?.length ?? 0) > 0 && (
+                                                    <p className="text-[10px] font-bold text-amber-600/90 mt-2 leading-relaxed">
+                                                        ينقص: {status!.incompleteTrackLabels.slice(0, 3).join(" — ")}
+                                                        {(status!.incompleteTrackLabels.length > 3) ? "…" : ""}
+                                                    </p>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <p className="text-xs opacity-70 mt-2">اليوم: {todayPages} / {minPages} صفحة</p>
+                                        )}
                                         <Link href={`/students/courses/${course.id}`} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-primary hover:underline">
                                             أكمل الورد الآن <ArrowUpRight className="w-3.5 h-3.5" />
                                         </Link>
@@ -976,7 +1068,7 @@ export default function StudentsDashboard() {
                             <BookOpen className="w-6 h-6 text-primary" /> دوراتي الحالية
                         </h3>
                         <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
-                            استخدم «متابعة المنهج اليومي» للدخول إلى الخطة والمهام، أو «تفاصيل الدورة» للموارد والمستويات. يمكنك أيضاً النقر على البطاقة لتعيين الدورة النشطة في البوابة.
+                            استخدم «تفاصيل الدورة» للدخول مباشرة وتسجيل الورد اليومي، أو اضغط البطاقة لتعيين الدورة النشطة في البوابة.
                         </p>
                     </div>
                     {joinedCourseIds.size > 0 ? (
@@ -1040,11 +1132,11 @@ export default function StudentsDashboard() {
                                         <div className="mt-auto flex flex-col gap-2 border-t border-white/5 pt-4">
                                             {firstEnrolledCourse && (
                                                 <Link
-                                                    href={`/students/courses/${firstEnrolledCourse.id}/plan`}
+                                                    href={`/students/courses/${firstEnrolledCourse.id}`}
                                                     onClick={(e) => e.stopPropagation()}
                                                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-center text-[10px] font-black text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
                                                 >
-                                                    متابعة المنهج اليومي
+                                                    تفاصيل الدورة
                                                     <ArrowUpRight className="h-3.5 w-3.5" />
                                                 </Link>
                                             )}
@@ -1261,7 +1353,7 @@ export default function StudentsDashboard() {
                     <Calendar className="mx-auto h-9 w-9 text-primary/40" />
                     <h3 className="text-base font-black text-foreground">ورد اليوم والمهام اليومية</h3>
                     <p className="mx-auto max-w-md text-xs leading-relaxed text-muted-foreground">
-                        عند تسجيلك في دورة وتفعيلها من «دوراتي الحالية» يظهر هنا وردك ومهامك. يمكنك فتح المنهج مباشرة من زر «متابعة المنهج اليومي» على بطاقة الدورة.
+                        عند تسجيلك في دورة وتفعيلها من «دوراتي الحالية» يظهر هنا وردك ومهامك. يمكنك فتح صفحة الدورة مباشرة من بطاقة الدورة.
                     </p>
                     {courses.some((c) => joinedCourseIds.has(c.id)) && (
                         <div className="flex flex-wrap justify-center gap-2 pt-2">
@@ -1270,10 +1362,10 @@ export default function StudentsDashboard() {
                                 .map((c) => (
                                     <Link
                                         key={c.id}
-                                        href={`/students/courses/${c.id}/plan`}
+                                        href={`/students/courses/${c.id}`}
                                         className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-[10px] font-black text-primary-foreground shadow-md transition-colors hover:bg-primary/90"
                                     >
-                                        منهج: {c.title}
+                                        دورة: {c.title}
                                         <ArrowUpRight className="h-3.5 w-3.5" />
                                     </Link>
                                 ))}
@@ -1546,11 +1638,11 @@ function CourseCard({ course, isJoined, isActive, onSelect, onJoin }: { course: 
                 {isJoined ? (
                     <>
                         <Link
-                            href={`/students/courses/${course.id}/plan`}
+                            href={`/students/courses/${course.id}`}
                             onClick={(e) => e.stopPropagation()}
                             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-center text-[10px] font-black text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90"
                         >
-                            متابعة المنهج اليومي
+                            تفاصيل الدورة
                             <ArrowUpRight className="h-3.5 w-3.5 md:h-4 md:w-4" />
                         </Link>
                         <Link

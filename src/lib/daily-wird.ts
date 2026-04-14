@@ -6,6 +6,7 @@ export interface CoursePlanTrack {
   id: string;
   title: string;
   totalPages: number;
+  dailyRequiredPages?: number;
 }
 
 export interface DailyWirdEntry {
