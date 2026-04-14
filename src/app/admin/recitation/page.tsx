@@ -312,34 +312,34 @@ export default function AdminRecitationManagement() {
                             <table className="w-full text-right">
                                 <thead className="bg-white/5 border-b border-white/5">
                                     <tr>
-                                        <th className="p-5 text-xs font-black uppercase tracking-widest opacity-40">الجلسة</th>
-                                        <th className="p-5 text-xs font-black uppercase tracking-widest opacity-40">بواسطة</th>
-                                        <th className="p-5 text-xs font-black uppercase tracking-widest opacity-40">الهدف</th>
-                                        <th className="p-5 text-xs font-black uppercase tracking-widest opacity-40">التوقيت</th>
-                                        <th className="p-5 text-xs font-black uppercase tracking-widest opacity-40">التقارير</th>
+                                        <th className="p-3 md:p-5 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">الجلسة</th>
+                                        <th className="p-3 md:p-5 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">بواسطة</th>
+                                        <th className="p-3 md:p-5 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">الهدف</th>
+                                        <th className="p-3 md:p-5 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">التوقيت</th>
+                                        <th className="p-3 md:p-5 text-[10px] md:text-xs font-black uppercase tracking-widest opacity-40">التقارير</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
                                     {pastSessions.map(session => (
                                         <tr key={session.id} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="p-5 font-bold">
+                                            <td className="p-3 md:p-5 font-bold">
                                                 <div className="flex items-center gap-3">
                                                     {session.type === 'video' ? <Video className="w-4 h-4 text-blue-500" /> : <Mic className="w-4 h-4 text-purple-500" />}
                                                     {session.title}
                                                 </div>
                                             </td>
-                                            <td className="p-5">
+                                            <td className="p-3 md:p-5">
                                                 <span className="text-sm font-bold opacity-80">{session.creatorName}</span>
                                             </td>
-                                            <td className="p-5">
+                                            <td className="p-3 md:p-5">
                                                 <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg border border-primary/20">
                                                     {targetTypeLabel(session)}
                                                 </span>
                                             </td>
-                                            <td className="p-5 text-xs font-bold opacity-40">
+                                            <td className="p-3 md:p-5 text-[10px] md:text-xs font-bold opacity-40">
                                                 {session.createdAt.toDate().toLocaleString('ar-EG')}
                                             </td>
-                                            <td className="p-5">
+                                            <td className="p-3 md:p-5">
                                                 <div className="flex items-center gap-3">
                                                     <button 
                                                         onClick={() => handleViewReport(session)}
@@ -591,22 +591,22 @@ function targetTypeLabel(session: RecitationSession) {
 function AdminSessionCard({ session, onEnd, onReport, onEdit, onDelete, isActive }: { session: RecitationSession, onEnd?: () => void, onReport?: () => void, onEdit?: () => void, onDelete?: () => void, isActive?: boolean }) {
     return (
         <GlassCard className={cn(
-            "p-10 space-y-8 group transition-all relative overflow-hidden",
+            "p-5 md:p-8 space-y-5 md:space-y-8 group transition-all relative overflow-hidden",
             isActive ? "border-primary/40 bg-primary/[0.03]" : "border-white/5"
         )}>
-            <div className="flex items-center justify-between relative z-10">
-                <div className={cn("w-16 h-16 rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.1)]", session.type === 'video' ? "bg-blue-500/20 text-blue-500" : "bg-purple-500/20 text-purple-500")}>
-                    {session.type === 'video' ? <Video className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
+            <div className="flex items-center justify-between gap-3 relative z-10">
+                <div className={cn("w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.1)]", session.type === 'video' ? "bg-blue-500/20 text-blue-500" : "bg-purple-500/20 text-purple-500")}>
+                    {session.type === 'video' ? <Video className="w-6 h-6 md:w-8 md:h-8" /> : <Mic className="w-6 h-6 md:w-8 md:h-8" />}
                 </div>
-                <div className="bg-white/5 rounded-2xl p-2 px-4 border border-white/5">
+                <div className="bg-white/5 rounded-xl md:rounded-2xl p-2 px-3 md:px-4 border border-white/5">
                     <span className="text-[10px] font-black uppercase opacity-40">مشرف الجلسة:</span>
-                    <p className="text-xs font-black text-primary">{session.creatorName}</p>
+                    <p className="text-[11px] md:text-xs font-black text-primary">{session.creatorName}</p>
                 </div>
             </div>
 
             <div className="space-y-3 relative z-10">
-                <h3 className="text-2xl font-black group-hover:tracking-wider transition-all line-clamp-1">{session.title}</h3>
-                <div className="flex items-center gap-3">
+                <h3 className="text-xl md:text-2xl font-black group-hover:tracking-wider transition-all line-clamp-2">{session.title}</h3>
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
                     <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-black flex items-center gap-2">
                         <Monitor className="w-3 h-3" /> {session.type === 'video' ? 'مرئي' : 'صوتي'}
                     </span>
@@ -616,16 +616,16 @@ function AdminSessionCard({ session, onEnd, onReport, onEdit, onDelete, isActive
                 </div>
             </div>
 
-            <div className="grid gap-3 relative z-10 pt-6">
-                <div className="flex gap-3">
-                    <button onClick={onReport} className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-sm flex items-center justify-center gap-3 border border-white/10 transition-all"><Users className="w-5 h-5" /> التقارير</button>
-                    <button onClick={onEnd} className="flex-1 py-4 bg-red-500 text-white hover:bg-red-600 rounded-2xl font-black text-sm flex items-center justify-center gap-3 shadow-xl shadow-red-500/20 transition-all"><X className="w-5 h-5" /> إغلاق</button>
+            <div className="grid gap-2 md:gap-3 relative z-10 pt-4 md:pt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
+                    <button onClick={onReport} className="w-full py-3 md:py-4 bg-white/5 hover:bg-white/10 rounded-xl md:rounded-2xl font-black text-xs md:text-sm flex items-center justify-center gap-2 md:gap-3 border border-white/10 transition-all"><Users className="w-4 h-4 md:w-5 md:h-5" /> التقارير</button>
+                    <button onClick={onEnd} className="w-full py-3 md:py-4 bg-red-500 text-white hover:bg-red-600 rounded-xl md:rounded-2xl font-black text-xs md:text-sm flex items-center justify-center gap-2 md:gap-3 shadow-xl shadow-red-500/20 transition-all"><X className="w-4 h-4 md:w-5 md:h-5" /> إغلاق</button>
                 </div>
-                <div className="flex gap-3">
-                    <button onClick={onEdit} className="flex-1 py-3 bg-amber-500/10 text-amber-500 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all"><Pencil className="w-4 h-4" /> تعديل</button>
-                    <button onClick={onDelete} className="flex-1 py-3 bg-red-500/10 text-red-500 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all"><Trash2 className="w-4 h-4" /> حذف</button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
+                    <button onClick={onEdit} className="w-full py-3 bg-amber-500/10 text-amber-500 rounded-xl md:rounded-2xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all"><Pencil className="w-4 h-4" /> تعديل</button>
+                    <button onClick={onDelete} className="w-full py-3 bg-red-500/10 text-red-500 rounded-xl md:rounded-2xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all"><Trash2 className="w-4 h-4" /> حذف</button>
                 </div>
-                <a href={session.url} target="_blank" className="w-full py-4 bg-primary text-white rounded-2xl font-black text-sm flex items-center justify-center gap-3 shadow-xl transition-all">فتح الرابط المباشر <ExternalLink className="w-5 h-5" /></a>
+                <a href={session.url} target="_blank" rel="noopener noreferrer" className="w-full py-3 md:py-4 bg-primary text-white rounded-xl md:rounded-2xl font-black text-xs md:text-sm flex items-center justify-center gap-2 md:gap-3 shadow-xl transition-all">فتح الرابط المباشر <ExternalLink className="w-4 h-4 md:w-5 md:h-5" /></a>
             </div>
         </GlassCard>
     );

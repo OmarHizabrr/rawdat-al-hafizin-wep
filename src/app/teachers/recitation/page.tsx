@@ -650,32 +650,32 @@ export default function TeacherRecitationManagement() {
                 </p>
             </div>
 
-            <div className="grid gap-3 relative z-10 pt-4">
+            <div className="grid gap-2 md:gap-3 relative z-10 pt-4">
                 <a 
                     href={session.url} target="_blank" rel="noopener noreferrer"
-                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all"
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all"
                 >
                     <ExternalLink className="w-4 h-4" /> فتح الرابط الأصلي
                 </a>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button 
                         onClick={onReport}
-                        className="flex-1 py-3 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all"
+                        className="w-full py-3 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all"
                     >
                         <Users className="w-4 h-4" /> السجل
                     </button>
                     {isActive && (
                         <button 
                             onClick={onEnd}
-                            className="flex-1 py-3 bg-red-500 text-white hover:bg-red-600 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20"
+                            className="w-full py-3 bg-red-500 text-white hover:bg-red-600 rounded-xl font-black text-xs md:text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20"
                         >
                             <X className="w-4 h-4" /> إنهاء
                         </button>
                     )}
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={onEdit} className="flex-1 py-2 bg-amber-500/10 text-amber-500 rounded-xl font-bold text-xs flex items-center justify-center gap-2"><Pencil className="w-4 h-4" /> تعديل</button>
-                    <button onClick={onDelete} className="flex-1 py-2 bg-red-500/10 text-red-500 rounded-xl font-bold text-xs flex items-center justify-center gap-2"><Trash2 className="w-4 h-4" /> حذف</button>
+                <div className="grid grid-cols-2 gap-2">
+                    <button onClick={onEdit} className="w-full py-2.5 bg-amber-500/10 text-amber-500 rounded-xl font-bold text-xs flex items-center justify-center gap-2"><Pencil className="w-4 h-4" /> تعديل</button>
+                    <button onClick={onDelete} className="w-full py-2.5 bg-red-500/10 text-red-500 rounded-xl font-bold text-xs flex items-center justify-center gap-2"><Trash2 className="w-4 h-4" /> حذف</button>
                 </div>
             </div>
         </GlassCard>
