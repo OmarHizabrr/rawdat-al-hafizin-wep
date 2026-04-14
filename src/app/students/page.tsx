@@ -937,7 +937,16 @@ export default function StudentsDashboard() {
                     <section className="space-y-4">
                         <h3 className="text-xl font-black flex items-center gap-3 px-2"><Calendar className="w-5 h-5 text-primary" /> أكمل وردك اليومي</h3>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {courses.filter(c => joinedCourseIds.has(c.id)).map((course) => {
+                            {courses
+                                .filter(c => joinedCourseIds.has(c.id))
+                                .sort((a, b) => {
+                                    const aStatus = dailyWirdStatuses.find(s => s.courseId === a.id);
+                                    const bStatus = dailyWirdStatuses.find(s => s.courseId === b.id);
+                                    const aDone = (aStatus?.totalTodayPages || 0) >= (aStatus?.dailyMinPages || Number(a.dailyMinPages || 1));
+                                    const bDone = (bStatus?.totalTodayPages || 0) >= (bStatus?.dailyMinPages || Number(b.dailyMinPages || 1));
+                                    return Number(aDone) - Number(bDone);
+                                })
+                                .map((course) => {
                                 const status = dailyWirdStatuses.find(s => s.courseId === course.id);
                                 const todayPages = status?.totalTodayPages || 0;
                                 const minPages = status?.dailyMinPages || Number(course.dailyMinPages || 1);
@@ -1039,12 +1048,6 @@ export default function StudentsDashboard() {
                                                     <ArrowUpRight className="h-3.5 w-3.5" />
                                                 </Link>
                                             )}
-                                            <Link
-                                                href="/students#student-daily-plan"
-                                                className="flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-center text-[10px] font-black text-foreground transition-colors hover:bg-white/10"
-                                            >
-                                                ورد اليوم في البوابة
-                                            </Link>
                                             <Link
                                                 href="/notifications"
                                                 className="flex w-full items-center justify-center rounded-xl border border-white/10 px-3 py-2 text-center text-[9px] font-bold text-muted-foreground transition-colors hover:text-primary"

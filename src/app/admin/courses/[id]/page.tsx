@@ -321,33 +321,6 @@ export default function CourseDetailsManagement() {
                 </div>
             </motion.div>
 
-            <GlassCard className="p-6 space-y-4 border-red-500/20 bg-red-500/5">
-                <h2 className="text-lg font-black flex items-center gap-2 text-red-500">
-                    <Video className="w-5 h-5" />
-                    الجلسات المرتبطة بهذه الدورة
-                </h2>
-                {loadingRecitations ? (
-                    <div className="text-xs opacity-60 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> جارٍ تحميل جلسات التسميع...</div>
-                ) : recitationSessions.length === 0 ? (
-                    <p className="text-sm opacity-60">لا توجد جلسات تسميع نشطة مرتبطة بهذه الدورة حالياً.</p>
-                ) : (
-                    <div className="grid gap-3 md:grid-cols-2">
-                        {recitationSessions.map((session) => (
-                            <div key={session.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="font-black text-sm truncate">{session.title}</p>
-                                    <p className="text-[11px] opacity-60 mt-1">{session.creatorName}</p>
-                                </div>
-                                <a href={session.url} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-black text-white flex items-center gap-1">
-                                    <ExternalLink className="w-3 h-3" />
-                                    فتح
-                                </a>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </GlassCard>
-
             <GlassCard className="p-6 md:p-8 space-y-6 border-primary/20 bg-primary/5">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
@@ -406,6 +379,33 @@ export default function CourseDetailsManagement() {
                 <button disabled={saving} onClick={handleSaveDailyPlan} className="w-full py-3.5 rounded-xl bg-primary text-white font-black text-sm shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
                     {saving ? "جارٍ الحفظ..." : "حفظ إعدادات خطة الورد"}
                 </button>
+            </GlassCard>
+
+            <GlassCard className="p-6 space-y-4 border-red-500/20 bg-red-500/5">
+                <h2 className="text-lg font-black flex items-center gap-2 text-red-500">
+                    <Video className="w-5 h-5" />
+                    جلسات التسميع المرتبطة
+                </h2>
+                {loadingRecitations ? (
+                    <div className="text-xs opacity-60 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> جارٍ التحميل...</div>
+                ) : recitationSessions.length === 0 ? (
+                    <p className="text-sm opacity-60">لا توجد جلسات نشطة حالياً.</p>
+                ) : (
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {recitationSessions.map((session) => (
+                            <div key={session.id} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="font-black text-sm truncate">{session.title}</p>
+                                    <p className="text-[11px] opacity-60 mt-1">{session.creatorName}</p>
+                                </div>
+                                <a href={session.url} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-black text-white flex items-center gap-1">
+                                    <ExternalLink className="w-3 h-3" />
+                                    فتح
+                                </a>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </GlassCard>
 
             {/* Levels Grid */}

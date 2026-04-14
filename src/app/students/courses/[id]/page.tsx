@@ -367,17 +367,19 @@ export default function CourseDetails() {
                             <RegistrationSection course={course} />
                         </GlassCard>
 
-                        <GlassCard className="p-6 bg-primary/5 border-primary/10 flex items-center justify-between group cursor-pointer hover:bg-primary/10 transition-all">
+                        <GlassCard className="p-6 bg-primary/5 border-primary/10 flex items-center justify-between transition-all">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
                                     <Info className="w-5 h-5 text-primary" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-sm">هل تواجه صعوبة؟</h4>
-                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">تواصل مع المشرف</p>
+                                    <h4 className="font-bold text-sm">تحتاج مساعدة؟</h4>
+                                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">تواصل مع المشرف عبر الإشعارات</p>
                                 </div>
                             </div>
-                            <ArrowUpRight className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-1 group-hover:-translate-y-1" />
+                            <Link href="/notifications" className="text-xs font-black text-primary hover:underline">
+                                فتح الرسائل
+                            </Link>
                         </GlassCard>
                     </motion.div>
                 </div>
@@ -625,6 +627,8 @@ function DailyWirdSection({
         }
     };
 
+    const hasPlanTracks = planTracks.length > 0;
+
     return (
         <GlassCard className="p-6 md:p-8 border-primary/20 bg-primary/5 space-y-5">
             <div className="flex items-center justify-between gap-3">
@@ -644,10 +648,16 @@ function DailyWirdSection({
                 )}
             </div>
 
+            {!hasPlanTracks && (
+                <div className="p-4 rounded-xl border border-dashed border-white/20 bg-white/5 text-xs font-bold opacity-80">
+                    لم يتم إعداد خطة حفظ لهذه الدورة بعد. تواصل مع الإدارة لإضافة المجلدات والحد الأدنى اليومي.
+                </div>
+            )}
+
             <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <label className="text-xs font-black opacity-60">المجلد</label>
-                    <select value={trackId} onChange={(e) => setTrackId(e.target.value)} className="w-full p-3 rounded-xl border bg-background/60 font-bold text-sm">
+                    <select disabled={!hasPlanTracks} value={trackId} onChange={(e) => setTrackId(e.target.value)} className="w-full p-3 rounded-xl border bg-background/60 font-bold text-sm disabled:opacity-50">
                         <option value="">اختر المجلد</option>
                         {planTracks.map(track => (
                             <option key={track.id} value={track.id}>{track.title} ({track.totalPages})</option>
@@ -681,7 +691,7 @@ function DailyWirdSection({
                 </div>
             )}
 
-            <button disabled={saving || !trackId} onClick={handleSaveWird} className="w-full py-3.5 rounded-xl bg-primary text-white text-sm font-black shadow-lg hover:bg-primary/90 disabled:opacity-50">
+            <button disabled={saving || !trackId || !hasPlanTracks} onClick={handleSaveWird} className="w-full py-3.5 rounded-xl bg-primary text-white text-sm font-black shadow-lg hover:bg-primary/90 disabled:opacity-50">
                 {saving ? "جارٍ تسجيل الورد..." : "تسجيل الورد اليومي"}
             </button>
         </GlassCard>
