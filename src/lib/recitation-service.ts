@@ -1,6 +1,5 @@
 import { 
     collection, 
-    addDoc, 
     updateDoc, 
     doc, 
     setDoc,
@@ -8,10 +7,11 @@ import {
     query, 
     where, 
     getDocs,
+    getDoc,
     Timestamp,
     orderBy,
-    onSnapshot,
-    writeBatch
+    writeBatch,
+    collectionGroup
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -36,6 +36,7 @@ export interface SessionTarget {
 }
 
 export interface SessionAttendance {
+    id?: string;
     userId: string;
     userName: string;
     joinedAt: Timestamp;
@@ -78,6 +79,83 @@ export const endRecitationSession = async (parentId: string, sessionId: string) 
     });
 };
 
+export const updateRecitationSession = async (
+    parentId: string,
+    sessionId: string,
+    payload: Pick<RecitationSession, "title" | "url" | "type">
+) => {
+    const sessionRef = doc(db, "recitation_sessions", parentId, "recitation_sessions", sessionId);
+    await updateDoc(sessionRef, {
+        ...payload,
+        updatedAt: serverTimestamp()
+    });
+};
+
+export const deleteRecitationSession = async (parentId: string, sessionId: string) => {
+    const batch = writeBatch(db);
+
+    const sessionRef = doc(db, "recitation_sessions", parentId, "recitation_sessions", sessionId);
+    batch.delete(sessionRef);
+
+    const attendanceSnap = await getDocs(collection(db, "recitation_attendance", sessionId, "recitation_attendance"));
+    attendanceSnap.forEach((attendanceDoc) => batch.delete(attendanceDoc.ref));
+
+    const targetsSnap = await getDocs(collection(db, "session_targets", sessionId, "session_targets"));
+    targetsSnap.forEach((targetDoc) => batch.delete(targetDoc.ref));
+
+    await batch.commit();
+};
+
+export const getTargetActiveRecitationSessions = async (
+    targetId: string,
+    targetType: "group" | "course"
+) => {
+    const [globalSnap, targetedSnap] = await Promise.all([
+        getDocs(query(
+            collectionGroup(db, "recitation_sessions"),
+            where("status", "==", "active"),
+            where("targetType", "==", "all"),
+            orderBy("createdAt", "desc")
+        )),
+        getDocs(query(
+            collectionGroup(db, "recitation_sessions"),
+            where("status", "==", "active"),
+            where("targetType", "==", targetType),
+            orderBy("createdAt", "desc")
+        ))
+    ]);
+
+    const targetedCandidates = targetedSnap.docs.map((sessionDoc) => ({
+        id: sessionDoc.id,
+        ...(sessionDoc.data() as Omit<RecitationSession, "id">)
+    })) as RecitationSession[];
+
+    const targetedWithMatch = await Promise.all(
+        targetedCandidates.map(async (session) => {
+            const targetDocRef = doc(db, "session_targets", session.id!, "session_targets", targetId);
+            const targetDoc = await getDoc(targetDocRef);
+            return targetDoc.exists() ? session : null;
+        })
+    );
+
+    const globalSessions = globalSnap.docs.map((sessionDoc) => ({
+        id: sessionDoc.id,
+        ...(sessionDoc.data() as Omit<RecitationSession, "id">)
+    })) as RecitationSession[];
+
+    const merged = [...globalSessions, ...targetedWithMatch.filter(Boolean) as RecitationSession[]];
+    const unique = new Map<string, RecitationSession>();
+    merged.forEach((session) => {
+        if (session.id) unique.set(session.id, session);
+    });
+
+    return Array.from(unique.values()).sort((a, b) => {
+        const aMs = a.createdAt?.toMillis?.() || 0;
+        const bMs = b.createdAt?.toMillis?.() || 0;
+        return bMs - aMs;
+    });
+};
+
 export const logSessionAttendance = async (sessionId: string, userId: string, userName: string) => {
     const attendanceRef = doc(db, "recitation_attendance", sessionId, "recitation_attendance", userId);
     return await setDoc(attendanceRef, {
@@ -93,5 +171,5 @@ export const getSessionAttendance = async (sessionId: string) => {
         orderBy("joinedAt", "desc")
     );
     const snap = await getDocs(q);
-    return snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as any));
+    return snap.docs.map((entry) => ({ id: entry.id, ...(entry.data() as Omit<SessionAttendance, "id">) } as SessionAttendance));
 };

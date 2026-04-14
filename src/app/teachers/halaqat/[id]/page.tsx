@@ -8,10 +8,11 @@ import {
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Users, Calendar, ArrowRight, CheckCircle2, XCircle, Search, Save, Loader2, BookOpen } from "lucide-react";
+import { Users, Calendar, ArrowRight, CheckCircle2, XCircle, Search, Save, Loader2, BookOpen, Star, Radio, Video, Mic, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { getTargetActiveRecitationSessions, RecitationSession } from "@/lib/recitation-service";
 
 interface Student {
     id: string;
@@ -42,6 +43,8 @@ export default function TeacherHalaqaDetails() {
     const [evalNotes, setEvalNotes] = useState("");
     const [pointsConfig, setPointsConfig] = useState<any>(null);
     const [saving, setSaving] = useState(false);
+    const [recitationSessions, setRecitationSessions] = useState<RecitationSession[]>([]);
+    const [loadingSessions, setLoadingSessions] = useState(true);
 
     useEffect(() => {
         if (!id) return;
@@ -69,6 +72,20 @@ export default function TeacherHalaqaDetails() {
         });
 
         return () => unsubscribe();
+    }, [id]);
+
+    useEffect(() => {
+        if (!id) return;
+        const loadSessions = async () => {
+            setLoadingSessions(true);
+            try {
+                const sessions = await getTargetActiveRecitationSessions(id, "group");
+                setRecitationSessions(sessions);
+            } finally {
+                setLoadingSessions(false);
+            }
+        };
+        void loadSessions();
     }, [id]);
 
     const filteredStudents = students.filter(s => 
@@ -221,6 +238,36 @@ export default function TeacherHalaqaDetails() {
                         className="w-full pl-4 pr-10 py-2 rounded-lg border border-white/10 bg-white/5 focus:ring-2 focus:ring-primary/20 outline-none text-xs transition-all"
                     />
                 </div>
+            </div>
+
+            <div className="space-y-3">
+                <div className="flex items-center gap-2 text-red-500 font-black text-sm px-1">
+                    <Radio className="w-4 h-4 animate-pulse" />
+                    جلسات التسميع المرتبطة بالحلقة
+                </div>
+                {loadingSessions ? (
+                    <div className="flex items-center gap-2 text-xs opacity-50 px-2"><Loader2 className="w-4 h-4 animate-spin" /> جارٍ تحميل الجلسات...</div>
+                ) : recitationSessions.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-white/10 text-xs opacity-60">لا توجد جلسات تسميع فعالة لهذه الحلقة حالياً.</div>
+                ) : (
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {recitationSessions.map((session) => (
+                            <div key={session.id} className="p-4 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-between gap-4">
+                                <div className="min-w-0">
+                                    <p className="font-black text-sm truncate">{session.title}</p>
+                                    <p className="text-[11px] opacity-60 font-bold mt-1 flex items-center gap-1">
+                                        {session.type === "video" ? <Video className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                                        {session.creatorName}
+                                    </p>
+                                </div>
+                                <a href={session.url} target="_blank" rel="noopener noreferrer" className="shrink-0 px-3 py-2 rounded-xl bg-primary text-white text-xs font-black flex items-center gap-1">
+                                    <ExternalLink className="w-3 h-3" />
+                                    دخول
+                                </a>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Students List */}
@@ -398,4 +445,3 @@ export default function TeacherHalaqaDetails() {
         </div>
     );
 }
-import { Star } from "lucide-react";

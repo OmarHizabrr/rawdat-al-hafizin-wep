@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, getDocs, orderBy, Timestamp, collectionGroup } from "firebase/firestore";
-import { createRecitationSession, endRecitationSession, getSessionAttendance, RecitationSession } from "@/lib/recitation-service";
+import { collection, query, where, onSnapshot, getDocs, orderBy, collectionGroup, Timestamp } from "firebase/firestore";
+import { createRecitationSession, deleteRecitationSession, endRecitationSession, getSessionAttendance, RecitationSession, updateRecitationSession } from "@/lib/recitation-service";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { 
     Video, 
@@ -21,11 +21,26 @@ import {
     ChevronLeft,
     Monitor,
     Shield
+    ,
+    Pencil,
+    Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { detectMeetingProvider, meetingProviderOptions, normalizeMeetingUrl } from "@/lib/meeting-links";
+
+interface StudentOption {
+    id: string;
+    displayName?: string;
+    email?: string;
+}
+
+interface AttendanceLog {
+    id?: string;
+    userName: string;
+    joinedAt: Timestamp;
+}
 
 interface Group {
     id: string;
@@ -47,7 +62,7 @@ export default function TeacherRecitationManagement() {
     const [targetType, setTargetType] = useState<'group' | 'individual'>('group');
     const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
     
-    const [groupStudents, setGroupStudents] = useState<any[]>([]);
+    const [groupStudents, setGroupStudents] = useState<StudentOption[]>([]);
     const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
     const [studentSearchQ, setStudentSearchQ] = useState("");
@@ -55,8 +70,12 @@ export default function TeacherRecitationManagement() {
     
     // Attendance Report State
     const [reportSession, setReportSession] = useState<RecitationSession | null>(null);
-    const [attendance, setAttendance] = useState<any[]>([]);
+    const [attendance, setAttendance] = useState<AttendanceLog[]>([]);
     const [loadingReport, setLoadingReport] = useState(false);
+    const [editingSession, setEditingSession] = useState<RecitationSession | null>(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editUrl, setEditUrl] = useState("");
+    const [editType, setEditType] = useState<'video' | 'audio'>('video');
 
     useEffect(() => {
         if (!user) return;
@@ -169,6 +188,41 @@ export default function TeacherRecitationManagement() {
         }
     };
 
+    const handleDelete = async (parentId: string, id: string) => {
+        if (confirm("هل تريد حذف الجلسة نهائياً؟ سيتم حذف السجل المرتبط بها.")) {
+            await deleteRecitationSession(parentId, id);
+        }
+    };
+
+    const openEditModal = (session: RecitationSession) => {
+        setEditingSession(session);
+        setEditTitle(session.title);
+        setEditUrl(session.url);
+        setEditType(session.type);
+    };
+
+    const handleUpdateSession = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingSession?.id || !editTitle || !editUrl) return;
+        const normalized = normalizeMeetingUrl(editUrl);
+        if (normalized.error) {
+            setUrlFeedback(normalized.error);
+            return;
+        }
+        setSaving(true);
+        try {
+            await updateRecitationSession(editingSession.parentId, editingSession.id, {
+                title: editTitle,
+                url: normalized.normalized,
+                type: editType
+            });
+            setEditingSession(null);
+            setUrlFeedback("");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleViewReport = async (session: RecitationSession) => {
         setReportSession(session);
         setLoadingReport(true);
@@ -222,6 +276,8 @@ export default function TeacherRecitationManagement() {
                             key={session.id} 
                             session={session} 
                             onEnd={() => handleEnd(session.parentId, session.id!)} 
+                            onDelete={() => handleDelete(session.parentId, session.id!)}
+                            onEdit={() => openEditModal(session)}
                             onReport={() => handleViewReport(session)}
                             isActive
                         />
@@ -265,12 +321,16 @@ export default function TeacherRecitationManagement() {
                                                 {session.createdAt.toDate().toLocaleDateString('ar-EG')}
                                             </td>
                                             <td className="p-3 md:p-4">
-                                                <button 
-                                                    onClick={() => handleViewReport(session)}
-                                                    className="flex items-center gap-1.5 md:gap-2 text-primary font-bold text-[10px] md:text-sm hover:underline"
-                                                >
-                                                    <Users className="w-3.5 h-3.5 md:w-4 md:h-4" /> السجل
-                                                </button>
+                                                <div className="flex items-center gap-3">
+                                                    <button 
+                                                        onClick={() => handleViewReport(session)}
+                                                        className="flex items-center gap-1.5 md:gap-2 text-primary font-bold text-[10px] md:text-sm hover:underline"
+                                                    >
+                                                        <Users className="w-3.5 h-3.5 md:w-4 md:h-4" /> السجل
+                                                    </button>
+                                                    <button onClick={() => openEditModal(session)} className="text-amber-500"><Pencil className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDelete(session.parentId, session.id!)} className="text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -529,11 +589,34 @@ export default function TeacherRecitationManagement() {
                     </div>
                 )}
             </AnimatePresence>
+
+            <AnimatePresence>
+                {editingSession && (
+                    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditingSession(null)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+                        <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="relative z-10 flex w-full max-w-xl min-h-0 flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 bg-background shadow-2xl sm:rounded-[2rem]">
+                            <div className="flex shrink-0 items-center justify-between border-b border-white/5 bg-white/5 p-5 md:p-8">
+                                <h3 className="text-xl font-black">تعديل جلسة التسميع</h3>
+                                <button type="button" onClick={() => setEditingSession(null)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-5 h-5" /></button>
+                            </div>
+                            <form onSubmit={handleUpdateSession} className="space-y-4 p-6 md:p-8">
+                                <input required value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full p-4 rounded-2xl border bg-white/5 outline-none" />
+                                <input required value={editUrl} onChange={(e) => setEditUrl(e.target.value)} className="w-full p-4 rounded-2xl border bg-white/5 outline-none ltr text-right" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button type="button" onClick={() => setEditType('video')} className={cn("p-3 rounded-xl border font-bold", editType === 'video' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}>فيديو</button>
+                                    <button type="button" onClick={() => setEditType('audio')} className={cn("p-3 rounded-xl border font-bold", editType === 'audio' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}>صوتي</button>
+                                </div>
+                                <button disabled={saving} type="submit" className="w-full py-4 rounded-2xl bg-primary text-white font-black">{saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}</button>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
- function SessionCard({ session, onEnd, onReport, isActive }: { session: RecitationSession, onEnd?: () => void, onReport?: () => void, isActive?: boolean }) {
+ function SessionCard({ session, onEnd, onReport, onEdit, onDelete, isActive }: { session: RecitationSession, onEnd?: () => void, onReport?: () => void, onEdit?: () => void, onDelete?: () => void, isActive?: boolean }) {
      return (
          <GlassCard className={cn(
              "p-5 md:p-8 space-y-5 md:space-y-6 group transition-all relative overflow-hidden",
@@ -589,6 +672,10 @@ export default function TeacherRecitationManagement() {
                             <X className="w-4 h-4" /> إنهاء
                         </button>
                     )}
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={onEdit} className="flex-1 py-2 bg-amber-500/10 text-amber-500 rounded-xl font-bold text-xs flex items-center justify-center gap-2"><Pencil className="w-4 h-4" /> تعديل</button>
+                    <button onClick={onDelete} className="flex-1 py-2 bg-red-500/10 text-red-500 rounded-xl font-bold text-xs flex items-center justify-center gap-2"><Trash2 className="w-4 h-4" /> حذف</button>
                 </div>
             </div>
         </GlassCard>

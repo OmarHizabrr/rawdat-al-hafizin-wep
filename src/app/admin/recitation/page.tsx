@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, getDocs, orderBy, Timestamp, collectionGroup } from "firebase/firestore";
+import { collection, query, where, onSnapshot, getDocs, orderBy, collectionGroup } from "firebase/firestore";
 import { createRecitationSession, endRecitationSession, getSessionAttendance, RecitationSession } from "@/lib/recitation-service";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { 
@@ -14,7 +14,6 @@ import {
     Users, 
     ExternalLink, 
     Clock, 
-    Radio, 
     CheckCircle2, 
     AlertCircle, 
     Loader2,
@@ -23,16 +22,32 @@ import {
     Shield,
     GraduationCap,
     Globe,
-    BookOpen
+    BookOpen,
+    Pencil,
+    Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { detectMeetingProvider, meetingProviderOptions, normalizeMeetingUrl } from "@/lib/meeting-links";
+import { deleteRecitationSession, updateRecitationSession } from "@/lib/recitation-service";
+import { Timestamp } from "firebase/firestore";
 
 interface Target {
     id: string;
     name: string;
+}
+
+interface StudentOption {
+    id: string;
+    displayName?: string;
+    email?: string;
+}
+
+interface AttendanceLog {
+    id?: string;
+    userName: string;
+    joinedAt: Timestamp;
 }
 
 export default function AdminRecitationManagement() {
@@ -52,15 +67,19 @@ export default function AdminRecitationManagement() {
     const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
     
     // Students handling
-    const [groupStudents, setGroupStudents] = useState<any[]>([]);
+    const [groupStudents, setGroupStudents] = useState<StudentOption[]>([]);
     const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
     const [studentSearchQ, setStudentSearchQ] = useState("");
     const [urlFeedback, setUrlFeedback] = useState("");
+    const [editingSession, setEditingSession] = useState<RecitationSession | null>(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editUrl, setEditUrl] = useState("");
+    const [editType, setEditType] = useState<'video' | 'audio'>('video');
     
     // Attendance Report State
     const [reportSession, setReportSession] = useState<RecitationSession | null>(null);
-    const [attendance, setAttendance] = useState<any[]>([]);
+    const [attendance, setAttendance] = useState<AttendanceLog[]>([]);
     const [loadingReport, setLoadingReport] = useState(false);
 
     useEffect(() => {
@@ -179,6 +198,41 @@ export default function AdminRecitationManagement() {
         }
     };
 
+    const handleDelete = async (parentId: string, id: string) => {
+        if (confirm("هل تريد حذف الجلسة نهائياً؟ سيتم حذف السجل المرتبط بها.")) {
+            await deleteRecitationSession(parentId, id);
+        }
+    };
+
+    const openEditModal = (session: RecitationSession) => {
+        setEditingSession(session);
+        setEditTitle(session.title);
+        setEditUrl(session.url);
+        setEditType(session.type);
+    };
+
+    const handleUpdateSession = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingSession?.id || !editTitle || !editUrl) return;
+        const normalized = normalizeMeetingUrl(editUrl);
+        if (normalized.error) {
+            setUrlFeedback(normalized.error);
+            return;
+        }
+        setSaving(true);
+        try {
+            await updateRecitationSession(editingSession.parentId, editingSession.id, {
+                title: editTitle,
+                url: normalized.normalized,
+                type: editType
+            });
+            setEditingSession(null);
+            setUrlFeedback("");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleViewReport = async (session: RecitationSession) => {
         setReportSession(session);
         setLoadingReport(true);
@@ -232,6 +286,8 @@ export default function AdminRecitationManagement() {
                             key={session.id} 
                             session={session} 
                             onEnd={() => handleEnd(session.parentId, session.id!)} 
+                            onDelete={() => handleDelete(session.parentId, session.id!)}
+                            onEdit={() => openEditModal(session)}
                             onReport={() => handleViewReport(session)}
                             isActive
                         />
@@ -277,19 +333,23 @@ export default function AdminRecitationManagement() {
                                             </td>
                                             <td className="p-5">
                                                 <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg border border-primary/20">
-                                                    {targetTypeLabel(session, groups, courses)}
+                                                    {targetTypeLabel(session)}
                                                 </span>
                                             </td>
                                             <td className="p-5 text-xs font-bold opacity-40">
                                                 {session.createdAt.toDate().toLocaleString('ar-EG')}
                                             </td>
                                             <td className="p-5">
-                                                <button 
-                                                    onClick={() => handleViewReport(session)}
-                                                    className="flex items-center gap-2 text-primary font-black text-xs hover:underline decoration-2 underline-offset-4"
-                                                >
-                                                    <Users className="w-3 h-3" /> سجل الحضور
-                                                </button>
+                                                <div className="flex items-center gap-3">
+                                                    <button 
+                                                        onClick={() => handleViewReport(session)}
+                                                        className="flex items-center gap-2 text-primary font-black text-xs hover:underline decoration-2 underline-offset-4"
+                                                    >
+                                                        <Users className="w-3 h-3" /> سجل الحضور
+                                                    </button>
+                                                    <button onClick={() => openEditModal(session)} className="text-amber-500"><Pencil className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDelete(session.parentId, session.id!)} className="text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -393,7 +453,7 @@ export default function AdminRecitationManagement() {
                                             {id: 'individual', label: 'طلاب', icon: Users}
                                         ].map(target => (
                                             <button
-                                                key={target.id} type="button" onClick={() => { setTargetType(target.id as any); setSelectedGroupIds([]); setSelectedCourseIds([]); setSelectedStudentIds([]); setStudentSearchQ(""); }}
+                                                key={target.id} type="button" onClick={() => { setTargetType(target.id as 'group' | 'course' | 'individual' | 'all'); setSelectedGroupIds([]); setSelectedCourseIds([]); setSelectedStudentIds([]); setStudentSearchQ(""); }}
                                                 className={cn(
                                                     "py-4 rounded-2xl border flex flex-col items-center justify-center gap-2 font-black text-xs transition-all",
                                                     targetType === target.id ? "bg-primary/20 border-primary text-primary" : "bg-white/5 border-white/10 opacity-40"
@@ -494,11 +554,33 @@ export default function AdminRecitationManagement() {
 
             {/* Same Attendance Modal... (Consider putting this in a shared component if needed) */}
             <AttendanceModal reportSession={reportSession} attendance={attendance} loading={loadingReport} onClose={() => setReportSession(null)} />
+            <AnimatePresence>
+                {editingSession && (
+                    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditingSession(null)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+                        <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="relative z-10 flex w-full max-w-xl min-h-0 flex-col overflow-hidden rounded-t-[1.5rem] border border-white/10 bg-background shadow-2xl sm:rounded-[2rem]">
+                            <div className="flex shrink-0 items-center justify-between border-b border-white/5 bg-white/5 p-5 md:p-8">
+                                <h3 className="text-xl font-black">تعديل جلسة التسميع</h3>
+                                <button type="button" onClick={() => setEditingSession(null)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-5 h-5" /></button>
+                            </div>
+                            <form onSubmit={handleUpdateSession} className="space-y-4 p-6 md:p-8">
+                                <input required value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full p-4 rounded-2xl border bg-white/5 outline-none" />
+                                <input required value={editUrl} onChange={(e) => setEditUrl(e.target.value)} className="w-full p-4 rounded-2xl border bg-white/5 outline-none ltr text-right" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button type="button" onClick={() => setEditType('video')} className={cn("p-3 rounded-xl border font-bold", editType === 'video' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}>فيديو</button>
+                                    <button type="button" onClick={() => setEditType('audio')} className={cn("p-3 rounded-xl border font-bold", editType === 'audio' ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}>صوتي</button>
+                                </div>
+                                <button disabled={saving} type="submit" className="w-full py-4 rounded-2xl bg-primary text-white font-black">{saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}</button>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
 
-function targetTypeLabel(session: RecitationSession, groups: Target[], courses: Target[]) {
+function targetTypeLabel(session: RecitationSession) {
     if (session.targetType === 'all') return "الكل (Global)";
     if (session.targetType === 'individual') return "طلاب مخصصين";
     if (session.targetType === 'group') return `تحديد حلقات`;
@@ -506,7 +588,7 @@ function targetTypeLabel(session: RecitationSession, groups: Target[], courses: 
     return session.targetType;
 }
 
-function AdminSessionCard({ session, onEnd, onReport, isActive }: { session: RecitationSession, onEnd?: () => void, onReport?: () => void, isActive?: boolean }) {
+function AdminSessionCard({ session, onEnd, onReport, onEdit, onDelete, isActive }: { session: RecitationSession, onEnd?: () => void, onReport?: () => void, onEdit?: () => void, onDelete?: () => void, isActive?: boolean }) {
     return (
         <GlassCard className={cn(
             "p-10 space-y-8 group transition-all relative overflow-hidden",
@@ -539,13 +621,17 @@ function AdminSessionCard({ session, onEnd, onReport, isActive }: { session: Rec
                     <button onClick={onReport} className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-sm flex items-center justify-center gap-3 border border-white/10 transition-all"><Users className="w-5 h-5" /> التقارير</button>
                     <button onClick={onEnd} className="flex-1 py-4 bg-red-500 text-white hover:bg-red-600 rounded-2xl font-black text-sm flex items-center justify-center gap-3 shadow-xl shadow-red-500/20 transition-all"><X className="w-5 h-5" /> إغلاق</button>
                 </div>
+                <div className="flex gap-3">
+                    <button onClick={onEdit} className="flex-1 py-3 bg-amber-500/10 text-amber-500 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all"><Pencil className="w-4 h-4" /> تعديل</button>
+                    <button onClick={onDelete} className="flex-1 py-3 bg-red-500/10 text-red-500 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all"><Trash2 className="w-4 h-4" /> حذف</button>
+                </div>
                 <a href={session.url} target="_blank" className="w-full py-4 bg-primary text-white rounded-2xl font-black text-sm flex items-center justify-center gap-3 shadow-xl transition-all">فتح الرابط المباشر <ExternalLink className="w-5 h-5" /></a>
             </div>
         </GlassCard>
     );
 }
 
-function AttendanceModal({ reportSession, attendance, loading, onClose }: any) {
+function AttendanceModal({ reportSession, attendance, loading, onClose }: { reportSession: RecitationSession | null; attendance: AttendanceLog[]; loading: boolean; onClose: () => void }) {
     return (
         <AnimatePresence>
             {reportSession && (
@@ -564,7 +650,7 @@ function AttendanceModal({ reportSession, attendance, loading, onClose }: any) {
                                         <span className="text-3xl font-black">{attendance.length}</span>
                                     </div>
                                     <div className="grid gap-3">
-                                        {attendance.map((log: any, idx: number) => (
+                                        {attendance.map((log, idx: number) => (
                                             <div key={idx} className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/5">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center font-black text-primary border border-primary/20">{log.userName[0]}</div>

@@ -42,6 +42,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { EliteDialog } from "@/components/ui/EliteDialog";
+import { getTargetActiveRecitationSessions, RecitationSession } from "@/lib/recitation-service";
 
 interface Course {
     id: string;
@@ -75,10 +76,11 @@ interface Level {
 export default function CourseDetails() {
     const { id } = useParams<{ id: string }>();
     const router = useRouter();
-    const { user } = useAuth();
     const [course, setCourse] = useState<Course | null>(null);
     const [levels, setLevels] = useState<Level[]>([]);
     const [loading, setLoading] = useState(true);
+    const [recitationSessions, setRecitationSessions] = useState<RecitationSession[]>([]);
+    const [loadingRecitations, setLoadingRecitations] = useState(true);
 
     useEffect(() => {
         const loadCourse = async () => {
@@ -103,6 +105,20 @@ export default function CourseDetails() {
             }
         };
         loadCourse();
+    }, [id]);
+
+    useEffect(() => {
+        if (!id) return;
+        const loadRecitations = async () => {
+            setLoadingRecitations(true);
+            try {
+                const sessions = await getTargetActiveRecitationSessions(id, "course");
+                setRecitationSessions(sessions);
+            } finally {
+                setLoadingRecitations(false);
+            }
+        };
+        void loadRecitations();
     }, [id]);
 
     const formatDate = (ts: Timestamp | null) => {
@@ -265,6 +281,35 @@ export default function CourseDetails() {
                                 ))}
                             </div>
                         )}
+
+                        <div className="space-y-4 pt-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center border border-red-500/20">
+                                    <Users className="w-5 h-5 text-red-500" />
+                                </div>
+                                <h2 className="text-2xl font-bold tracking-tight">جلسات التسميع المرتبطة بالدورة</h2>
+                            </div>
+                            {loadingRecitations ? (
+                                <div className="text-xs font-bold opacity-50 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> جارٍ تحميل الجلسات...</div>
+                            ) : recitationSessions.length === 0 ? (
+                                <GlassCard className="p-6 border-dashed border-white/10 text-sm opacity-60">لا توجد جلسات تسميع فعالة مرتبطة بهذه الدورة الآن.</GlassCard>
+                            ) : (
+                                <div className="grid gap-3">
+                                    {recitationSessions.map((session) => (
+                                        <GlassCard key={session.id} className="p-4 border-white/10 bg-white/[0.02] flex items-center justify-between gap-4">
+                                            <div className="min-w-0">
+                                                <h4 className="font-black text-sm truncate">{session.title}</h4>
+                                                <p className="text-[11px] opacity-60 mt-1 font-bold">{session.creatorName}</p>
+                                            </div>
+                                            <a href={session.url} target="_blank" rel="noopener noreferrer" className="shrink-0 px-3 py-2 rounded-xl bg-primary text-white text-xs font-black flex items-center gap-2">
+                                                <ExternalLink className="w-3 h-3" />
+                                                فتح الجلسة
+                                            </a>
+                                        </GlassCard>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -329,7 +374,7 @@ function RegistrationSection({ course }: { course: Course }) {
     const [isRegistered, setIsRegistered] = useState(false);
     const [checking, setChecking] = useState(true);
     const [registering, setRegistering] = useState(false);
-    const [dialogConfig, setDialogConfig] = useState({ open: false, type: 'success', title: '', desc: '' });
+    const [dialogConfig, setDialogConfig] = useState<{ open: boolean; type: 'success' | 'danger'; title: string; desc: string }>({ open: false, type: 'success', title: '', desc: '' });
 
     useEffect(() => {
         if (!user) {
@@ -470,7 +515,7 @@ function RegistrationSection({ course }: { course: Course }) {
                         window.open(course.whatsappLink, '_blank');
                     }
                 }}
-                type={dialogConfig.type as any}
+                type={dialogConfig.type}
                 title={dialogConfig.title}
                 description={dialogConfig.desc}
                 confirmText={dialogConfig.type === 'success' && course.whatsappLink ? "الانضمام للواتساب" : "موافق"}
@@ -479,7 +524,7 @@ function RegistrationSection({ course }: { course: Course }) {
     );
 }
 
-function EliteAccordion({ index, title, subtitle, children }: any) {
+function EliteAccordion({ index, title, subtitle, children }: { index: number; title: string; subtitle: string; children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(index === 1);
     return (
         <GlassCard className="p-0 overflow-hidden border-white/5 shadow-xl transition-all hover:border-white/10 group">
@@ -556,7 +601,7 @@ function ResourceItem({ resource }: { resource: Resource }) {
     );
 }
 
-function SidebarStat({ icon: Icon, label, value, color }: any) {
+function SidebarStat({ icon: Icon, label, value, color }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; color?: 'primary' }) {
     return (
         <div className="flex items-start gap-4 group">
             <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 flex-shrink-0 group-hover:scale-110 transition-transform">
