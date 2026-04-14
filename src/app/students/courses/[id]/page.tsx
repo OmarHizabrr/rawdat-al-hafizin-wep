@@ -11,7 +11,9 @@ import {
     getDocs, 
     Timestamp, 
     writeBatch,
-    serverTimestamp
+    serverTimestamp,
+    setDoc,
+    where
 } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -43,6 +45,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { EliteDialog } from "@/components/ui/EliteDialog";
 import { getTargetActiveRecitationSessions, RecitationSession } from "@/lib/recitation-service";
+import { computeWirdPages, CoursePlanTrack, WirdInputMode } from "@/lib/daily-wird";
 
 interface Course {
     id: string;
@@ -57,6 +60,9 @@ interface Course {
     features: string[];
     whatsappLink?: string;
     conditions?: string[];
+    dailyMinPages?: number;
+    dailyTargetMode?: "pages" | "range" | "both";
+    planTracks?: CoursePlanTrack[];
 }
 
 interface Resource {
@@ -76,6 +82,7 @@ interface Level {
 export default function CourseDetails() {
     const { id } = useParams<{ id: string }>();
     const router = useRouter();
+    const { user } = useAuth();
     const [course, setCourse] = useState<Course | null>(null);
     const [levels, setLevels] = useState<Level[]>([]);
     const [loading, setLoading] = useState(true);
@@ -310,6 +317,16 @@ export default function CourseDetails() {
                                 </div>
                             )}
                         </div>
+
+                        {user && (
+                            <DailyWirdSection
+                                courseId={id}
+                                userId={user.uid}
+                                courseTitle={course.title}
+                                dailyMinPages={course.dailyMinPages || 1}
+                                planTracks={course.planTracks || []}
+                            />
+                        )}
                     </div>
                 </div>
 
@@ -375,6 +392,7 @@ function RegistrationSection({ course }: { course: Course }) {
     const [checking, setChecking] = useState(true);
     const [registering, setRegistering] = useState(false);
     const [dialogConfig, setDialogConfig] = useState<{ open: boolean; type: 'success' | 'danger'; title: string; desc: string }>({ open: false, type: 'success', title: '', desc: '' });
+    const [agreedConditions, setAgreedConditions] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -401,6 +419,9 @@ function RegistrationSection({ course }: { course: Course }) {
                 studentName: user.displayName || userData?.displayName || "طالب",
                 studentEmail: user.email,
                 status: "accepted",
+                agreedToConditions: agreedConditions,
+                agreedAt: agreedConditions ? serverTimestamp() : null,
+                enrolledBy: "self"
             });
             await batch.commit();
             setIsRegistered(true);
@@ -433,6 +454,7 @@ function RegistrationSection({ course }: { course: Course }) {
         now < course.registrationEnd.toDate();
 
     const isStudent = userData?.role === 'student' || userData?.role === 'admin' || userData?.role === 'committee';
+    const requiresAgreement = (course.conditions?.length || 0) > 0;
 
     if (isRegistered) {
         return (
@@ -493,8 +515,19 @@ function RegistrationSection({ course }: { course: Course }) {
                     يجب اعتماد ملفك الشخصي من قبل اللجنة العلمية أولاً لتتمكن من التسجيل في الدورات.
                 </div>
             )}
+            {requiresAgreement && (
+                <label className="mb-4 flex items-start gap-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 text-xs font-bold text-orange-600">
+                    <input
+                        type="checkbox"
+                        checked={agreedConditions}
+                        onChange={(e) => setAgreedConditions(e.target.checked)}
+                        className="mt-0.5"
+                    />
+                    <span>أوافق على جميع شروط الدورة، وأتعهد بالالتزام بها.</span>
+                </label>
+            )}
             <button
-                disabled={!isRegOpen || registering || !isStudent}
+                disabled={!isRegOpen || registering || !isStudent || (requiresAgreement && !agreedConditions)}
                 onClick={handleRegister}
                 className={cn(
                     "w-full px-8 py-5 rounded-2xl font-bold text-white transition-all shadow-xl flex items-center justify-center gap-3",
@@ -521,6 +554,137 @@ function RegistrationSection({ course }: { course: Course }) {
                 confirmText={dialogConfig.type === 'success' && course.whatsappLink ? "الانضمام للواتساب" : "موافق"}
             />
         </>
+    );
+}
+
+function DailyWirdSection({
+    courseId,
+    userId,
+    courseTitle,
+    dailyMinPages,
+    planTracks
+}: {
+    courseId: string;
+    userId: string;
+    courseTitle: string;
+    dailyMinPages: number;
+    planTracks: CoursePlanTrack[];
+}) {
+    const [todayEntry, setTodayEntry] = useState<{ computedPages: number } | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [trackId, setTrackId] = useState("");
+    const [mode, setMode] = useState<WirdInputMode>("pages");
+    const [pagesCount, setPagesCount] = useState(1);
+    const [fromPage, setFromPage] = useState(1);
+    const [toPage, setToPage] = useState(1);
+
+    const todayKey = new Date().toISOString().split("T")[0];
+
+    useEffect(() => {
+        const loadToday = async () => {
+            setLoading(true);
+            try {
+                const q = query(
+                    collection(db, "daily_wird", courseId, "users", userId, "entries"),
+                    where("date", "==", todayKey)
+                );
+                const snap = await getDocs(q);
+                const total = snap.docs.reduce((sum, entry) => sum + Number(entry.data().computedPages || 0), 0);
+                setTodayEntry({ computedPages: total });
+            } finally {
+                setLoading(false);
+            }
+        };
+        void loadToday();
+    }, [courseId, todayKey, userId]);
+
+    const handleSaveWird = async () => {
+        if (!trackId) return;
+        const computedPages = computeWirdPages(mode, pagesCount, fromPage, toPage);
+        if (computedPages <= 0) return;
+        setSaving(true);
+        try {
+            const entryRef = doc(collection(db, "daily_wird", courseId, "users", userId, "entries"));
+            await setDoc(entryRef, {
+                courseId,
+                userId,
+                date: todayKey,
+                trackId,
+                mode,
+                pagesCount: mode === "pages" ? pagesCount : null,
+                fromPage: mode === "range" ? fromPage : null,
+                toPage: mode === "range" ? toPage : null,
+                computedPages,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+            setTodayEntry(prev => ({ computedPages: Number(prev?.computedPages || 0) + computedPages }));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <GlassCard className="p-6 md:p-8 border-primary/20 bg-primary/5 space-y-5">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <h3 className="text-lg md:text-xl font-black">أكمل وردك اليومي</h3>
+                    <p className="text-xs text-muted-foreground mt-1">{courseTitle}</p>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-white/10 text-xs font-black">
+                    الحد الأدنى: {dailyMinPages} صفحة
+                </span>
+            </div>
+
+            <div className="p-4 rounded-xl border border-white/10 bg-white/5 text-sm font-bold">
+                {loading ? "جارٍ تحميل إنجاز اليوم..." : `إنجازك اليوم: ${todayEntry?.computedPages || 0} صفحة`}
+                {!loading && (todayEntry?.computedPages || 0) >= dailyMinPages && (
+                    <span className="text-emerald-500 text-xs ms-2">ممتاز، أكملت الحد الأدنى اليومي</span>
+                )}
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <label className="text-xs font-black opacity-60">المجلد</label>
+                    <select value={trackId} onChange={(e) => setTrackId(e.target.value)} className="w-full p-3 rounded-xl border bg-background/60 font-bold text-sm">
+                        <option value="">اختر المجلد</option>
+                        {planTracks.map(track => (
+                            <option key={track.id} value={track.id}>{track.title} ({track.totalPages})</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-black opacity-60">طريقة التسجيل</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => setMode("pages")} className={cn("p-3 rounded-xl border text-sm font-black", mode === "pages" ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}>عدد صفحات</button>
+                        <button type="button" onClick={() => setMode("range")} className={cn("p-3 rounded-xl border text-sm font-black", mode === "range" ? "bg-primary text-white border-primary" : "bg-white/5 border-white/10")}>من / إلى</button>
+                    </div>
+                </div>
+            </div>
+
+            {mode === "pages" ? (
+                <div className="space-y-2">
+                    <label className="text-xs font-black opacity-60">عدد الصفحات المنجزة</label>
+                    <input type="number" min={1} value={pagesCount} onChange={(e) => setPagesCount(Number(e.target.value) || 1)} className="w-full p-3 rounded-xl border bg-background/60 font-bold" />
+                </div>
+            ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-black opacity-60">من صفحة</label>
+                        <input type="number" min={1} value={fromPage} onChange={(e) => setFromPage(Number(e.target.value) || 1)} className="w-full p-3 rounded-xl border bg-background/60 font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-black opacity-60">إلى صفحة</label>
+                        <input type="number" min={fromPage} value={toPage} onChange={(e) => setToPage(Number(e.target.value) || fromPage)} className="w-full p-3 rounded-xl border bg-background/60 font-bold" />
+                    </div>
+                </div>
+            )}
+
+            <button disabled={saving || !trackId} onClick={handleSaveWird} className="w-full py-3.5 rounded-xl bg-primary text-white text-sm font-black shadow-lg hover:bg-primary/90 disabled:opacity-50">
+                {saving ? "جارٍ تسجيل الورد..." : "تسجيل الورد اليومي"}
+            </button>
+        </GlassCard>
     );
 }
 

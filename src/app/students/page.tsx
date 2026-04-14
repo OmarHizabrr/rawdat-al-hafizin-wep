@@ -106,6 +106,12 @@ type PointsLogRow = {
     timestamp?: { toDate: () => Date };
 };
 
+type CourseWirdStatus = {
+    courseId: string;
+    totalTodayPages: number;
+    dailyMinPages: number;
+};
+
 type LeaderboardRow = {
     id: string;
     displayName?: string;
@@ -124,6 +130,7 @@ interface Course {
     folderId?: string;
     selectedVolumeIds?: string[];
     planTemplateId?: string;
+    dailyMinPages?: number;
 }
 
 interface Group {
@@ -214,6 +221,7 @@ export default function StudentsDashboard() {
     const [templateVolumes, setTemplateVolumes] = useState<{volumeId: string, tierId?: string}[]>([]);
     const [courseVolumes, setCourseVolumes] = useState<string[]>([]);
     const [celebratedVolume, setCelebratedVolume] = useState<SunnahVolume | null>(null);
+    const [dailyWirdStatuses, setDailyWirdStatuses] = useState<CourseWirdStatus[]>([]);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -267,6 +275,32 @@ export default function StudentsDashboard() {
 
         fetchInitialData();
     }, [user]);
+
+    useEffect(() => {
+        if (!user || joinedCourseIds.size === 0) {
+            setDailyWirdStatuses([]);
+            return;
+        }
+        const todayKey = new Date().toISOString().split("T")[0];
+        const loadDailyStatuses = async () => {
+            const joined = courses.filter(c => joinedCourseIds.has(c.id));
+            const statuses = await Promise.all(joined.map(async (course) => {
+                const entriesQ = query(
+                    collection(db, "daily_wird", course.id, "users", user.uid, "entries"),
+                    where("date", "==", todayKey)
+                );
+                const snap = await getDocs(entriesQ);
+                const totalTodayPages = snap.docs.reduce((sum, entry) => sum + Number(entry.data().computedPages || 0), 0);
+                return {
+                    courseId: course.id,
+                    totalTodayPages,
+                    dailyMinPages: Number(course.dailyMinPages || 1)
+                };
+            }));
+            setDailyWirdStatuses(statuses);
+        };
+        void loadDailyStatuses();
+    }, [courses, joinedCourseIds, user]);
 
     // Fetch Testimonials
     useEffect(() => {
@@ -899,6 +933,34 @@ export default function StudentsDashboard() {
 
             {/* Courses & Groups */}
             <div className="space-y-12">
+                {joinedCourseIds.size > 0 && (
+                    <section className="space-y-4">
+                        <h3 className="text-xl font-black flex items-center gap-3 px-2"><Calendar className="w-5 h-5 text-primary" /> أكمل وردك اليومي</h3>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {courses.filter(c => joinedCourseIds.has(c.id)).map((course) => {
+                                const status = dailyWirdStatuses.find(s => s.courseId === course.id);
+                                const todayPages = status?.totalTodayPages || 0;
+                                const minPages = status?.dailyMinPages || Number(course.dailyMinPages || 1);
+                                const done = todayPages >= minPages;
+                                return (
+                                    <GlassCard key={`daily-${course.id}`} className={cn("p-5 rounded-2xl border", done ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5")}>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="font-black text-sm truncate">{course.title}</p>
+                                            <span className={cn("text-[10px] font-black px-2 py-1 rounded-lg", done ? "bg-emerald-500 text-white" : "bg-amber-500 text-white")}>
+                                                {done ? "مكتمل" : "قيد المتابعة"}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs opacity-70 mt-2">اليوم: {todayPages} / {minPages} صفحة</p>
+                                        <Link href={`/students/courses/${course.id}`} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-primary hover:underline">
+                                            أكمل الورد الآن <ArrowUpRight className="w-3.5 h-3.5" />
+                                        </Link>
+                                    </GlassCard>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
+
                 <section className="space-y-6">
                     <div className="space-y-1 px-2">
                         <h3 className="text-2xl font-black flex items-center gap-3">

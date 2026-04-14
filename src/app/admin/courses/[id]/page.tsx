@@ -39,6 +39,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import { EliteDialog } from "@/components/ui/EliteDialog";
 import { getTargetActiveRecitationSessions, RecitationSession } from "@/lib/recitation-service";
+import { CoursePlanTrack, DEFAULT_COURSE_TRACKS } from "@/lib/daily-wird";
 
 interface Resource {
     id: string;
@@ -59,6 +60,9 @@ interface LevelModel {
 interface CourseModel {
     id: string;
     title: string;
+    dailyMinPages?: number;
+    dailyTargetMode?: "pages" | "range" | "both";
+    planTracks?: CoursePlanTrack[];
 }
 
 export default function CourseDetailsManagement() {
@@ -79,6 +83,8 @@ export default function CourseDetailsManagement() {
     const [saving, setSaving] = useState(false);
     const [recitationSessions, setRecitationSessions] = useState<RecitationSession[]>([]);
     const [loadingRecitations, setLoadingRecitations] = useState(true);
+    const [dailyMinPages, setDailyMinPages] = useState<number>(1);
+    const [planTracks, setPlanTracks] = useState<CoursePlanTrack[]>([]);
 
     // Dialog state
     const [dialogConfig, setDialogConfig] = useState<{
@@ -101,7 +107,10 @@ export default function CourseDetailsManagement() {
         const fetchCourse = async () => {
             const snap = await getDoc(doc(db, "courses", id));
             if (snap.exists()) {
-                setCourse({ id: snap.id, ...snap.data() } as CourseModel);
+                const courseData = { id: snap.id, ...snap.data() } as CourseModel;
+                setCourse(courseData);
+                setDailyMinPages(courseData.dailyMinPages || 1);
+                setPlanTracks(courseData.planTracks?.length ? courseData.planTracks : []);
             }
         };
         fetchCourse();
@@ -134,6 +143,59 @@ export default function CourseDetailsManagement() {
 
     const showDialog = (type: 'success' | 'danger' | 'warning', title: string, description: string, onConfirm?: () => void) => {
         setDialogConfig({ isOpen: true, type, title, description, onConfirm });
+    };
+
+    const handleLoadDefaultTracks = () => {
+        setPlanTracks(DEFAULT_COURSE_TRACKS);
+        if (dailyMinPages < 1) setDailyMinPages(1);
+    };
+
+    const handleTrackField = (index: number, field: "title" | "totalPages", value: string | number) => {
+        setPlanTracks(prev => prev.map((track, idx) => {
+            if (idx !== index) return track;
+            if (field === "title") return { ...track, title: String(value) };
+            return { ...track, totalPages: Number(value) || 0 };
+        }));
+    };
+
+    const handleAddTrack = () => {
+        setPlanTracks(prev => [...prev, {
+            id: `track-${Date.now()}`,
+            title: "",
+            totalPages: 0
+        }]);
+    };
+
+    const handleRemoveTrack = (index: number) => {
+        setPlanTracks(prev => prev.filter((_, idx) => idx !== index));
+    };
+
+    const handleSaveDailyPlan = async () => {
+        if (!course) return;
+        const validTracks = planTracks
+            .map(track => ({ ...track, title: track.title.trim(), totalPages: Number(track.totalPages) || 0 }))
+            .filter(track => track.title && track.totalPages > 0);
+
+        if (validTracks.length === 0) {
+            showDialog("warning", "لا توجد بيانات كافية", "أضف مسار حفظ واحداً على الأقل بعنوان وعدد صفحات صالح.");
+            return;
+        }
+
+        setSaving(true);
+        try {
+            await updateDoc(doc(db, "courses", id), {
+                dailyMinPages: Math.max(1, Number(dailyMinPages) || 1),
+                dailyTargetMode: "both",
+                planTracks: validTracks,
+                updatedAt: serverTimestamp()
+            });
+            showDialog("success", "تم حفظ الخطة", "تم تحديث الحد الأدنى اليومي وخطة مجلدات الحفظ بنجاح.");
+        } catch (error) {
+            console.error(error);
+            showDialog("danger", "تعذر الحفظ", "حدث خطأ أثناء حفظ إعدادات الخطة.");
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleAddLevel = async (e: React.FormEvent) => {
@@ -284,6 +346,66 @@ export default function CourseDetailsManagement() {
                         ))}
                     </div>
                 )}
+            </GlassCard>
+
+            <GlassCard className="p-6 md:p-8 space-y-6 border-primary/20 bg-primary/5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-xl font-black flex items-center gap-2"><BookOpen className="w-5 h-5 text-primary" /> إعداد خطة الورد اليومي</h2>
+                        <p className="text-xs text-muted-foreground mt-1">الطالب يلتزم بالحد الأدنى اليومي ويمكنه الإنجاز أكثر.</p>
+                    </div>
+                    <button onClick={handleLoadDefaultTracks} className="px-4 py-2 rounded-xl border border-primary/20 bg-primary/10 text-primary text-xs font-black hover:bg-primary/20 transition-colors">
+                        تحميل المجلدات المتفق عليها
+                    </button>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-black opacity-60">الحد الأدنى اليومي (صفحات)</label>
+                        <input type="number" min={1} value={dailyMinPages} onChange={(e) => setDailyMinPages(Number(e.target.value) || 1)} className="w-full p-3 rounded-xl border bg-background/60 font-bold" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-black opacity-60">وضع إدخال الطالب</label>
+                        <div className="p-3 rounded-xl border bg-background/60 text-xs font-bold">الطريقتان معًا (عدد صفحات + من/إلى)</div>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-black">مجلدات/مسارات الحفظ</h3>
+                        <button onClick={handleAddTrack} className="px-3 py-1.5 rounded-lg bg-white/10 border border-white/10 text-xs font-bold hover:bg-white/20 transition-colors">إضافة مسار</button>
+                    </div>
+                    <div className="grid gap-3">
+                        {planTracks.map((track, index) => (
+                            <div key={track.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_44px] gap-2 items-center p-3 rounded-xl border border-white/10 bg-white/5">
+                                <input
+                                    value={track.title}
+                                    onChange={(e) => handleTrackField(index, "title", e.target.value)}
+                                    placeholder="اسم المجلد"
+                                    className="w-full p-2.5 rounded-lg border bg-background/60 text-sm font-bold"
+                                />
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={track.totalPages}
+                                    onChange={(e) => handleTrackField(index, "totalPages", Number(e.target.value))}
+                                    placeholder="عدد الصفحات"
+                                    className="w-full p-2.5 rounded-lg border bg-background/60 text-sm font-bold"
+                                />
+                                <button onClick={() => handleRemoveTrack(index)} className="w-11 h-11 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                        {planTracks.length === 0 && (
+                            <p className="text-xs opacity-60 p-4 rounded-xl border border-dashed border-white/10">لا توجد مسارات بعد. حمّل القائمة الافتراضية أو أضف يدويًا.</p>
+                        )}
+                    </div>
+                </div>
+
+                <button disabled={saving} onClick={handleSaveDailyPlan} className="w-full py-3.5 rounded-xl bg-primary text-white font-black text-sm shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
+                    {saving ? "جارٍ الحفظ..." : "حفظ إعدادات خطة الورد"}
+                </button>
             </GlassCard>
 
             {/* Levels Grid */}
