@@ -2,15 +2,11 @@
 
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { isAuthRoute, isDashboardRoute } from "@/config/navigation";
 
 export function MainContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const noShellPadding =
-        pathname.startsWith("/admin") ||
-        pathname.startsWith("/teachers") ||
-        pathname === "/login" ||
-        pathname === "/register" ||
-        pathname === "/access-code";
+    const noShellPadding = isDashboardRoute(pathname) || isAuthRoute(pathname);
 
     return (
         <main

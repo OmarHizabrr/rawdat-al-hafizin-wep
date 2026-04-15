@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
     collection,
     doc,
@@ -92,6 +92,7 @@ type Props = {
 
 export function NotificationsCenter({ actorId, displayName, photoURL, role }: Props) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<"notifications" | "chats">("notifications");
     const [notifications, setNotifications] = useState<InAppNotification[]>([]);
     const [allUsers, setAllUsers] = useState<InboxUser[]>([]);
@@ -120,6 +121,17 @@ export function NotificationsCenter({ actorId, displayName, photoURL, role }: Pr
     const [sharedStaffIds, setSharedStaffIds] = useState<string[]>([]);
     const [isNarrow, setIsNarrow] = useState(false);
     const [chatMobileMode, setChatMobileMode] = useState<"list" | "thread">("list");
+
+    useEffect(() => {
+        const tab = searchParams.get("tab");
+        if (tab === "chats") {
+            setActiveTab("chats");
+            return;
+        }
+        if (tab === "notifications") {
+            setActiveTab("notifications");
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         const mq = window.matchMedia("(max-width: 768px)");

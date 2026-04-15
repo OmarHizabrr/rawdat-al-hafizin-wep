@@ -286,7 +286,7 @@ function UserDashboard({ userData }: { userData: UserDocument | null }) {
     const isStudentPortal =
         userData?.role === "student" || userData?.role === "applicant";
     const profileQuickHref = isStudentPortal ? "/students/profile" : "/profile";
-    const recordsHref = isStudentPortal ? "/students/records" : "/records";
+    const recordsHref = "/records";
 
     return (
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-12">

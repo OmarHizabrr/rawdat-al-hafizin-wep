@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export default function ProfilePage() {
@@ -178,29 +179,38 @@ export default function ProfilePage() {
                     </button>
                     <div className="space-y-0.5">
                         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">ملفي الأكاديمي</h1>
-                        <p className="text-xs text-muted-foreground">البيانات الشخصية والإنجازات</p>
+                        <p className="text-xs text-muted-foreground">البيانات الشخصية والإنجازات والوصول السريع للسجل الشامل</p>
                     </div>
                 </div>
 
-                <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl w-full md:w-auto">
-                    <button 
-                        onClick={() => setActiveTab('academic')} 
-                        className={cn(
-                            "flex-1 md:flex-none py-2 px-6 rounded-lg md:rounded-xl text-[11px] md:text-xs font-black transition-all flex items-center justify-center gap-2",
-                            activeTab === 'academic' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-white"
-                        )}
+                <div className="w-full md:w-auto space-y-2">
+                    <Link
+                        href="/records"
+                        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 md:h-10 md:w-auto"
                     >
-                        <GraduationCap className="w-4 h-4" /> السجل العلمي
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('profile')} 
-                        className={cn(
-                            "flex-1 md:flex-none py-2 px-6 rounded-lg md:rounded-xl text-[11px] md:text-xs font-black transition-all flex items-center justify-center gap-2",
-                            activeTab === 'profile' ? "bg-white/10 text-white shadow-md font-black" : "text-muted-foreground hover:text-white"
-                        )}
-                    >
-                        <User className="w-4 h-4" /> الإعدادات
-                    </button>
+                        <FileSpreadsheet className="w-4 h-4" />
+                        السجل الأكاديمي الشامل
+                    </Link>
+                    <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl w-full md:w-auto">
+                        <button 
+                            onClick={() => setActiveTab('academic')} 
+                            className={cn(
+                                "flex-1 md:flex-none py-2 px-6 rounded-lg md:rounded-xl text-[11px] md:text-xs font-black transition-all flex items-center justify-center gap-2",
+                                activeTab === 'academic' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-white"
+                            )}
+                        >
+                            <GraduationCap className="w-4 h-4" /> السجل العلمي
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('profile')} 
+                            className={cn(
+                                "flex-1 md:flex-none py-2 px-6 rounded-lg md:rounded-xl text-[11px] md:text-xs font-black transition-all flex items-center justify-center gap-2",
+                                activeTab === 'profile' ? "bg-white/10 text-white shadow-md font-black" : "text-muted-foreground hover:text-white"
+                            )}
+                        >
+                            <User className="w-4 h-4" /> الإعدادات
+                        </button>
+                    </div>
                 </div>
             </div>
 

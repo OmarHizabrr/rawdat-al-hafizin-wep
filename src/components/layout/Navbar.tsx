@@ -8,12 +8,8 @@ import {
     Menu,
     X,
     BookOpen,
-    GraduationCap,
-    Users,
-    Home,
     LogOut,
     User,
-    ShieldCheck,
     LayoutDashboard,
     Sparkles,
     Bell,
@@ -23,7 +19,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { UserMenuDropdown } from "@/components/layout/UserMenuDropdown";
 import { NotificationBellLink } from "@/components/layout/NotificationBellLink";
+import { ChatLink } from "@/components/layout/ChatLink";
 import { useEffect } from "react";
+import { getPublicNavItemsForRole, shouldHidePublicNavbar } from "@/config/navigation";
 
 export function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
@@ -53,24 +51,8 @@ export function Navbar() {
         router.push("/login");
     };
 
-    const navItems = [
-        { name: "الرئيسية", href: "/", icon: Home },
-        { name: "التعريف بالبرنامج", href: "/about", icon: BookOpen },
-        { name: "بوابة الطلاب", href: "/students", icon: Users },
-    ];
-
-    if (userData?.role === 'admin' || userData?.role === 'committee') {
-        navItems.push({ name: "الإدارة", href: "/admin", icon: ShieldCheck });
-    } else if (userData?.role === 'teacher') {
-        navItems.push({ name: "لوحة المعلم", href: "/teachers", icon: GraduationCap });
-    }
-
-    const hideNavbar =
-        pathname.startsWith("/admin") ||
-        pathname.startsWith("/teachers") ||
-        pathname === "/login" ||
-        pathname === "/register" ||
-        pathname === "/access-code";
+    const navItems = getPublicNavItemsForRole(userData?.role);
+    const hideNavbar = shouldHidePublicNavbar(pathname);
 
     if (hideNavbar) {
         return null;
@@ -79,7 +61,7 @@ export function Navbar() {
     const studentLike =
         userData?.role === "student" || userData?.role === "applicant";
     const drawerProfileHref = studentLike ? "/students/profile" : "/profile";
-    const drawerRecordsHref = studentLike ? "/students/records" : "/records";
+    const drawerRecordsHref = "/records";
 
     return (
         <>
@@ -136,7 +118,12 @@ export function Navbar() {
                     </div>
 
                     <div className="flex items-center gap-2 md:hidden">
-                        {user ? <NotificationBellLink className="h-10 w-10" /> : null}
+                        {user ? (
+                            <>
+                                <NotificationBellLink className="h-10 w-10" />
+                                <ChatLink className="h-10 w-10" />
+                            </>
+                        ) : null}
                         <button
                             type="button"
                             onClick={() => setIsOpen(!isOpen)}

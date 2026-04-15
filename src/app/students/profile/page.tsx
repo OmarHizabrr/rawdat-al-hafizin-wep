@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, type Timestamp } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
     User,
     MapPin,
-    Phone as PhoneIcon,
     Briefcase,
     GraduationCap,
     Globe,
@@ -19,16 +18,16 @@ import {
     FileText,
     Search,
     ChevronDown,
-    X,
-    Sparkles,
     ShieldCheck,
     AlertCircle,
-    AtSign
+    AtSign,
+    BarChart3,
+    ArrowUpRight,
+    type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { countries, Country } from "@/lib/countries";
+import { countries } from "@/lib/countries";
 import { EliteDialog } from "@/components/ui/EliteDialog";
 import { cn } from "@/lib/utils";
 
@@ -53,9 +52,16 @@ interface StudentData {
         agreesToAttendance: boolean;
         hasMemorizedQuran: boolean;
         isAccepted?: boolean;
-        joinedAt?: any;
+        joinedAt?: Timestamp;
     };
 }
+
+type ApplicantDoc = {
+    personalInfo?: Partial<StudentData["personalInfo"]>;
+    enrollmentStatus?: Partial<StudentData["enrollmentStatus"]>;
+};
+
+type SelectOption = { label: string; value: string };
 
 const initialData: StudentData = {
     personalInfo: {
@@ -82,7 +88,6 @@ const initialData: StudentData = {
 
 export default function StudentProfile() {
     const { user, userData } = useAuth();
-    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState<StudentData>(initialData);
@@ -108,7 +113,7 @@ export default function StudentProfile() {
                 const studentSnap = await getDoc(studentRef);
 
                 if (studentSnap.exists()) {
-                    const data = studentSnap.data() as any;
+                    const data = studentSnap.data() as ApplicantDoc;
                     setFormData({
                         personalInfo: { ...initialData.personalInfo, ...data.personalInfo },
                         enrollmentStatus: { ...initialData.enrollmentStatus, ...data.enrollmentStatus },
@@ -137,7 +142,11 @@ export default function StudentProfile() {
         setDialogConfig({ isOpen: true, type, title, description });
     };
 
-    const handleChange = (section: keyof StudentData, field: string, value: any) => {
+    const handleChange = <S extends keyof StudentData>(
+        section: S,
+        field: keyof StudentData[S] & string,
+        value: StudentData[S][keyof StudentData[S]]
+    ) => {
         setFormData((prev) => ({
             ...prev,
             [section]: {
@@ -146,15 +155,15 @@ export default function StudentProfile() {
             },
         }));
 
-        if (section === 'personalInfo' && field === 'country') {
-            const country = countries.find(c => c.name === value);
+        if (section === "personalInfo" && field === "country" && typeof value === "string") {
+            const country = countries.find((c) => c.name === value);
             if (country) {
-                setFormData(prev => ({
+                setFormData((prev) => ({
                     ...prev,
                     personalInfo: {
                         ...prev.personalInfo,
-                        phonePrefix: country.dialCode
-                    }
+                        phonePrefix: country.dialCode,
+                    },
                 }));
             }
         }
@@ -219,35 +228,43 @@ export default function StudentProfile() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-12 pb-24 px-4">
-            {/* Header / Brand Nav */}
+            {/* Header / Quick Access */}
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center justify-between bg-white/5 border border-white/5 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl overflow-hidden relative"
+                className="bg-white/5 border border-white/5 backdrop-blur-xl p-5 sm:p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] shadow-2xl overflow-hidden relative space-y-5"
             >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-16 -mt-16" />
-                <div className="relative z-10">
-                    <h1 className="text-3xl font-black bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                        استمارة الملف الشخصي وطلب الالتحاق
-                    </h1>
-                    <p className="text-sm text-muted-foreground font-medium mt-1">
-                        للسجل الأكاديمي الكامل (تقييمات، نقاط، أوسمة) استخدم{" "}
+                <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-2">
+                        <h1 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent leading-tight">
+                            استمارة الملف الشخصي وطلب الالتحاق
+                        </h1>
+                        <p className="text-xs sm:text-sm text-muted-foreground font-medium leading-relaxed max-w-2xl">
+                            لإظهار تقدمك الكامل في التقييمات والنقاط والأوسمة، انتقل مباشرة إلى السجل الأكاديمي الشامل.
+                        </p>
+                    </div>
+
+                    <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
                         <Link
-                            href="/students/records"
-                            className="font-semibold text-primary underline-offset-2 hover:underline"
+                            href="/records"
+                            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
                         >
+                            <BarChart3 className="h-4 w-4" />
                             السجل الأكاديمي الشامل
+                            <ArrowUpRight className="h-4 w-4" />
                         </Link>
-                    </p>
+                        <button
+                            type="button"
+                            onClick={() => window.print()}
+                            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 text-sm font-bold text-primary transition-all hover:bg-primary/20"
+                            title="تصدير كـ PDF"
+                        >
+                            <FileText className="h-4 w-4" />
+                            تصدير PDF
+                        </button>
+                    </div>
                 </div>
-                
-                <button
-                    onClick={() => window.print()}
-                    className="p-4 bg-primary/10 hover:bg-primary/20 rounded-2xl transition-all group relative z-10"
-                    title="تصدير كـ PDF"
-                >
-                    <FileText className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-                </button>
             </motion.div>
 
             <form onSubmit={handleSubmit} className="space-y-12">
@@ -371,7 +388,7 @@ export default function StudentProfile() {
                                 label="ملاحظات إضافية" 
                                 icon={FileText}
                                 placeholder="هل هناك ما تود إخبارنا به؟"
-                                value={formData.personalInfo.otherDetails}
+                                value={formData.personalInfo.otherDetails ?? ""}
                                 onChange={(val: string) => handleChange('personalInfo', 'otherDetails', val)}
                             />
                         </div>
@@ -434,7 +451,7 @@ export default function StudentProfile() {
                 isOpen={dialogConfig.isOpen}
                 onClose={() => setDialogConfig({...dialogConfig, isOpen: false})}
                 onConfirm={() => setDialogConfig({...dialogConfig, isOpen: false})}
-                type={dialogConfig.type as any}
+                type={dialogConfig.type}
                 title={dialogConfig.title}
                 description={dialogConfig.description}
                 confirmText="حسناً"
@@ -444,7 +461,17 @@ export default function StudentProfile() {
 }
 
 // Internal Elite Components
-function EliteInput({ label, icon: Icon, type = "text", required, value, onChange, placeholder }: any) {
+type EliteInputProps = {
+    label: string;
+    icon: LucideIcon;
+    type?: string;
+    required?: boolean;
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+};
+
+function EliteInput({ label, icon: Icon, type = "text", required, value, onChange, placeholder }: EliteInputProps) {
     return (
         <div className="space-y-3">
             <label className="text-xs font-black uppercase text-muted-foreground tracking-widest px-1 flex items-center gap-2">
@@ -463,7 +490,16 @@ function EliteInput({ label, icon: Icon, type = "text", required, value, onChang
     );
 }
 
-function EliteSelect({ label, icon: Icon, options, value, onChange, required }: any) {
+type EliteSelectProps = {
+    label: string;
+    icon: LucideIcon;
+    options: SelectOption[];
+    value: string;
+    onChange: (val: string) => void;
+    required?: boolean;
+};
+
+function EliteSelect({ label, icon: Icon, options, value, onChange, required }: EliteSelectProps) {
     return (
         <div className="space-y-3">
             <label className="text-xs font-black uppercase text-muted-foreground tracking-widest px-1 flex items-center gap-2">
@@ -477,7 +513,7 @@ function EliteSelect({ label, icon: Icon, options, value, onChange, required }: 
                     required={required}
                     className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 appearance-none outline-none focus:ring-4 focus:ring-primary/10 transition-all font-bold shadow-inner"
                 >
-                    {options.map((opt: any) => (
+                    {options.map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-background text-foreground">{opt.label}</option>
                     ))}
                 </select>
@@ -487,7 +523,13 @@ function EliteSelect({ label, icon: Icon, options, value, onChange, required }: 
     );
 }
 
-function EliteCheckbox({ label, checked, onChange }: any) {
+type EliteCheckboxProps = {
+    label: string;
+    checked: boolean;
+    onChange: (c: boolean) => void;
+};
+
+function EliteCheckbox({ label, checked, onChange }: EliteCheckboxProps) {
     return (
         <label className={cn(
             "flex items-center gap-4 p-5 rounded-[2rem] border-2 cursor-pointer transition-all duration-300 group",
@@ -515,14 +557,23 @@ function EliteCheckbox({ label, checked, onChange }: any) {
     );
 }
 
-function EliteSearchSelect({ label, icon: Icon, value, onChange, options }: any) {
+type EliteSearchSelectProps = {
+    label: string;
+    icon: LucideIcon;
+    value: string;
+    onChange: (val: string) => void;
+    options: SelectOption[];
+};
+
+function EliteSearchSelect({ label, icon: Icon, value, onChange, options }: EliteSearchSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const filteredOptions = options.filter((opt: any) => 
-        opt.label.toLowerCase().includes(search.toLowerCase()) || 
-        opt.value.toLowerCase().includes(search.toLowerCase())
+    const filteredOptions = options.filter(
+        (opt) =>
+            opt.label.toLowerCase().includes(search.toLowerCase()) ||
+            opt.value.toLowerCase().includes(search.toLowerCase())
     );
 
     useEffect(() => {
@@ -546,7 +597,9 @@ function EliteSearchSelect({ label, icon: Icon, value, onChange, options }: any)
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-all shadow-inner"
             >
-                <span className="font-bold">{value ? options.find((o: any) => o.value === value)?.label || value : "اختر..."}</span>
+                <span className="font-bold">
+                    {value ? options.find((o) => o.value === value)?.label || value : "اختر..."}
+                </span>
                 <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isOpen ? "rotate-180" : "")} />
             </div>
 
@@ -574,7 +627,7 @@ function EliteSearchSelect({ label, icon: Icon, value, onChange, options }: any)
                         </div>
                         <div className="max-h-60 overflow-y-auto p-2 space-y-1 custom-scrollbar">
                             {filteredOptions.length > 0 ? (
-                                filteredOptions.map((opt: any) => (
+                                filteredOptions.map((opt) => (
                                     <div
                                         key={opt.value}
                                         onClick={() => {
