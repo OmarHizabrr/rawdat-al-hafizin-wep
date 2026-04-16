@@ -210,33 +210,32 @@ function UserManagementInner() {
     return (
         <div className="space-y-12 pb-24">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white/5 p-4 md:p-6 rounded-[1.2rem] md:rounded-[1.5rem] border border-white/10 shadow-2xl backdrop-blur-xl relative overflow-hidden card-shine">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] rounded-full -mr-32 -mt-32" />
+            <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between md:p-6">
                 <div className="relative z-10 flex items-center gap-4">
-                    <div className="w-12 h-12 bg-primary/10 rounded-[1rem] flex items-center justify-center border border-primary/20 shadow-inner">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
                         <Users className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-elite-gradient">أركان المسيرة</h1>
-                        <p className="text-[10px] md:text-xs text-muted-foreground font-medium opacity-70 italic">التحكم الكامل في حسابات وصلاحيات المسجلين بالنظام</p>
+                        <h1 className="text-2xl font-black tracking-tight md:text-3xl">أركان المسيرة</h1>
+                        <p className="text-[11px] text-muted-foreground md:text-xs">التحكم الكامل في حسابات وصلاحيات المسجلين بالنظام</p>
                     </div>
                 </div>
 
-                <div className="flex flex-col lg:flex-row gap-4 relative z-10">
-                    <div className="relative group min-w-[280px]">
+                <div className="relative z-10 flex flex-col gap-3 md:flex-row">
+                    <div className="relative min-w-[240px]">
                         <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-all duration-300" />
                         <input
                             type="text"
                             placeholder="بحث بالاسم أو الهاتف..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-6 pr-12 py-4 rounded-2xl border border-white/10 bg-white/5 focus:ring-8 focus:ring-primary/5 outline-none transition-all font-bold text-sm"
+                            className="h-11 w-full rounded-xl border border-border bg-background pl-6 pr-12 text-sm font-bold outline-none transition-all focus:ring-4 focus:ring-primary/10"
                         />
                     </div>
                     <select
                         value={roleFilter}
                         onChange={(e) => setRoleFilter(e.target.value)}
-                        className="px-6 py-4 rounded-2xl border border-white/10 bg-white/5 outline-none focus:ring-8 focus:ring-primary/5 transition-all font-black text-sm pr-10 appearance-none bg-slate-900"
+                        className="h-11 rounded-xl border border-border bg-background px-4 pr-10 text-sm font-black outline-none transition-all focus:ring-4 focus:ring-primary/10"
                     >
                         <option value="الكل">جميع الرتب</option>
                         <option value="admin">مسؤول نظام</option>

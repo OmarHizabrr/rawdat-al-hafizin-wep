@@ -1,6 +1,7 @@
 "use client";
 
 import { GlassCard } from "@/components/ui/GlassCard";
+import { ResponsivePageShell } from "@/components/layout/ResponsivePageShell";
 import Link from "next/link";
 import {
     Users,
@@ -18,7 +19,7 @@ import {
     Trophy
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, collectionGroup } from "firebase/firestore";
@@ -165,14 +166,6 @@ export default function AdminDashboard() {
         fetchStats();
     }, []);
 
-    const categories = [
-        { name: "الإدارة الأكاديمية", cards: adminCards.filter(c => [4, 6, 7].includes(adminCards.indexOf(c))) },
-        { name: "إدارة المنظومة", cards: adminCards.filter(c => [0, 2, 5].includes(adminCards.indexOf(c))) },
-        { name: "المحتوى والإعدادات", cards: adminCards.filter(c => [1, 3].includes(adminCards.indexOf(c))) }
-    ];
-
-    // Map for actual card indices based on types:
-    // 0: Access Codes, 1: Updates, 2: Users, 3: Groups (Halaqat), 4: Stats, 5: Courses, 6: Applicants, 7: Testimonials
     const categorizedCards = [
         { 
             title: "الشؤون التعليمية والرقابة", 
@@ -195,22 +188,19 @@ export default function AdminDashboard() {
     ];
 
     return (
-        <div className="space-y-10">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 pt-2 px-1">
-                <div className="space-y-1">
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">غرفة التحكم والعمليات</h1>
-                    <p className="text-[11px] md:text-xs text-muted-foreground font-medium flex items-center gap-2 opacity-60">
-                        <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
-                        نظرة شاملة وتحليلية لأداء المنصة والنشاط الحالي.
-                    </p>
-                </div>
-                {!loading && (
-                    <div className="bg-primary/5 text-primary px-4 py-2 rounded-xl border border-primary/10 text-[10px] font-black flex items-center gap-3 shadow-lg backdrop-blur-md">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
-                        تحديث مباشر • {new Date().toLocaleTimeString('ar-SA')}
+        <ResponsivePageShell
+            title="غرفة التحكم والعمليات"
+            subtitle="نظرة تحليلية موحدة لأداء المنصة مع وصول سريع لكل أقسام الإدارة."
+            className="max-w-7xl"
+            actions={
+                !loading ? (
+                    <div className="inline-flex items-center gap-2 rounded-xl border border-primary/15 bg-primary/10 px-3 py-2 text-[10px] font-black text-primary">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        تحديث مباشر • {new Date().toLocaleTimeString("ar-SA")}
                     </div>
-                )}
-            </div>
+                ) : null
+            }
+        >
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 px-1">
                 <StatCard label="إجمالي الطلاب" value={stats.totalStudents} icon={Users} color="from-blue-500 to-cyan-500" />
@@ -263,7 +253,7 @@ export default function AdminDashboard() {
                     </section>
                 ))}
             </div>
-        </div>
+        </ResponsivePageShell>
     );
 }
 

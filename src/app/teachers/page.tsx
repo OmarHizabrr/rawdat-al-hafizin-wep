@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, getDocs } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { ResponsivePageShell } from "@/components/layout/ResponsivePageShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { 
     Users, 
@@ -96,19 +97,11 @@ export default function TeacherDashboard() {
     }
 
     return (
-        <div className="space-y-10 pb-20">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 md:gap-8 bg-white/5 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-white/10 shadow-2xl backdrop-blur-xl relative overflow-hidden card-shine">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] rounded-full -mr-32 -mt-32" />
-                <div className="relative z-10 flex items-center gap-4 md:gap-5">
-                    <div className="w-12 h-12 md:w-16 md:h-16 bg-primary/10 rounded-xl md:rounded-[1.5rem] flex items-center justify-center border border-primary/20 shadow-inner">
-                        <GraduationCap className="w-6 h-6 md:w-8 md:h-8 text-primary" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-elite-gradient leading-tight">منبر التوجيه</h1>
-                        <p className="text-[10px] md:text-sm text-muted-foreground font-medium opacity-70 italic">مرحباً بك مجدداً يا ملقن الخير، إليك حالة حلقاتك العلمية لهذا اليوم.</p>
-                    </div>
-                </div>
-            </div>
+        <ResponsivePageShell
+            title="منبر التوجيه"
+            subtitle="لوحة تعليمية متجاوبة لمتابعة الحلقات والطلاب والوصول السريع إلى التسميع المباشر."
+            className="max-w-7xl pb-20"
+        >
 
             {/* Stats Header */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -191,7 +184,7 @@ export default function TeacherDashboard() {
                     )}
                 </div>
             </div>
-        </div>
+        </ResponsivePageShell>
     );
 }
 
