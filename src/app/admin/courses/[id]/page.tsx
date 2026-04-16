@@ -19,6 +19,7 @@ import {
 } from "firebase/firestore";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { ResponsivePageShell } from "@/components/layout/ResponsivePageShell";
 import {
     Plus,
     Trash2,
@@ -419,23 +420,33 @@ export default function CourseDetailsManagement() {
     if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /></div>;
 
     return (
-        <div className="space-y-8 pb-20 px-4 max-w-6xl mx-auto">
+        <ResponsivePageShell
+            title={course?.title || "تفاصيل الدورة"}
+            subtitle="إدارة المستويات، الموارد، وخطة الورد اليومي بشكل متجاوب وواضح."
+            className="max-w-6xl pb-20"
+            actions={
+                <Link
+                    href="/admin/courses"
+                    className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                    <ArrowRight className="h-4 w-4" />
+                    الرجوع للدورات
+                </Link>
+            }
+        >
             {/* Header section */}
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-6 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 shadow-xl backdrop-blur-md"
+                className="flex items-center gap-4 rounded-2xl border border-border/70 bg-card/80 p-5 shadow-sm backdrop-blur-sm md:gap-6 md:p-8"
             >
-                <Link 
-                    href="/admin/courses" 
-                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all hover:scale-110 shadow-sm border border-white/5"
-                >
-                    <ArrowRight className="w-6 h-6" />
-                </Link>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">{course?.title || "تحميل..."}</h1>
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
+                    <Layout className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                    <h1 className="truncate text-2xl font-black tracking-tight md:text-3xl">{course?.title || "تحميل..."}</h1>
                     <p className="text-muted-foreground mt-1 flex items-center gap-2">
-                        <Layout className="w-4 h-4 text-primary" />
+                        <Info className="w-4 h-4 text-primary" />
                         هيكلية المستويات والمحتوى الرقمي
                     </p>
                 </div>
@@ -821,7 +832,7 @@ export default function CourseDetailsManagement() {
                 type={dialogConfig.type as any}
                 confirmText={dialogConfig.onConfirm ? "نعم، متأكد" : "حسناً"}
             />
-        </div>
+        </ResponsivePageShell>
     );
 }
 

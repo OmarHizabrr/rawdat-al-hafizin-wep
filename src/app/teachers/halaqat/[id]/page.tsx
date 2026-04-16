@@ -7,6 +7,7 @@ import {
     serverTimestamp, orderBy, writeBatch, increment 
 } from "firebase/firestore";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { ResponsivePageShell } from "@/components/layout/ResponsivePageShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Users, Calendar, ArrowRight, CheckCircle2, XCircle, Search, Save, Loader2, BookOpen, Star, Radio, Video, Mic, ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -210,15 +211,25 @@ export default function TeacherHalaqaDetails() {
     }
 
     return (
-        <div className="space-y-6 pb-20">
-            {/* Header */}
-            <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 shadow-sm backdrop-blur-md">
-                <Link href="/teachers" className="p-2 hover:bg-white/10 rounded-full transition-colors group">
-                    <ArrowRight className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+        <ResponsivePageShell
+            title={group?.name || "تفاصيل الحلقة"}
+            subtitle="إدارة طلاب الحلقة والتقييمات الدورية مع وصول سريع للتسميع."
+            className="max-w-7xl pb-20"
+            actions={
+                <Link href="/teachers" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                    <ArrowRight className="h-4 w-4" />
+                    الرجوع للوحة المعلم
                 </Link>
+            }
+        >
+            {/* Header */}
+            <div className="flex items-center gap-4 rounded-2xl border border-border/70 bg-card/80 p-4 shadow-sm backdrop-blur-sm">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
+                    <Users className="w-5 h-5 text-primary" />
+                </div>
                 <div>
                     <h1 className="text-xl md:text-2xl font-black tracking-tight">{group?.name || "جاري التحميل..."}</h1>
-                    <p className="text-[10px] md:text-xs text-muted-foreground font-medium opacity-60">إدارة طلاب الحلقة وتقييمهم الدوري</p>
+                    <p className="text-[11px] md:text-xs text-muted-foreground">إدارة طلاب الحلقة وتقييمهم الدوري</p>
                 </div>
             </div>
 
@@ -442,6 +453,6 @@ export default function TeacherHalaqaDetails() {
                     </div>
                 )}
             </AnimatePresence>
-        </div>
+        </ResponsivePageShell>
     );
 }
