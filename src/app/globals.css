@@ -147,6 +147,22 @@
   body {
     @apply bg-background text-foreground tracking-tight;
   }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    @apply transition-colors duration-200;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-primary/40 ring-offset-2 ring-offset-background;
+  }
 }
 
 /* Elite UI System Utilities */
@@ -159,6 +175,14 @@
   
   .btn-elite-primary {
     @apply relative overflow-hidden bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/40 active:scale-95;
+  }
+
+  .interactive-surface {
+    @apply rounded-xl border border-border/70 bg-card/80 shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md;
+  }
+
+  .field-elite {
+    @apply w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none transition-all duration-200 placeholder:text-muted-foreground/70 focus:border-primary/40 focus:ring-4 focus:ring-primary/10;
   }
 
   .text-elite-gradient {

@@ -29,7 +29,7 @@ export function GlassCard({
                 "relative overflow-hidden text-card-foreground",
                 isGlass
                     ? "rounded-[1rem] md:rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-4 md:p-5 shadow-2xl backdrop-blur-xl transition-all duration-300 dark:border-white/5 dark:bg-black/40 card-shine"
-                    : "rounded-2xl border border-border bg-card p-4 md:p-5 shadow-sm",
+                    : "rounded-2xl border border-border bg-card p-4 md:p-5 shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md",
                 gradient &&
                     isGlass &&
                     "bg-gradient-to-br from-white/[0.08] via-transparent to-transparent",
