@@ -10,6 +10,9 @@ import {
   BarChart3,
   Bell,
   Layers,
+  User,
+  Settings,
+  ClipboardList,
 } from "lucide-react";
 
 export type PublicNavItem = {
@@ -67,4 +70,32 @@ export function getPublicNavItemsForRole(role?: string): PublicNavItem[] {
     items.push({ name: "لوحة المعلم", href: "/teachers", icon: GraduationCap });
   }
   return items;
+}
+
+export function getSidebarNavItems(role?: string): PublicNavItem[] {
+  const items = getPublicNavItemsForRole(role);
+  const studentLike = role === "student" || role === "applicant";
+
+  if (role) {
+    items.push(
+      { name: "الإشعارات والمحادثات", href: "/notifications", icon: Bell },
+      {
+        name: studentLike ? "السجل الأكاديمي الشامل" : "سجل الإنجازات",
+        href: "/records",
+        icon: ClipboardList,
+      },
+      {
+        name: "الملف الشخصي",
+        href: studentLike ? "/students/profile" : "/profile",
+        icon: User,
+      },
+      { name: "الإعدادات", href: "/settings", icon: Settings },
+    );
+  }
+
+  const uniqueByHref = new Map<string, PublicNavItem>();
+  for (const item of items) {
+    uniqueByHref.set(item.href, item);
+  }
+  return Array.from(uniqueByHref.values());
 }

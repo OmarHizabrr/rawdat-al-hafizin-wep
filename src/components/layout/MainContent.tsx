@@ -12,7 +12,7 @@ export function MainContent({ children }: { children: React.ReactNode }) {
         <main
             className={cn(
                 "flex-1 pb-10",
-                noShellPadding ? "min-h-0 px-0 pt-0" : "px-4 pt-24 md:px-6"
+                noShellPadding ? "min-h-0 px-0 pt-0" : "px-4 pt-24 md:px-6 lg:pr-80"
             )}
         >
             {noShellPadding ? (

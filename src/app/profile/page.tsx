@@ -43,6 +43,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { ResponsivePageShell } from "@/components/layout/ResponsivePageShell";
 
 export default function ProfilePage() {
     const { user, userData } = useAuth();
@@ -170,49 +171,46 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto p-6 space-y-12 pb-32">
-            {/* Elite Header */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-4">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => router.back()} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-all text-muted-foreground hover:text-white group">
-                        <ArrowRight className="w-5 h-5 group-hover:-translate-x-1 transition-transform rtl:rotate-180" />
+        <ResponsivePageShell
+            title="ملفي الأكاديمي"
+            subtitle="البيانات الشخصية والإنجازات والوصول السريع إلى السجل الأكاديمي الشامل."
+            className="max-w-5xl pb-32"
+            actions={
+                <>
+                    <button onClick={() => router.back()} className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                        <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+                        رجوع
                     </button>
-                    <div className="space-y-0.5">
-                        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">ملفي الأكاديمي</h1>
-                        <p className="text-xs text-muted-foreground">البيانات الشخصية والإنجازات والوصول السريع للسجل الشامل</p>
-                    </div>
-                </div>
-
-                <div className="w-full md:w-auto space-y-2">
                     <Link
                         href="/records"
-                        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 md:h-10 md:w-auto"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                     >
                         <FileSpreadsheet className="w-4 h-4" />
                         السجل الأكاديمي الشامل
                     </Link>
-                    <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl w-full md:w-auto">
-                        <button 
-                            onClick={() => setActiveTab('academic')} 
+                    <div className="flex w-full rounded-xl border border-border bg-muted/40 p-1 sm:w-auto">
+                        <button
+                            onClick={() => setActiveTab('academic')}
                             className={cn(
-                                "flex-1 md:flex-none py-2 px-6 rounded-lg md:rounded-xl text-[11px] md:text-xs font-black transition-all flex items-center justify-center gap-2",
-                                activeTab === 'academic' ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-white"
+                                "flex-1 rounded-lg px-4 py-2 text-[11px] font-black transition-colors sm:flex-none md:text-xs",
+                                activeTab === 'academic' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                             )}
                         >
-                            <GraduationCap className="w-4 h-4" /> السجل العلمي
+                            <span className="inline-flex items-center gap-1.5"><GraduationCap className="w-4 h-4" /> السجل العلمي</span>
                         </button>
-                        <button 
-                            onClick={() => setActiveTab('profile')} 
+                        <button
+                            onClick={() => setActiveTab('profile')}
                             className={cn(
-                                "flex-1 md:flex-none py-2 px-6 rounded-lg md:rounded-xl text-[11px] md:text-xs font-black transition-all flex items-center justify-center gap-2",
-                                activeTab === 'profile' ? "bg-white/10 text-white shadow-md font-black" : "text-muted-foreground hover:text-white"
+                                "flex-1 rounded-lg px-4 py-2 text-[11px] font-black transition-colors sm:flex-none md:text-xs",
+                                activeTab === 'profile' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                             )}
                         >
-                            <User className="w-4 h-4" /> الإعدادات
+                            <span className="inline-flex items-center gap-1.5"><User className="w-4 h-4" /> الإعدادات</span>
                         </button>
                     </div>
-                </div>
-            </div>
+                </>
+            }
+        >
 
             {activeTab === 'academic' ? (
                 <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
@@ -497,7 +495,7 @@ export default function ProfilePage() {
                     </form>
                 </div>
             )}
-        </div>
+        </ResponsivePageShell>
     );
 }
 

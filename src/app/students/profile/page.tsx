@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { ResponsivePageShell } from "@/components/layout/ResponsivePageShell";
 import { countries } from "@/lib/countries";
 import { EliteDialog } from "@/components/ui/EliteDialog";
 import { cn } from "@/lib/utils";
@@ -227,45 +228,32 @@ export default function StudentProfile() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-12 pb-24 px-4">
-            {/* Header / Quick Access */}
-            <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white/5 border border-white/5 backdrop-blur-xl p-5 sm:p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] shadow-2xl overflow-hidden relative space-y-5"
-            >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-16 -mt-16" />
-                <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div className="space-y-2">
-                        <h1 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent leading-tight">
-                            استمارة الملف الشخصي وطلب الالتحاق
-                        </h1>
-                        <p className="text-xs sm:text-sm text-muted-foreground font-medium leading-relaxed max-w-2xl">
-                            لإظهار تقدمك الكامل في التقييمات والنقاط والأوسمة، انتقل مباشرة إلى السجل الأكاديمي الشامل.
-                        </p>
-                    </div>
-
-                    <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
-                        <Link
-                            href="/records"
-                            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90"
-                        >
-                            <BarChart3 className="h-4 w-4" />
-                            السجل الأكاديمي الشامل
-                            <ArrowUpRight className="h-4 w-4" />
-                        </Link>
-                        <button
-                            type="button"
-                            onClick={() => window.print()}
-                            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 text-sm font-bold text-primary transition-all hover:bg-primary/20"
-                            title="تصدير كـ PDF"
-                        >
-                            <FileText className="h-4 w-4" />
-                            تصدير PDF
-                        </button>
-                    </div>
-                </div>
-            </motion.div>
+        <ResponsivePageShell
+            title="استمارة الملف الشخصي وطلب الالتحاق"
+            subtitle="إكمال بياناتك بشكل صحيح يسهّل اعتماد الطلب وربط إنجازك في السجل الأكاديمي الشامل."
+            className="max-w-5xl pb-24"
+            actions={
+                <>
+                    <Link
+                        href="/records"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-black text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                    >
+                        <BarChart3 className="h-4 w-4" />
+                        السجل الأكاديمي الشامل
+                        <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                    <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-4 text-sm font-bold text-primary transition-colors hover:bg-primary/20"
+                        title="تصدير كـ PDF"
+                    >
+                        <FileText className="h-4 w-4" />
+                        تصدير PDF
+                    </button>
+                </>
+            }
+        >
 
             <form onSubmit={handleSubmit} className="space-y-12">
                 {/* Section: Personal Info */}
@@ -456,7 +444,7 @@ export default function StudentProfile() {
                 description={dialogConfig.description}
                 confirmText="حسناً"
             />
-        </div>
+        </ResponsivePageShell>
     );
 }
 

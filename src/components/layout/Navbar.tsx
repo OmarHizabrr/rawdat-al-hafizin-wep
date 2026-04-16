@@ -13,7 +13,8 @@ import {
     LayoutDashboard,
     Sparkles,
     Bell,
-    Settings
+    Settings,
+    Compass
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -21,7 +22,7 @@ import { UserMenuDropdown } from "@/components/layout/UserMenuDropdown";
 import { NotificationBellLink } from "@/components/layout/NotificationBellLink";
 import { ChatLink } from "@/components/layout/ChatLink";
 import { useEffect } from "react";
-import { getPublicNavItemsForRole, shouldHidePublicNavbar } from "@/config/navigation";
+import { getSidebarNavItems, shouldHidePublicNavbar } from "@/config/navigation";
 
 export function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
@@ -51,7 +52,7 @@ export function Navbar() {
         router.push("/login");
     };
 
-    const navItems = getPublicNavItemsForRole(userData?.role);
+    const sidebarNavItems = getSidebarNavItems(userData?.role);
     const hideNavbar = shouldHidePublicNavbar(pathname);
 
     if (hideNavbar) {
@@ -82,26 +83,10 @@ export function Navbar() {
                         </div>
                     </Link>
 
-                    <div className="hidden items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-1 md:flex">
-                        {navItems.map((item) => {
-                            const isActive =
-                                pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={cn(
-                                        "relative flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-                                        isActive
-                                            ? "bg-primary text-primary-foreground shadow-sm"
-                                            : "text-muted-foreground hover:bg-background hover:text-foreground"
-                                    )}
-                                >
-                                    <item.icon className="h-4 w-4 shrink-0 opacity-90" />
-                                    <span>{item.name}</span>
-                                </Link>
-                            );
-                        })}
+                    <div className="hidden items-center gap-2 md:flex">
+                        <span className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                            تنقل جانبي شامل
+                        </span>
                     </div>
 
                     <div className="hidden items-center gap-3 md:flex">
@@ -127,13 +112,38 @@ export function Navbar() {
                         <button
                             type="button"
                             onClick={() => setIsOpen(!isOpen)}
-                            className="relative z-50 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background text-foreground"
+                            className="relative z-50 flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-foreground"
                         >
                             {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                            <span className="text-xs font-medium">القائمة</span>
                         </button>
                     </div>
                 </div>
             </nav>
+
+            <aside className="fixed bottom-4 right-4 top-24 z-40 hidden w-72 overflow-y-auto rounded-xl border border-border bg-card/95 p-3 shadow-sm backdrop-blur-sm lg:block">
+                <div className="mb-2 flex items-center gap-2 px-2">
+                    <Compass className="h-4 w-4 text-primary" />
+                    <p className="text-xs font-semibold text-muted-foreground">جميع الصفحات</p>
+                </div>
+                <div className="space-y-1">
+                    {sidebarNavItems.map((item) => (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                                pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+                                    ? "bg-primary text-primary-foreground shadow-sm"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )}
+                        >
+                            <item.icon className="h-4 w-4 shrink-0" />
+                            <span>{item.name}</span>
+                        </Link>
+                    ))}
+                </div>
+            </aside>
 
             {/* Mobile Sidebar (Drawer) */}
             <AnimatePresence>
@@ -188,7 +198,7 @@ export function Navbar() {
 
                             <div className="flex-1 space-y-1 overflow-y-auto p-3 scrollbar-hide">
                                 <p className="px-2 py-1 text-xs font-medium text-muted-foreground">التنقل</p>
-                                {navItems.map((item) => (
+                                {sidebarNavItems.map((item) => (
                                     <Link
                                         key={item.href}
                                         href={item.href}
